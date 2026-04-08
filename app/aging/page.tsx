@@ -55,7 +55,7 @@ export default function AgingDashboard() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const { data: rows } = await supabase.from('v_aging_entregas').select('*')
+    const { data: rows } = await supabase.from('v_aging_entregas').select('*').limit(10000)
     if (rows) setData(rows as AgingRow[])
     setLoading(false)
   }, [])

@@ -78,6 +78,7 @@ export default function FollowUp() {
       .from('v_monitoramento_completo')
       .select('*')
       .in('status', FOLLOW_STATUS)
+      .limit(10000)
       .order('dt_previsao',{ ascending:true, nullsFirst:false })
     if (rows) { setData(rows as Entrega[]); setLastUpdate(new Date()) }
     setLoading(false)

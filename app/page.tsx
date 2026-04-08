@@ -113,6 +113,7 @@ function MonitoramentoInner() {
       .from('v_monitoramento_completo')
       .select('*')
       .order(sortField, { ascending: sortDir==='asc' })
+      .limit(10000)
     if (rows) { setData(rows as Entrega[]); setLastUpdate(new Date()) }
     setLoading(false)
   }, [sortField, sortDir])

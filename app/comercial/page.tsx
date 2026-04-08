@@ -58,7 +58,7 @@ export default function ComercialDashboard() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const { data: rows } = await supabase.from('v_monitoramento_completo').select('*')
+    const { data: rows } = await supabase.from('v_monitoramento_completo').select('*').limit(10000)
     if (rows) setData(rows as Entrega[])
     setLoading(false)
   }, [])

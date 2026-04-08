@@ -100,7 +100,7 @@ function ExecPage() {
   const load = useCallback(async () => {
     setLoading(true)
     const { data: rows } = await supabase
-      .from('v_monitoramento_completo').select('*').eq('is_mock', false)
+      .from('v_monitoramento_completo').select('*').eq('is_mock', false).limit(10000)
     if (rows) { setData(rows as Entrega[]); setLastUpd(new Date()) }
     setLoading(false)
   }, [])
