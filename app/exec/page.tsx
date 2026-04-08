@@ -340,17 +340,29 @@ function ExecPage() {
           <select value={ccFiltro} onChange={e=>setCcFiltro(e.target.value)} style={{width:'auto',minWidth:170}}>
             {ccList.map(c=><option key={c}>{c}</option>)}
           </select>
-          <div style={{display:'flex',gap:5}}>
-            {[['hoje']].map(()=>(
-              <button key="hoje" onClick={()=>{ const t=getToday(); setDateFrom(t); setDateTo(t) }}
-                style={{padding:'7px 13px',fontSize:11,fontWeight:600,borderRadius:20,border:'1px solid',
-                  borderColor:dateFrom===getToday()&&dateTo===getToday()?C.accent:C.border,
-                  color:dateFrom===getToday()&&dateTo===getToday()?C.accent:C.text3,
-                  background:dateFrom===getToday()&&dateTo===getToday()?'rgba(249,115,22,.1)':'transparent',transition:'all .15s'}}>
-                Hoje
-              </button>
-            ))}
-          </div>
+
+          {/* Período */}
+          <button onClick={()=>{ const t=getToday(); setDateFrom(t); setDateTo(t) }}
+            style={{padding:'6px 12px',fontSize:11,fontWeight:600,borderRadius:20,border:'1px solid',cursor:'pointer',
+              borderColor:dateFrom===getToday()&&dateTo===getToday()?C.accent:C.border,
+              color:dateFrom===getToday()&&dateTo===getToday()?C.accent:C.text3,
+              background:dateFrom===getToday()&&dateTo===getToday()?'rgba(249,115,22,.1)':'transparent'}}>
+            Hoje
+          </button>
+          <button onClick={()=>{ setDateFrom(getFirstDay()); setDateTo(getToday()) }}
+            style={{padding:'6px 12px',fontSize:11,fontWeight:600,borderRadius:20,border:'1px solid',cursor:'pointer',
+              borderColor:dateFrom===getFirstDay()&&dateTo===getToday()?C.accent:C.border,
+              color:dateFrom===getFirstDay()&&dateTo===getToday()?C.accent:C.text3,
+              background:dateFrom===getFirstDay()&&dateTo===getToday()?'rgba(249,115,22,.1)':'transparent'}}>
+            Mês
+          </button>
+          <span style={{fontSize:11,color:C.text3}}>De</span>
+          <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)}
+            style={{padding:'5px 8px',fontSize:12,borderRadius:6,border:`1px solid ${C.border}`,background:C.surface2,color:C.text,width:130}} />
+          <span style={{fontSize:11,color:C.text3}}>até</span>
+          <input type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)}
+            style={{padding:'5px 8px',fontSize:12,borderRadius:6,border:`1px solid ${C.border}`,background:C.surface2,color:C.text,width:130}} />
+
           <div style={{marginLeft:'auto',fontSize:12,color:C.text2,fontWeight:500,fontVariantNumeric:'tabular-nums'}}>
             {totalNFs} notas · {moneyFull(totalValor)}
           </div>
