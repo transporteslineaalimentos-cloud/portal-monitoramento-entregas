@@ -178,7 +178,7 @@ export default function OcorrenciasDrawer({ nf, onClose }: { nf: Entrega | null;
                         </div>
                         <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 8 }}>
                           <div style={{ fontSize: 11, color: T.text2, fontWeight: 500 }}>
-                            {ocData ? format(new Date(ocData), 'dd/MM/yyyy', { locale: ptBR }) : fmt(o.created_at)}
+                            {ocData ? format(new Date(ocData.slice(0,10) + ' 12:00'), 'dd/MM/yyyy', { locale: ptBR }) : fmt(o.created_at)}
                             {ocHora && ocHora !== '00:00' ? ` ${ocHora}` : ''}
                           </div>
                           <div style={{ fontSize: 10, color: T.text3, marginTop: 1 }}>
@@ -192,7 +192,7 @@ export default function OcorrenciasDrawer({ nf, onClose }: { nf: Entrega | null;
                           {o.observacao && <span>📝 {o.observacao}</span>}
                           {prevTransp && prevTransp !== ocData && (
                             <span style={{ color: '#eab308', fontWeight: 500 }}>
-                              📅 Prev. transp.: {format(new Date(prevTransp), 'dd/MM/yyyy', { locale: ptBR })}
+                              📅 Prev. transp.: {format(new Date(prevTransp.slice(0,10) + ' 12:00'), 'dd/MM/yyyy', { locale: ptBR })}
                             </span>
                           )}
                         </div>
