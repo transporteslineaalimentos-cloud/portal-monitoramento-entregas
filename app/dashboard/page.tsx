@@ -65,7 +65,13 @@ export default function DashboardGestao() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const { data: rows } = await supabase.from('v_monitoramento_completo').select('*').limit(10000)
+    let _all: Entrega[] = []; let _from = 0
+    while (true) {
+      const { data: _rows } = await supabase.from('v_monitoramento_completo').select('*').range(_from, _from + 999)
+      if (!_rows || _rows.length === 0) break
+      _all = _all.concat(_rows as Entrega[]); if (_rows.length < 1000) break; _from += 1000
+    }
+    const rows = _all
     if (rows) setData(rows as Entrega[])
     setLoading(false)
   }, [])

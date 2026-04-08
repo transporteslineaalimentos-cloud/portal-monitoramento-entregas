@@ -99,9 +99,14 @@ function ExecPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const { data: rows } = await supabase
-      .from('v_monitoramento_completo').select('*').eq('is_mock', false).limit(10000)
-    if (rows) { setData(rows as Entrega[]); setLastUpd(new Date()) }
+    let _all: Entrega[] = []; let _from = 0
+    while (true) {
+      const { data: _rows } = await supabase
+        .from('v_monitoramento_completo').select('*').eq('is_mock', false).range(_from, _from + 999)
+      if (!_rows || _rows.length === 0) break
+      _all = _all.concat(_rows as Entrega[]); if (_rows.length < 1000) break; _from += 1000
+    }
+    if (_all.length > 0) { setData(_all); setLastUpd(new Date()) }
     setLoading(false)
   }, [])
 

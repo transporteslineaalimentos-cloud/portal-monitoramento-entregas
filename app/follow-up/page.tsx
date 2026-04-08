@@ -74,13 +74,17 @@ export default function FollowUp() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const { data: rows } = await supabase
-      .from('v_monitoramento_completo')
-      .select('*')
-      .in('status', FOLLOW_STATUS)
-      .limit(10000)
-      .order('dt_previsao',{ ascending:true, nullsFirst:false })
-    if (rows) { setData(rows as Entrega[]); setLastUpdate(new Date()) }
+    const PAGE = 1000; let all: Entrega[] = []; let from = 0
+    while (true) {
+      const { data: rows, error } = await supabase
+        .from('v_monitoramento_completo').select('*')
+        .in('status', FOLLOW_STATUS)
+        .order('dt_previsao',{ ascending:true, nullsFirst:false })
+        .range(from, from + PAGE - 1)
+      if (error || !rows || rows.length === 0) break
+      all = all.concat(rows as Entrega[]); if (rows.length < PAGE) break; from += PAGE
+    }
+    if (all.length > 0) { setData(all); setLastUpdate(new Date()) }
     setLoading(false)
   }, [])
 
