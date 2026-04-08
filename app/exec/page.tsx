@@ -9,12 +9,19 @@ import { format, subDays, startOfMonth, subMonths, startOfWeek, endOfWeek, addWe
 import { ptBR } from 'date-fns/locale'
 
 // ── Paleta standalone ─────────────────────────────────────────────────────────
-const C = {
+const DARK = {
   bg:'#060912', surface:'#0e1521', surface2:'#141e2e', surface3:'#0a1018',
   border:'#1a2d45', border2:'#243d5e',
   text:'#f0f4f8', text2:'#8fa3bb', text3:'#4e6580', text4:'#2d4055',
   accent:'#f97316', green:'#22c55e', blue:'#3b82f6',
   yellow:'#eab308', red:'#ef4444', purple:'#a855f7',
+}
+const LIGHT = {
+  bg:'#f0f4f8', surface:'#ffffff', surface2:'#f8fafc', surface3:'#e8edf3',
+  border:'#d1dce8', border2:'#b8c9da',
+  text:'#0f1923', text2:'#3d5166', text3:'#7a92a8', text4:'#b0c3d4',
+  accent:'#f97316', green:'#16a34a', blue:'#2563eb',
+  yellow:'#ca8a04', red:'#dc2626', purple:'#7c3aed',
 }
 const STATUS_COLORS: Record<string,string> = {
   'Entregue':                  '#22c55e',
@@ -62,13 +69,13 @@ type Ocorrencia = {
 }
 
 // ── Código → cor ─────────────────────────────────────────────────────────────
-const ocorrColor = (cod: string) => {
-  if (['01','107','123','124'].includes(cod)) return C.green
-  if (['112','25','80','23'].includes(cod))   return C.red
-  if (['91','101','114'].includes(cod))       return C.blue
-  if (['108','109'].includes(cod))            return C.yellow
+const ocorrColor = (cod: string, colors: typeof DARK) => {
+  if (['01','107','123','124'].includes(cod)) return colors.green
+  if (['112','25','80','23'].includes(cod))   return colors.red
+  if (['91','101','114'].includes(cod))       return colors.blue
+  if (['108','109'].includes(cod))            return colors.yellow
   if (['106','110'].includes(cod))            return '#f87171'
-  return C.text3
+  return colors.text3
 }
 const ocorrIcon = (cod: string) => {
   if (['01','107','123','124'].includes(cod)) return '✓'
@@ -89,6 +96,8 @@ function ExecPage() {
   const [loadingOcorr, setLoadingOcorr] = useState(false)
   const [showAllOcorr, setShowAllOcorr] = useState(false)
   const [ccFiltro,  setCcFiltro]  = useState('(Todos)')
+  const [isDark, setIsDark] = useState(true)
+  const C = isDark ? DARK : LIGHT
   const getFirstDay = () => { const d=new Date(); return new Date(d.getFullYear(),d.getMonth(),1).toISOString().split('T')[0] }
   const getToday = () => new Date().toISOString().split('T')[0]
   const [periodo,   setPeriodo]   = useState('')
@@ -331,6 +340,13 @@ function ExecPage() {
           </div>
           <div style={{fontSize:10,color:C.text3,marginTop:2}}>{data.length} notas · tempo real</div>
         </div>
+        <button onClick={()=>setIsDark(d=>!d)}
+          title={isDark?'Modo claro':'Modo escuro'}
+          style={{padding:'7px 14px',borderRadius:20,border:`1px solid ${C.border}`,
+            background:isDark?C.surface2:'#1e293b',color:isDark?C.text2:'#94a3b8',
+            cursor:'pointer',fontSize:12,fontWeight:600,transition:'all .2s'}}>
+          {isDark?'☀ Claro':'🌙 Escuro'}
+        </button>
       </header>
 
       <main style={{padding:'18px 28px',maxWidth:1400,margin:'0 auto'}}>
@@ -373,13 +389,12 @@ function ExecPage() {
           <div style={{display:'flex',flexDirection:'column',gap:14,animation:'fadeIn .3s ease'}}>
 
             {/* KPIs */}
-            <div style={{display:'grid',gridTemplateColumns:'repeat(6,1fr)',gap:8}}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:8}}>
               {[
                 {label:'TOTAL EMITIDO',    value:moneyK(totalValor),    sub:`${totalNFs} notas`,          color:C.blue},
                 {label:'ENTREGUES',        value:entregues.length,       sub:`${taxaEnt}% de entrega`,     color:C.green},
                 {label:'AGENDADOS',        value:agendados.length,       sub:moneyK(agendados.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)), color:'#3b82f6'},
                 {label:'PENDENTES',        value:pendentes.length,       sub:moneyK(pendentes.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)), color:C.yellow},
-                {label:'LT VENCIDOS',      value:ltVenc.length,          sub:moneyK(ltVenc.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)),    color:'#dc2626'},
                 {label:'DEVOLUÇÕES',       value:devolucoes.length,      sub:moneyK(devolucoes.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)),color:C.red},
               ].map(k=>(
                 <div key={k.label} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:'13px 15px',borderLeft:`3px solid ${k.color}`}}>
@@ -455,21 +470,7 @@ function ExecPage() {
                       </BarChart>
                     </ResponsiveContainer>}
               </SecCard>
-              <SecCard title="PENDENTE AGENDAMENTO — POR ASSISTENTE" sub={moneyK(pendAgendAssist.reduce((s,r)=>s+r.valor,0))} accent={C.purple}>
-                {pendAgendAssist.length===0
-                  ? <div style={{textAlign:'center',padding:24,color:C.text3,fontSize:12}}>✓ Nenhum pendente</div>
-                  : <ResponsiveContainer width="100%" height={170}>
-                      <BarChart data={pendAgendAssist} layout="vertical" margin={{left:8,right:70,top:4,bottom:4}}>
-                        <CartesianGrid strokeDasharray="3 3" stroke={C.border} horizontal={false}/>
-                        <XAxis type="number" tick={{fontSize:9,fill:C.text3}} tickFormatter={moneyK}/>
-                        <YAxis type="category" dataKey="assistente" tick={{fontSize:10,fill:C.text2}} width={115} tickFormatter={v=>v.split(' ')[0]}/>
-                        <Tooltip content={<Tip/>}/>
-                        <Bar dataKey="valor" name="Valor" fill={`${C.purple}cc`} radius={[0,4,4,0]}>
-                          <LabelList dataKey="count" position="right" formatter={(v:any)=>`${v} NFs`} style={{fontSize:10,fontWeight:600,fill:C.text}}/>
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>}
-              </SecCard>
+
             </div>
 
             {/* Agendadas por dia */}
@@ -560,7 +561,6 @@ function ExecPage() {
                           <td><span style={{fontSize:10,fontWeight:600,padding:'1px 5px',borderRadius:3,color:C.blue,background:`${C.blue}18`}}>{(r.centro_custo||'—').substring(0,10)}</span></td>
                           <td style={{textAlign:'right',fontWeight:600,color:C.text,fontVariantNumeric:'tabular-nums'}}>{moneyK(Number(r.valor_produtos))}</td>
                           <td style={{color:C.text2,fontSize:11}}>{r.transportador_nome?.split(' ').slice(0,2).join(' ')||'—'}</td>
-                          <td style={{color:r.lt_vencido?C.red:C.green,fontWeight:r.lt_vencido?700:500,whiteSpace:'nowrap'}}>{fmt(r.dt_lt_interno)}{r.lt_vencido?' ⚠':''}</td>
                           <td><StatusBadge status={r.status_detalhado||r.status}/></td>
                           <td style={{color:C.text3,fontSize:10}}>↗</td>
                         </tr>
@@ -700,7 +700,7 @@ function ExecPage() {
                         {label:'Data Expedição',     value:fmt(r.dt_expedida)||'Não expedida', color:r.dt_expedida?C.text:C.yellow},
                         {label:'Previsão Entrega',   value:r.dt_previsao?fmt(r.dt_previsao):(r.tem_romaneio?'Aguardando agendamento':'Não expedida'), color:r.dt_previsao?C.yellow:(r.tem_romaneio?C.text3:C.text4)},
                 
-                        {label:'Data de Entrega',    value:fmt(r.dt_entrega)||'Não entregue',  color:r.dt_entrega?C.green:C.text3},
+                        {label:'Data de Entrega',    value:(()=>{ const oc=ocorrencias.find(o=>['01','107','123','124'].includes(o.codigo_ocorrencia)); const d=r.dt_entrega||(oc?.data_ocorrencia); return d?fmt(d):'Não entregue' })(),  color:(r.dt_entrega||ocorrencias.some(o=>['01','107','123','124'].includes(o.codigo_ocorrencia)))?C.green:C.text3},
                         {label:'Assistente',         value:r.assistente||'—',                  color:C.text},
                         {label:'Volumes',            value:String(r.volumes||'—'),             color:C.text},
                         {label:'CFOP',               value:r.cfop||'—',                        color:C.text},
@@ -757,7 +757,7 @@ function ExecPage() {
                           <div style={{display:'flex',flexDirection:'column',gap:0}}>
                             {(showAllOcorr ? ocorrencias : ocorrencias.slice(0,5)).map((o,i)=>{
                               const cod  = o.codigo_ocorrencia
-                              const color = ocorrColor(cod)
+                              const color = ocorrColor(cod, C)
                               const icon  = ocorrIcon(cod)
                               const ocData = o.payload_raw?.OCORRENCIA?.OCORREU_DATA || o.data_ocorrencia
                               const ocHora = o.payload_raw?.OCORRENCIA?.OCORREU_HORA
@@ -829,16 +829,16 @@ function ExecPage() {
                 <div style={{padding:'12px 20px',background:C.surface3,borderBottom:`1px solid ${C.border}`,display:'flex',justifyContent:'space-between'}}>
                   <span style={{fontSize:12,fontWeight:700,color:C.text}}>⚠ NOTAS QUE PRECISAM DE ATENÇÃO — clique para consultar</span>
                   <span style={{fontSize:11,color:C.red,fontWeight:700}}>
-                    {filtered.filter(r=>r.status==='Devolução'||r.lt_vencido).length} NFs
+                    {filtered.filter(r=>r.status==='Devolução').length} NFs
                   </span>
                 </div>
                 <div style={{overflowX:'auto',maxHeight:380,overflowY:'auto'}}>
                   <table style={{minWidth:700}}>
                     <thead>
-                      <tr><th>NF</th><th>Destinatário</th><th>Canal</th><th style={{textAlign:'right'}}>Valor</th><th>Expedida</th><th>LT Total</th><th>Status</th><th>Motivo</th></tr>
+                      <tr><th>NF</th><th>Destinatário</th><th>Canal</th><th style={{textAlign:'right'}}>Valor</th><th>Expedida</th><th>Status</th><th>Motivo</th></tr>
                     </thead>
                     <tbody>
-                      {filtered.filter(r=>r.status==='Devolução'||r.lt_vencido)
+                      {filtered.filter(r=>r.status==='Devolução')
                         .sort((a,b)=>(Number(b.valor_produtos)||0)-(Number(a.valor_produtos)||0))
                         .slice(0,25).map((r,i)=>(
                           <tr key={i} style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer'}}
@@ -850,9 +850,8 @@ function ExecPage() {
                             <td><span style={{fontSize:10,fontWeight:600,padding:'1px 5px',borderRadius:3,color:C.blue,background:`${C.blue}18`}}>{(r.centro_custo||'—').substring(0,10)}</span></td>
                             <td style={{textAlign:'right',fontWeight:600,color:C.text,fontVariantNumeric:'tabular-nums'}}>{moneyK(Number(r.valor_produtos))}</td>
                             <td style={{color:C.text2,whiteSpace:'nowrap'}}>{fmt(r.dt_expedida)}</td>
-                            <td style={{color:C.red,fontWeight:600,whiteSpace:'nowrap'}}>{fmt(r.dt_lt_interno)}</td>
                             <td><StatusBadge status={r.status_detalhado||r.status}/></td>
-                            <td style={{fontSize:10,fontWeight:700,color:r.status==='Devolução'?C.red:C.yellow}}>{r.status==='Devolução'?'Devolução':'LT vencido'}</td>
+                            <td style={{fontSize:10,fontWeight:700,color:r.status==='Devolução'?C.red:C.yellow}}>{r.status==='Devolução'?'Devolução':''}</td>
                           </tr>
                         ))}
                     </tbody>
