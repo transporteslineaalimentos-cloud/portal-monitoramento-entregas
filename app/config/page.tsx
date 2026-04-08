@@ -2,8 +2,11 @@
 import { useEffect, useState } from 'react'
 import { supabase, type DepararAssistente, type StatusMap } from '@/lib/supabase'
 import Sidebar from '@/components/Sidebar'
+import { useTheme } from '@/components/ThemeProvider'
+import { getTheme } from '@/lib/theme'
 
 export default function Config() {
+  const { theme, toggle } = useTheme()
   const [depara, setDepara] = useState<DepararAssistente[]>([])
   const [statusMap, setStatusMap] = useState<StatusMap[]>([])
   const [loading, setLoading] = useState(true)
@@ -77,10 +80,10 @@ export default function Config() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
-      <Sidebar />
+      <Sidebar theme={theme} onToggleTheme={toggle} />
       <main style={{ marginLeft: 200, flex: 1, padding: '24px', maxWidth: 900 }}>
         <div style={{ marginBottom: 24 }}>
-          <h1 style={{ fontFamily: 'Syne', fontWeight: 800, fontSize: 22, color: '#e2e8f0', margin: 0 }}>
+          <h1 style={{ fontFamily:"'Inter',sans-serif", fontWeight: 800, fontSize: 22, color: '#e2e8f0', margin: 0 }}>
             Configurações
           </h1>
           <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>

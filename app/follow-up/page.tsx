@@ -1,187 +1,376 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { supabase, type Entrega } from '@/lib/supabase'
+import { useTheme } from '@/components/ThemeProvider'
+import { getTheme } from '@/lib/theme'
 import Sidebar from '@/components/Sidebar'
 import StatusBadge from '@/components/StatusBadge'
-import { format } from 'date-fns'
+import OcorrenciasDrawer from '@/components/OcorrenciasDrawer'
+import FollowupModal from '@/components/FollowupModal'
+import { format, isToday, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
-const fmt = (d: string | null) => {
+const fmt = (d: string|null) => {
   if (!d) return '—'
-  try { return format(new Date(d), 'dd/MM/yy', { locale: ptBR }) } catch { return '—' }
+  try { return format(new Date((d.slice(0,10))+' 12:00'),'dd/MM/yy',{locale:ptBR}) } catch { return '—' }
 }
-const money = (v: number) =>
-  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0 }).format(v)
-const shortName = (n: string) => {
-  if (!n) return '—'
-  const parts = n.split(' - ')
-  return parts.length > 1 ? parts.slice(1).join(' ').substring(0, 28) : n.substring(0, 28)
+const moneyFmt = (v: number) => {
+  const n = Number(v)||0
+  if (n >= 1_000_000) return `R$ ${(n/1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `R$ ${(n/1_000).toFixed(0)}K`
+  return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:0}).format(n)
 }
+const moneyFull = (v:number) =>
+  new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:0}).format(Number(v)||0)
 
-const FOLLOW_STATUSES = ['Em Trânsito','Agendado','Agendamento Pendente','Agendamento Solicitado','Nf com Ocorrência','Tratativa Comercial']
+const FOLLOW_STATUS = [
+  'Pendente Expedição','Pendente Agendamento','Aguardando Retorno Cliente',
+  'Agendado','Entrega Programada','Agend. Conforme Cliente',
+  'Reagendada','Reagendamento Solicitado','Pendente Baixa Entrega','NF com Ocorrência',
+]
+
+// KPIs do follow-up
+type KpiId = 'hoje'|'Pendente Expedição'|'Pendente Agendamento'|'Aguardando Retorno Cliente'|'Agendado'|'Entrega Programada'|'Agend. Conforme Cliente'|'Reagendada'|'Reagendamento Solicitado'|'Pendente Baixa Entrega'|'NF com Ocorrência'|'__lt'
+const KPI_FU = [
+  { id:'hoje'                         as KpiId, icon:'📅', label:'Entrega Hoje',          color:'#16a34a', bg:'rgba(22,163,74,0.08)' },
+  { id:'Pendente Expedição'           as KpiId, icon:'⏳', label:'Pend. Expedição',       color:'#ea580c', bg:'rgba(234,88,12,0.08)' },
+  { id:'Pendente Agendamento'         as KpiId, icon:'📋', label:'Pend. Agendamento',     color:'#ca8a04', bg:'rgba(202,138,4,0.08)' },
+  { id:'Aguardando Retorno Cliente'   as KpiId, icon:'⏱', label:'Ag. Retorno Cliente',   color:'#f59e0b', bg:'rgba(245,158,11,0.08)' },
+  { id:'Reagendamento Solicitado'     as KpiId, icon:'🔄', label:'Reagend. Solicitado',   color:'#d97706', bg:'rgba(217,119,6,0.08)' },
+  { id:'Agendado'                     as KpiId, icon:'◆',  label:'Agendados',             color:'#2563eb', bg:'rgba(37,99,235,0.08)' },
+  { id:'Entrega Programada'           as KpiId, icon:'🚚', label:'Entrega Programada',    color:'#0891b2', bg:'rgba(8,145,178,0.08)' },
+  { id:'Reagendada'                   as KpiId, icon:'↺',  label:'Reagendadas',           color:'#eab308', bg:'rgba(234,179,8,0.08)' },
+  { id:'Agend. Conforme Cliente'      as KpiId, icon:'👤', label:'Ag. Conf. Cliente',     color:'#6366f1', bg:'rgba(99,102,241,0.08)' },
+  { id:'Pendente Baixa Entrega'       as KpiId, icon:'🔴', label:'Pend. Baixa',           color:'#e11d48', bg:'rgba(225,29,72,0.08)' },
+  { id:'NF com Ocorrência'            as KpiId, icon:'⚡', label:'NF c/ Ocorrência',      color:'#dc2626', bg:'rgba(220,38,38,0.08)' },
+  { id:'__lt'                         as KpiId, icon:'⚠',  label:'LT Vencidos',           color:'#dc2626', bg:'rgba(220,38,38,0.08)' },
+]
 
 export default function FollowUp() {
-  const [data, setData] = useState<Entrega[]>([])
-  const [loading, setLoading] = useState(true)
-  const [groupBy, setGroupBy] = useState<'transportadora'|'centro_custo'|'assistente'>('transportadora')
+  const { theme, toggle } = useTheme()
+  const T = getTheme(theme)
+
+  const [data, setData]           = useState<Entrega[]>([])
+  const [loading, setLoading]     = useState(true)
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date())
+  const [selectedNF, setSelectedNF]   = useState<Entrega|null>(null)
+  const [followupNF, setFollowupNF]   = useState<Entrega|null>(null)
+
+  const getFirstDay = () => { const d=new Date(); return new Date(d.getFullYear(),d.getMonth(),1).toISOString().split('T')[0] }
+  const getToday = () => new Date().toISOString().split('T')[0]
+  const [filtroAtivo, setFiltroAtivo] = useState<KpiId|null>(null)
+  const [dateFrom, setDateFrom] = useState(getFirstDay)
+  const [dateTo,   setDateTo]   = useState(getToday)
+  const [filtroCC,    setFiltroCC]    = useState('')
+  const [filtroTransp,setFiltroTransp]= useState('')
+  const [sortField,   setSortField]   = useState('dt_previsao')
+
+  const topRef = useRef<HTMLDivElement>(null)
+  const botRef = useRef<HTMLDivElement>(null)
+  const syncScroll = (from:'top'|'bot') => {
+    if (from==='top'&&topRef.current&&botRef.current) botRef.current.scrollLeft=topRef.current.scrollLeft
+    if (from==='bot'&&topRef.current&&botRef.current) topRef.current.scrollLeft=botRef.current.scrollLeft
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
     const { data: rows } = await supabase
-      .from('v_monitoramento_entregas')
+      .from('v_monitoramento_completo')
       .select('*')
-      .in('status', FOLLOW_STATUSES)
-      .order('dt_emissao', { ascending: false })
+      .in('status', FOLLOW_STATUS)
+      .order('dt_previsao',{ ascending:true, nullsFirst:false })
     if (rows) { setData(rows as Entrega[]); setLastUpdate(new Date()) }
     setLoading(false)
   }, [])
 
   useEffect(() => { load() }, [load])
 
-  const getGroupKey = (r: Entrega) => {
-    if (groupBy === 'transportadora') return r.transportador_nome || 'Sem transportadora'
-    if (groupBy === 'centro_custo') return r.centro_custo || 'Sem centro de custo'
-    return r.assistente || 'Não mapeado'
-  }
+  const nfsHoje = useMemo(()=>data.filter(r=>r.dt_previsao&&isToday(parseISO(r.dt_previsao))),[data])
 
-  const grouped = data.reduce<Record<string, Entrega[]>>((acc, r) => {
-    const key = getGroupKey(r)
-    if (!acc[key]) acc[key] = []
-    acc[key].push(r)
-    return acc
-  }, {})
+  const filtered = useMemo(() => {
+    let d = data
+    if (filtroAtivo==='hoje')    d = d.filter(r=>r.dt_previsao&&isToday(parseISO(r.dt_previsao)))
+    else if (filtroAtivo==='__lt')    d = d.filter(r=>r.lt_vencido)
+    else if (filtroAtivo)        d = d.filter(r=>r.status===filtroAtivo)
+    if (filtroCC)    d = d.filter(r=>r.centro_custo?.toLowerCase().includes(filtroCC.toLowerCase()))
+    if (filtroTransp)d = d.filter(r=>r.transportador_nome?.toLowerCase().includes(filtroTransp.toLowerCase()))
+    if (dateFrom) { const f=new Date(dateFrom); f.setHours(0,0,0,0); d=d.filter(r=>r.dt_emissao&&new Date(r.dt_emissao)>=f) }
+    if (dateTo)   { const t=new Date(dateTo); t.setHours(23,59,59,999); d=d.filter(r=>r.dt_emissao&&new Date(r.dt_emissao)<=t) }
+    return [...d].sort((a,b)=>{
+      if (sortField==='dt_previsao') {
+        if (!a.dt_previsao&&!b.dt_previsao) return 0
+        if (!a.dt_previsao) return 1
+        if (!b.dt_previsao) return -1
+        return new Date(a.dt_previsao).getTime()-new Date(b.dt_previsao).getTime()
+      }
+      if (sortField==='dt_emissao') return new Date(b.dt_emissao||0).getTime()-new Date(a.dt_emissao||0).getTime()
+      if (sortField==='valor_produtos') return (Number(b.valor_produtos)||0)-(Number(a.valor_produtos)||0)
+      return (a.status||'').localeCompare(b.status||'')
+    })
+  },[data,filtroAtivo,filtroCC,filtroTransp,sortField,dateFrom,dateTo])
 
-  const sortedGroups = Object.entries(grouped).sort((a, b) => b[1].length - a[1].length)
-  const totalValor = data.reduce((s, r) => s + (Number(r.valor_produtos) || 0), 0)
+  const totalValor = filtered.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
+  const ccOpts   = useMemo(()=>[...new Set(data.map(r=>r.centro_custo).filter(Boolean))].sort(),[data])
+  const trOpts   = useMemo(()=>[...new Set(data.map(r=>r.transportador_nome).filter(Boolean))].sort(),[data])
+
+  const kpiData = KPI_FU.map(k => ({
+    ...k,
+    count: k.id==='hoje' ? filtered.filter(r=>r.dt_previsao&&isToday(parseISO(r.dt_previsao))).length
+         : k.id==='__lt' ? filtered.filter(r=>r.lt_vencido).length
+         : filtered.filter(r=>r.status===k.id).length,
+    valor: k.id==='hoje' ? filtered.filter(r=>r.dt_previsao&&isToday(parseISO(r.dt_previsao))).reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
+         : k.id==='__lt' ? 0
+         : filtered.filter(r=>r.status===k.id).reduce((s,r)=>s+(Number(r.valor_produtos)||0),0),
+  }))
+
+  // minWidth da tabela
+  const tableW = 1480
+
+  const Th = ({ field, label, w }: { field?:string; label:string; w:number }) => (
+    <th onClick={()=>field&&setSortField(field)}
+      className={field?'sortable':''}
+      style={{ minWidth:w, color:sortField===field?T.accent:undefined }}>
+      <span style={{ display:'flex', alignItems:'center', gap:4 }}>
+        {label}
+        {field&&sortField===field&&<span style={{ fontSize:10, color:T.accent }}>↑</span>}
+      </span>
+    </th>
+  )
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
-      <Sidebar />
-      <main style={{ marginLeft: 200, flex: 1, padding: '24px' }}>
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+    <div style={{ display:'flex', minHeight:'100vh', background:T.bg }}>
+      <Sidebar theme={theme} onToggleTheme={toggle} />
+      <main style={{ marginLeft:210, flex:1, padding:'18px 20px', display:'flex', flexDirection:'column', gap:14, minWidth:0 }}>
+
+        {/* HEADER */}
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
           <div>
-            <h1 style={{ fontFamily: 'Syne', fontWeight: 800, fontSize: 22, color: '#e2e8f0', margin: 0 }}>
-              Follow-up do Dia
+            <h1 style={{ fontFamily:'var(--font-head)', fontWeight:800, fontSize:20, color:T.text, margin:0, letterSpacing:'-0.025em' }}>
+              Follow-up Diário
             </h1>
-            <div style={{ fontSize: 11, color: '#64748b', marginTop: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:10, marginTop:4 }}>
               <span className="dot-live" />
-              {format(lastUpdate, "dd/MM · HH:mm:ss")} · {data.length} NFs em aberto · {money(totalValor)}
+              <span style={{ fontSize:12, color:T.text3 }}>
+                {format(new Date(),"EEEE, dd 'de' MMMM",{locale:ptBR})}
+              </span>
+              <span style={{ color:T.border2 }}>·</span>
+              <span style={{ fontSize:12, color:T.text3 }}>{format(lastUpdate,'HH:mm:ss')}</span>
+              <span style={{ color:T.border2 }}>·</span>
+              <span style={{ fontSize:12, color:T.text3 }}>{data.length} notas em aberto</span>
+              {filtroAtivo && (
+                <button className="btn-ghost" style={{ padding:'2px 10px', fontSize:11, marginLeft:4 }}
+                  onClick={()=>setFiltroAtivo(null)}>✕ Limpar filtro</button>
+              )}
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <span style={{ fontSize: 10, color: '#64748b' }}>AGRUPAR POR:</span>
-            {([['transportadora','Transportadora'],['centro_custo','Centro de Custo'],['assistente','Assistente']] as const).map(([v,l]) => (
-              <button key={v} onClick={() => setGroupBy(v)}
-                style={{ padding: '6px 12px', fontSize: 11, borderRadius: 4, border: '1px solid',
-                  borderColor: groupBy === v ? '#f97316' : '#1e2d4a',
-                  color: groupBy === v ? '#f97316' : '#94a3b8',
-                  background: groupBy === v ? '#78350f15' : 'transparent' }}>{l}</button>
-            ))}
-            <button className="btn-ghost" onClick={load} style={{ fontSize: 11 }}>⟳</button>
-          </div>
+          <button className="btn-ghost" onClick={load}>⟳ Atualizar</button>
         </div>
 
-        {/* Summary cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 10, marginBottom: 20 }}>
-          {FOLLOW_STATUSES.map(s => {
-            const count = data.filter(r => r.status === s).length
+        {/* KPI CARDS */}
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(6,1fr)', gap:8 }}>
+          {kpiData.map(k => {
+            const active = filtroAtivo===k.id
             return (
-              <div key={s} className="card" style={{ padding: '10px 12px' }}>
-                <div style={{ fontSize: 9, color: '#64748b', marginBottom: 3 }}>{s.toUpperCase()}</div>
-                <div style={{ fontFamily: 'Syne', fontWeight: 700, fontSize: 22, color: '#e2e8f0' }}>{count}</div>
+              <div key={k.id} onClick={()=>setFiltroAtivo(active?null:k.id as KpiId)}
+                title={undefined}
+                style={{
+                  background: active?k.bg:T.surface,
+                  border:`1px solid ${active?k.color+'44':T.border}`,
+                  borderLeft:`3px solid ${active?k.color:T.border}`,
+                  borderRadius:10, padding:'14px 16px',
+                  cursor:'pointer', userSelect:'none', transition:'all 0.15s',
+                  opacity: filtroAtivo&&!active ? 0.55 : 1,
+                }}>
+                <div style={{ fontSize:20, marginBottom:8, lineHeight:1 }}>{k.icon}</div>
+                <div style={{ fontSize:10, fontWeight:600, color:T.text3, letterSpacing:'0.04em', marginBottom:6 }}>
+                  {k.label.toUpperCase()}
+                </div>
+                <div className="kpi-value" style={{ color:active?k.color:T.text }}>
+                  {k.count}
+                </div>
+                {k.valor>0 && (
+                  <div style={{ fontSize:11, color:T.text3, marginTop:4, fontVariantNumeric:'tabular-nums' }}>
+                    {moneyFmt(k.valor)}
+                  </div>
+                )}
               </div>
             )
           })}
         </div>
 
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: 60, color: '#64748b' }}>Carregando follow-up...</div>
-        ) : sortedGroups.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 60, color: '#64748b' }}>
-            Nenhuma NF em acompanhamento no momento
+        {/* FILTROS */}
+        <div style={{ background:T.surface, border:`1px solid ${T.border}`, borderRadius:10, padding:'10px 14px', display:'flex', gap:10, alignItems:'center', flexWrap:'wrap' }}>
+          <select value={filtroCC} onChange={e=>setFiltroCC(e.target.value)} style={{ maxWidth:200 }}>
+            <option value="">C. de Custo (todos)</option>
+            {ccOpts.map(c=><option key={c}>{c}</option>)}
+          </select>
+          <select value={filtroTransp} onChange={e=>setFiltroTransp(e.target.value)} style={{ maxWidth:240 }}>
+            <option value="">Transportadora (todas)</option>
+            {trOpts.map(t=><option key={t} value={t}>{t.substring(0,32)}</option>)}
+          </select>
+          <div style={{display:'flex',alignItems:'center',gap:5}}>
+            <span style={{fontSize:11,color:T.text3,fontWeight:500}}>De</span>
+            <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)}
+              style={{padding:'4px 8px',fontSize:11,borderRadius:6,border:`1px solid ${T.border}`,background:T.surface2,color:T.text,cursor:'pointer',width:128}}/>
+            <span style={{fontSize:11,color:T.text3,fontWeight:500}}>até</span>
+            <input type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)}
+              style={{padding:'4px 8px',fontSize:11,borderRadius:6,border:`1px solid ${T.border}`,background:T.surface2,color:T.text,cursor:'pointer',width:128}}/>
+            <button onClick={()=>{ const t=getToday(); setDateFrom(t); setDateTo(t) }}
+              className={`filter-pill ${dateFrom===getToday()&&dateTo===getToday()?'active':''}`}>Hoje</button>
           </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {sortedGroups.map(([group, nfs]) => {
-              const valorTotal = nfs.reduce((s, r) => s + (Number(r.valor_produtos) || 0), 0)
-              return (
-                <div key={group} className="card" style={{ overflow: 'hidden' }}>
-                  {/* Group header */}
-                  <div style={{ padding: '10px 14px', background: '#0d1220', borderBottom: '1px solid #1e2d4a',
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span style={{ fontFamily: 'Syne', fontWeight: 700, fontSize: 13, color: '#e2e8f0' }}>
-                        {shortName(group)}
-                      </span>
-                      <span style={{ fontSize: 10, color: '#64748b', background: '#1e2d4a', padding: '1px 6px', borderRadius: 3 }}>
-                        {nfs.length} NF{nfs.length > 1 ? 's' : ''}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: 11, color: '#f97316', fontWeight: 500 }}>{money(valorTotal)}</div>
-                  </div>
+          <div style={{ display:'flex', gap:6, alignItems:'center', marginLeft:8 }}>
+            <span style={{ fontSize:11, color:T.text3, fontWeight:500 }}>Ordenar:</span>
+            {[['dt_previsao','Previsão'],['dt_emissao','Emissão'],['valor_produtos','Valor'],['status','Status']].map(([f,l])=>(
+              <button key={f} onClick={()=>setSortField(f)} className={`filter-pill ${sortField===f?'active':''}`}>{l}</button>
+            ))}
+          </div>
+          <div style={{ marginLeft:'auto', fontSize:12, color:T.text2, fontWeight:500, fontVariantNumeric:'tabular-nums' }}>
+            {filtered.length} notas · {moneyFull(totalValor)}
+          </div>
+        </div>
 
-                  {/* NFs table */}
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                    <thead>
-                      <tr style={{ background: '#0a0e1a' }}>
-                        {['NF','Emissão','Destinatário','Cidade/UF','Valor','Previsão','Última Ocorrência','Dt.Ocorr','Status'].map(h => (
-                          <th key={h} style={{ padding: '6px 10px', textAlign: 'left', fontSize: 10,
-                            color: '#374151', letterSpacing: '0.05em', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {nfs.map((r, i) => (
-                        <tr key={`${r.nf_numero}-${i}`} className="table-row"
-                          style={{ borderBottom: '1px solid #141e30' }}>
-                          <td style={{ padding: '7px 10px', color: '#f97316', fontWeight: 500 }}>{r.nf_numero}</td>
-                          <td style={{ padding: '7px 10px', color: '#94a3b8' }}>{fmt(r.dt_emissao)}</td>
-                          <td style={{ padding: '7px 10px', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                            title={r.destinatario_nome}>{shortName(r.destinatario_nome)}</td>
-                          <td style={{ padding: '7px 10px', color: '#94a3b8', whiteSpace: 'nowrap' }}>
-                            {r.cidade_destino ? `${r.cidade_destino}·${r.uf_destino}` : '—'}
-                          </td>
-                          <td style={{ padding: '7px 10px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                            {money(Number(r.valor_produtos) || 0)}
-                          </td>
-                          <td style={{ padding: '7px 10px', color: r.dt_previsao ? '#eab308' : '#64748b', whiteSpace: 'nowrap' }}>
-                            {fmt(r.dt_previsao)}
-                          </td>
-                          <td style={{ padding: '7px 10px', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#94a3b8' }}
-                            title={r.ultima_ocorrencia || ''}>
-                            {r.ultima_ocorrencia
-                              ? <span>{r.codigo_ocorrencia && <span style={{ color: '#374151', marginRight: 4 }}>{r.codigo_ocorrencia}·</span>}{r.ultima_ocorrencia}</span>
-                              : '—'}
-                          </td>
-                          <td style={{ padding: '7px 10px', color: '#94a3b8', whiteSpace: 'nowrap' }}>
-                            {fmt(r.dt_ultima_ocorrencia)}
-                          </td>
-                          <td style={{ padding: '7px 10px' }}><StatusBadge status={r.status} /></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot>
-                      <tr style={{ background: '#0a0e1a', borderTop: '1px solid #1e2d4a' }}>
-                        <td colSpan={4} style={{ padding: '6px 10px', fontSize: 11, color: '#64748b' }}>
-                          {nfs.length} nota{nfs.length > 1 ? 's' : ''} em acompanhamento
-                        </td>
-                        <td style={{ padding: '6px 10px', textAlign: 'right', fontSize: 11, color: '#f97316', fontWeight: 500, whiteSpace: 'nowrap' }}>
-                          {money(valorTotal)}
-                        </td>
-                        <td colSpan={4} />
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              )
-            })}
+        {/* TABELA */}
+        <div style={{ background:T.surface, border:`1px solid ${T.border}`, borderRadius:10, overflow:'hidden', flex:1 }}>
+          {/* Scrollbar espelho */}
+          <div ref={topRef} onScroll={()=>syncScroll('top')}
+            style={{ overflowX:'auto', overflowY:'hidden', height:7, borderBottom:`1px solid ${T.border}` }}>
+            <div style={{ height:1, width:tableW }} />
           </div>
-        )}
+          <div ref={botRef} onScroll={()=>syncScroll('bot')}
+            style={{ overflowX:'auto', maxHeight:'calc(100vh - 370px)', overflowY:'auto' }}>
+
+            {loading ? (
+              <div style={{ textAlign:'center', padding:60, color:T.text3 }}>Carregando...</div>
+            ) : filtered.length===0 ? (
+              <div style={{ textAlign:'center', padding:60, color:T.text3, fontSize:14 }}>
+                ✓ Nenhuma nota com o filtro selecionado
+              </div>
+            ) : (
+              <table className="data-table" style={{ minWidth:tableW }}>
+                <thead>
+                  <tr>
+                    <Th field="nf_numero"          label="NF"            w={70} />
+                    <Th                            label="Filial"         w={68} />
+                    <Th field="dt_emissao"         label="Emissão"        w={80} />
+                    <Th                            label="Destinatário"   w={165} />
+                    <Th                            label="Cidade · UF"    w={130} />
+                    <Th                            label="C. Custo"       w={110} />
+                    <Th field="valor_produtos"     label="Valor"          w={96} />
+                    <Th                            label="Expedida"       w={78} />
+                    <Th field="dt_previsao"        label="Previsão"       w={90} />
+                    <Th                            label="LT Interno"     w={96} />
+                    <Th                            label="Ocorrência"     w={185} />
+                    <Th field="status"             label="Status Active"  w={250} />
+                    <Th                            label="Status Interno" w={195} />
+                    <Th                            label="Assistente"     w={110} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((r,i)=>{
+                    const hoje = r.dt_previsao&&isToday(parseISO(r.dt_previsao))
+                    return (
+                      <tr key={`${r.nf_numero}-${i}`}
+                        onClick={()=>setSelectedNF(r)}
+                        style={{ background: hoje?`${T.green}0b`:T.surface }}>
+
+                        <td style={{ fontWeight:700, color:T.accent, fontSize:13, letterSpacing:'-0.01em' }}>{r.nf_numero}</td>
+                        <td>
+                          <span className="badge" style={{
+                            color:r.filial==='MIX'?T.blue:T.purple,
+                            background:r.filial==='MIX'?'rgba(59,130,246,0.1)':'rgba(168,85,247,0.1)',
+                            border:`1px solid ${r.filial==='MIX'?'rgba(59,130,246,0.25)':'rgba(168,85,247,0.25)'}`,
+                          }}>{r.filial}</span>
+                        </td>
+                        <td style={{ color:T.text2, whiteSpace:'nowrap' }}>{fmt(r.dt_emissao)}</td>
+                        <td style={{ maxWidth:165, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', fontWeight:500 }}
+                          title={r.destinatario_nome||''}>
+                          {(r.destinatario_fantasia||r.destinatario_nome||'—').substring(0,26)}
+                        </td>
+                        <td style={{ color:T.text2, whiteSpace:'nowrap', fontSize:12 }}>
+                          {r.cidade_destino?`${r.cidade_destino} · ${r.uf_destino}`:'—'}
+                        </td>
+                        <td>
+                          {r.centro_custo
+                            ? <span className="badge" style={{ color:T.blue, background:'rgba(37,99,235,0.08)', border:'1px solid rgba(37,99,235,0.2)' }}>{r.centro_custo}</span>
+                            : <span style={{ color:T.text4 }}>—</span>}
+                        </td>
+                        <td style={{ textAlign:'right', fontWeight:600, fontVariantNumeric:'tabular-nums', whiteSpace:'nowrap', color:T.text }}>
+                          {moneyFmt(Number(r.valor_produtos))}
+                        </td>
+                        <td style={{ color:r.dt_expedida?T.text2:T.text4, whiteSpace:'nowrap' }}>
+                          {r.dt_expedida?fmt(r.dt_expedida):'—'}
+                        </td>
+                        <td style={{ whiteSpace:'nowrap' }}>
+                          {r.dt_previsao
+                            ? <span style={{ fontWeight: hoje?700:500, color: hoje?T.green:T.yellow }}>
+                                {fmt(r.dt_previsao)}
+                                {hoje&&<span style={{ marginLeft:6, fontSize:10, background:T.green, color:'#fff', padding:'1px 6px', borderRadius:3, fontWeight:700 }}>HOJE</span>}
+                              </span>
+                            : r.tem_romaneio
+                              ? <span style={{ color:T.text4, fontSize:11 }}>Ag. agendamento</span>
+                              : <span style={{ color:T.text4 }}>—</span>}
+                        </td>
+                        <td>
+                          {r.dt_lt_interno
+                            ? <span style={{ color:r.lt_vencido?T.red:T.green, fontWeight:r.lt_vencido?700:500, whiteSpace:'nowrap' }}>
+                                {fmt(r.dt_lt_interno)}{r.lt_dias?` (${r.lt_dias}d)`:''}{r.lt_vencido?' ⚠':''}
+                              </span>
+                            : <span style={{ color:T.text4 }}>—</span>}
+                        </td>
+                        <td style={{ color:T.text2, maxWidth:185, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}
+                          title={r.ultima_ocorrencia||''}>
+                          {r.ultima_ocorrencia
+                            ? <><span style={{ color:T.text3, fontSize:11, marginRight:3 }}>{r.codigo_ocorrencia}·</span>{r.ultima_ocorrencia}</>
+                            : '—'}
+                        </td>
+                        <td><StatusBadge status={r.status_detalhado||r.status} /></td>
+                        <td>
+                          <button onClick={e=>{e.stopPropagation();setFollowupNF(r)}}
+                            title={r.followup_obs||r.followup_status||'Registrar follow-up'}
+                            style={{
+                              fontSize:11, padding:'4px 10px', borderRadius:5, cursor:'pointer',
+                              background:r.followup_status?'rgba(37,99,235,0.08)':'transparent',
+                              border:`1px solid ${r.followup_status?'rgba(37,99,235,0.28)':T.border}`,
+                              color:r.followup_status?T.blue:T.text4,
+                              maxWidth:178, overflow:'hidden', textOverflow:'ellipsis',
+                              whiteSpace:'nowrap', display:'block', textAlign:'left',
+                              fontFamily:'var(--font-ui)', fontWeight:r.followup_status?600:400,
+                            }}>
+                            {r.followup_status?`📋 ${r.followup_status}`:'+ registrar'}
+                          </button>
+                          {r.followup_obs&&(
+                            <div style={{ fontSize:10, color:T.text3, marginTop:2, maxWidth:178, overflow:'hidden',
+                              textOverflow:'ellipsis', whiteSpace:'nowrap', paddingLeft:2 }}
+                              title={r.followup_obs}>{r.followup_obs}</div>
+                          )}
+                        </td>
+                        <td style={{ color:T.text2, whiteSpace:'nowrap' }}>{r.assistente}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr style={{ background:T.surface3 }}>
+                    <td colSpan={6} style={{ padding:'8px 10px', fontSize:12, color:T.text3 }}>
+                      {filtered.length} nota{filtered.length!==1?'s':''}
+                      {filtroAtivo&&<span style={{ color:T.text4, marginLeft:6 }}>
+                        · filtro: {filtroAtivo==='hoje'?'Entrega Hoje':filtroAtivo==='__lt'?'LT Vencidos':filtroAtivo}
+                      </span>}
+                    </td>
+                    <td style={{ padding:'8px 10px', textAlign:'right', fontWeight:700, color:T.accent, fontVariantNumeric:'tabular-nums' }}>
+                      {moneyFull(totalValor)}
+                    </td>
+                    <td colSpan={7} />
+                  </tr>
+                </tfoot>
+              </table>
+            )}
+          </div>
+        </div>
       </main>
+
+      <OcorrenciasDrawer nf={selectedNF} onClose={()=>setSelectedNF(null)} />
+      <FollowupModal nf={followupNF} onClose={()=>setFollowupNF(null)} onSaved={load} />
     </div>
   )
 }
