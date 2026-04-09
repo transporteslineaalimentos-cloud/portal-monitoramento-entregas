@@ -163,7 +163,13 @@ function ExecPage() {
   const start_m = startOfMonth(now)
 
   const nfsOcorrencia = useMemo(()=>
-    filtered.filter(r=>r.status==='Devolução'||['106','109','110','111','116','120','61'].includes(r.codigo_ocorrencia||''))
+    filtered.filter(r=>
+      // Devolução TOTAL (112,25,80,23,113) — status='Devolução' na view, entra
+      // Devolução PARCIAL (79) — status='NF com Ocorrência', NÃO entra aqui
+      (r.status==='Devolução') ||
+      // Outros códigos problemáticos (excluindo 79 = devolução parcial)
+      ['106','109','110','111','116','120','61'].includes(r.codigo_ocorrencia||'')
+    )
       .sort((a,b)=>(Number(b.valor_produtos)||0)-(Number(a.valor_produtos)||0))
   ,[filtered])
 
@@ -231,6 +237,24 @@ function ExecPage() {
       labelAtual: format(iniMesAtual, 'MMM/yy', {locale: ptBR}).toUpperCase(),
       labelAnt:   format(iniMesAnt,   'MMM/yy', {locale: ptBR}).toUpperCase() }
   }, [data])
+
+  // Compliance por transportadora (entregues no prazo vs total entregues)
+  const transpCompliance = useMemo(()=>{
+    const m:Record<string,{nome:string;noPrazo:number;atrasadas:number;total:number;valor:number}>= {}
+    filtered.filter(r=>r.status==='Entregue'&&r.transportador_nome).forEach(r=>{
+      const t=r.transportador_nome
+      if(!m[t]) m[t]={nome:t,noPrazo:0,atrasadas:0,total:0,valor:0}
+      m[t].total++
+      m[t].valor+=Number(r.valor_produtos)||0
+      if(r.lt_transp_vencido) m[t].atrasadas++
+      else m[t].noPrazo++
+    })
+    return Object.values(m)
+      .filter(v=>v.total>=3)
+      .map(v=>({...v, pct: Math.round((v.noPrazo/v.total)*100)}))
+      .sort((a,b)=>b.total-a.total)
+      .slice(0,8)
+  },[filtered])
 
   const pendAgendCC = useMemo(()=>{
     const m:Record<string,{count:number;valor:number}>={}
@@ -319,11 +343,12 @@ function ExecPage() {
   const Tip = ({active,payload,label}:any) => {
     if(!active||!payload?.length) return null
     return (
-      <div style={{background:C.surface2,border:`1px solid ${C.border2}`,borderRadius:8,padding:'10px 14px',fontSize:12}}>
-        <div style={{color:C.text3,marginBottom:6,fontWeight:600}}>{label}</div>
+      <div style={{background:'#0d1520',border:'1px solid #334155',borderRadius:8,padding:'10px 14px',fontSize:12,boxShadow:'0 8px 24px rgba(0,0,0,0.5)'}}>
+        <div style={{color:'#94a3b8',marginBottom:6,fontWeight:600,fontSize:11}}>{label}</div>
         {payload.map((p:any,i:number)=>(
-          <div key={i} style={{color:p.color||C.text,marginBottom:2}}>
-            {p.name}: <strong>{typeof p.value==='number'&&p.value>999?moneyFull(p.value):p.value}</strong>
+          <div key={i} style={{color:p.color||'#f1f5f9',marginBottom:3,display:'flex',gap:8,justifyContent:'space-between'}}>
+            <span style={{color:'#94a3b8'}}>{p.name}:</span>
+            <strong style={{color:'#f1f5f9'}}>{typeof p.value==='number'&&p.value>999?moneyFull(p.value):p.value}</strong>
           </div>
         ))}
       </div>
@@ -581,7 +606,7 @@ function ExecPage() {
               </div>
             </SecCard>
 
-            {/* Pend. Agendamento por CC + Assistente */}
+            {/* Pend. Agendamento por CC + Compliance Transportadora */}
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
               <SecCard title="PENDENTE AGENDAMENTO — POR CANAL" sub={moneyK(pendAgendCC.reduce((s,r)=>s+r.valor,0))} accent={C.yellow}>
                 {pendAgendCC.length===0
@@ -600,6 +625,31 @@ function ExecPage() {
                     </ResponsiveContainer>}
               </SecCard>
 
+              {/* Compliance por Transportadora */}
+              <SecCard title="🏆 COMPLIANCE — ENTREGA NO PRAZO" sub={`${transpCompliance.length} transportadoras`} accent={C.green}>
+                {transpCompliance.length===0
+                  ? <div style={{textAlign:'center',padding:24,color:C.text3,fontSize:12}}>Sem dados de entrega no período</div>
+                  : <div style={{display:'flex',flexDirection:'column',gap:8,maxHeight:180,overflowY:'auto'}}>
+                      {transpCompliance.map((t,i)=>{
+                        const cor = t.pct>=90?C.green:t.pct>=70?C.yellow:C.red
+                        const nome = t.nome.split(' ').slice(0,3).join(' ')
+                        return (
+                          <div key={i}>
+                            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
+                              <span style={{fontSize:11,color:C.text2,fontWeight:500,flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:180}}>{nome}</span>
+                              <div style={{display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
+                                <span style={{fontSize:10,color:C.text3}}>{t.noPrazo}/{t.total} NFs</span>
+                                <span style={{fontSize:13,fontWeight:800,color:cor,minWidth:38,textAlign:'right'}}>{t.pct}%</span>
+                              </div>
+                            </div>
+                            <div style={{height:6,background:C.border,borderRadius:3,overflow:'hidden'}}>
+                              <div style={{height:'100%',width:`${t.pct}%`,background:`linear-gradient(90deg,${cor}99,${cor})`,borderRadius:3,transition:'width .3s'}}/>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>}
+              </SecCard>
             </div>
 
             {/* Agendadas por dia */}

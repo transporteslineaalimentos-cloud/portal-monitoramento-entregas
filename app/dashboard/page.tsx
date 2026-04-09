@@ -173,7 +173,10 @@ export default function DashboardGestao() {
 
   // Notas com ocorrência problemática (devoluções + reagendamentos)
   const nfsOcorrencia = useMemo(()=>
-    filtered.filter(r=>r.status==='Devolução'||['106','109','110','111','116','120','61'].includes(r.codigo_ocorrencia||''))
+    filtered.filter(r=>
+      (r.status==='Devolução') ||
+      ['106','109','110','111','116','120','61'].includes(r.codigo_ocorrencia||'')
+    )
       .sort((a,b)=>(Number(b.valor_produtos)||0)-(Number(a.valor_produtos)||0))
   ,[filtered])
 
@@ -204,11 +207,12 @@ export default function DashboardGestao() {
   const Tip = ({active,payload,label}:any) => {
     if(!active||!payload?.length) return null
     return (
-      <div style={{background:T.surface2,border:`1px solid ${T.border2}`,borderRadius:8,padding:'10px 14px',fontSize:12}}>
-        <div style={{color:T.text3,marginBottom:6,fontWeight:600}}>{label}</div>
+      <div style={{background:'#0d1520',border:'1px solid #334155',borderRadius:8,padding:'10px 14px',fontSize:12,boxShadow:'0 8px 24px rgba(0,0,0,0.5)'}}>
+        <div style={{color:'#94a3b8',marginBottom:6,fontWeight:600,fontSize:11}}>{label}</div>
         {payload.map((p:any,i:number)=>(
-          <div key={i} style={{color:p.color||T.text,marginBottom:2}}>
-            {p.name}: <strong>{typeof p.value==='number'&&p.value>999?moneyFull(p.value):p.value}</strong>
+          <div key={i} style={{color:p.color||'#f1f5f9',marginBottom:3,display:'flex',gap:8,justifyContent:'space-between'}}>
+            <span style={{color:'#94a3b8'}}>{p.name}:</span>
+            <strong style={{color:'#f1f5f9'}}>{typeof p.value==='number'&&p.value>999?moneyFull(p.value):p.value}</strong>
           </div>
         ))}
       </div>
