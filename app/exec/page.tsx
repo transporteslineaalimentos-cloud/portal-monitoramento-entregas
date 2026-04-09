@@ -271,11 +271,17 @@ function ExecPage() {
 
   const entregS1 = useMemo(()=>{
     const s=startOfWeek(addWeeks(now,-1),{weekStartsOn:1}), e=endOfWeek(addWeeks(now,-1),{weekStartsOn:1})
-    const m:Record<string,{valor:number;count:number}>={}
+    const m:Record<string,{dia:string;valor:number;count:number}>={}
     filtered.filter(r=>r.status==='Entregue'&&r.dt_entrega)
-      .filter(r=>isWithinInterval(new Date(r.dt_entrega),{start:s,end:e}))
-      .forEach(r=>{ const d=fmtDia(r.dt_entrega); if(!m[d]) m[d]={valor:0,count:0}; m[d].valor+=Number(r.valor_produtos)||0; m[d].count++ })
-    return Object.entries(m).sort((a,b)=>a[0].localeCompare(b[0])).map(([dia,v])=>({dia,...v}))
+      .filter(r=>isWithinInterval(new Date(r.dt_entrega.slice(0,10)+' 12:00'),{start:s,end:e}))
+      .forEach(r=>{
+        const iso=r.dt_entrega.slice(0,10)  // "2026-04-07" — chave de sort correta
+        const label=fmtDia(r.dt_entrega)    // "07/04" — exibição
+        if(!m[iso]) m[iso]={dia:label,valor:0,count:0}
+        m[iso].valor+=Number(r.valor_produtos)||0
+        m[iso].count++
+      })
+    return Object.keys(m).sort().map(iso=>m[iso])
   },[filtered])
 
   const ccBreak = useMemo(()=>{
@@ -498,18 +504,18 @@ function ExecPage() {
                 </div>
               </SecCard>
               <SecCard title="PREVISÃO DE ENTREGAS — SEMANAL">
-                <ResponsiveContainer width="100%" height={155}>
-                  <ComposedChart data={semanalData} margin={{left:4,right:24,top:8,bottom:4}}>
+                <ResponsiveContainer width="100%" height={180}>
+                  <ComposedChart data={semanalData} margin={{left:4,right:32,top:30,bottom:4}}>
                     <CartesianGrid strokeDasharray="3 3" stroke={C.border}/>
                     <XAxis dataKey="semana" tick={{fontSize:11,fill:C.text2}}/>
-                    <YAxis yAxisId="val" tick={{fontSize:8,fill:C.text3}} tickFormatter={moneyK}/>
-                    <YAxis yAxisId="cnt" orientation="right" tick={{fontSize:8,fill:C.text3}}/>
+                    <YAxis yAxisId="val" tick={{fontSize:8,fill:C.text3}} tickFormatter={moneyK} domain={[0,'auto']}/>
+                    <YAxis yAxisId="cnt" orientation="right" tick={{fontSize:8,fill:C.text3}} domain={[0,'auto']}/>
                     <Tooltip content={<Tip/>}/>
                     <Bar yAxisId="val" dataKey="valor" name="Valor" fill={`${C.blue}44`} radius={[4,4,0,0]}>
-                      <LabelList dataKey="valor" position="top" formatter={(v:any)=>Number(v)>0?moneyK(Number(v)):''} style={{fontSize:9,fill:C.text3}}/>
+                      <LabelList dataKey="valor" position="insideTop" formatter={(v:any)=>Number(v)>0?moneyK(Number(v)):''} style={{fontSize:9,fill:C.text2}}/>
                     </Bar>
                     <Line yAxisId="cnt" type="monotone" dataKey="count" name="NFs" stroke={C.accent} strokeWidth={2.5} dot={{fill:C.accent,r:4,stroke:C.surface,strokeWidth:2}}>
-                      <LabelList dataKey="count" position="top" formatter={(v:any)=>Number(v)>0?`${v}`:''} style={{fontSize:10,fontWeight:700,fill:C.accent}}/>
+                      <LabelList dataKey="count" position="top" offset={12} formatter={(v:any)=>Number(v)>0?`${v} NFs`:''} style={{fontSize:10,fontWeight:700,fill:C.accent}}/>
                     </Line>
                   </ComposedChart>
                 </ResponsiveContainer>
@@ -734,7 +740,7 @@ function ExecPage() {
                         <tr key={i} onClick={()=>navToMonitor({cc})} style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer'}} onMouseEnter={e=>(e.currentTarget as HTMLElement).style.opacity='.7'} onMouseLeave={e=>(e.currentTarget as HTMLElement).style.opacity='1'}>
                           <td style={{fontWeight:700,color:C.blue}}>{cc}</td>
                           <td style={{color:C.text2,fontSize:11}}>{v.assistente||'—'}</td>
-                          <td style={{textAlign:'right',color:v.exp+v.agendP>0?C.yellow:C.text4,fontWeight:v.exp+v.agendP>0?600:400}}>{(v.exp+v.agendP)||'—'}</td>
+                          <td style={{textAlign:'right',color:v.agendP>0?C.yellow:C.text4,fontWeight:v.agendP>0?600:400}}>{v.agendP||'—'}</td>
                           <td style={{textAlign:'right',color:v.agend>0?C.blue:C.text4,fontWeight:v.agend>0?600:400}}>{v.agend||'—'}</td>
                           <td style={{textAlign:'right',color:v.entregue>0?C.green:C.text4,fontWeight:v.entregue>0?600:400}}>{v.entregue||'—'}</td>
                           <td style={{textAlign:'right',color:v.lt>0?C.red:C.text4,fontWeight:v.lt>0?700:400}}>{v.lt||'—'}</td>
