@@ -40,7 +40,6 @@ const STATUS_COLORS: Record<string,string> = {
   'Reagendamento Solicitado':  '#d97706',
   'Agendamento Solicitado':    '#f59e0b',
   'Pendente Agendamento':      '#ca8a04',
-  'Pendente Expedição':        '#ea580c',
   'Pendente Baixa Entrega':    '#e11d48',
     'NF com Ocorrência':           '#dc2626',
   'Devolução':                 '#ef4444',
@@ -159,10 +158,17 @@ export default function DashboardGestao() {
   // Entregues S-1
   const entregS1 = useMemo(()=>{
     const s=startOfWeek(addWeeks(now,-1),{weekStartsOn:1}), e=endOfWeek(addWeeks(now,-1),{weekStartsOn:1})
-    const m: Record<string,{valor:number;count:number}> = {}
-    filtered.filter(r=>r.status==='Entregue'&&r.dt_entrega).filter(r=>isWithinInterval(new Date(r.dt_entrega),{start:s,end:e}))
-      .forEach(r=>{ const d=fmtDay(r.dt_entrega); if(!m[d]) m[d]={valor:0,count:0}; m[d].valor+=Number(r.valor_produtos)||0; m[d].count++ })
-    return Object.entries(m).sort((a,b)=>a[0].localeCompare(b[0])).map(([dia,v])=>({dia,...v}))
+    const m: Record<string,{dia:string;valor:number;count:number}> = {}
+    filtered.filter(r=>r.status==='Entregue'&&r.dt_entrega)
+      .filter(r=>isWithinInterval(new Date(r.dt_entrega.slice(0,10)+' 12:00'),{start:s,end:e}))
+      .forEach(r=>{
+        const iso=r.dt_entrega.slice(0,10)
+        const label=fmtDay(r.dt_entrega)
+        if(!m[iso]) m[iso]={dia:label,valor:0,count:0}
+        m[iso].valor+=Number(r.valor_produtos)||0
+        m[iso].count++
+      })
+    return Object.keys(m).sort().map(iso=>m[iso])
   },[filtered])
 
   // Notas com ocorrência problemática (devoluções + reagendamentos)
@@ -191,7 +197,7 @@ export default function DashboardGestao() {
 
   const ccBreak = useMemo(()=>{
     const m: Record<string,{total:number;valor:number;exp:number;agendP:number;agend:number;entregue:number;devolucao:number;lt:number}> = {}
-    filtered.forEach(r=>{ const cc=r.centro_custo||'N/D'; if(!m[cc]) m[cc]={total:0,valor:0,exp:0,agendP:0,agend:0,entregue:0,devolucao:0,lt:0}; m[cc].total++; m[cc].valor+=Number(r.valor_produtos)||0; if(r.status==='Pendente Expedição') m[cc].exp++; else if(r.status==='Pendente Agendamento') m[cc].agendP++; else if(r.status==='Agendado') m[cc].agend++; else if(r.status==='Entregue') m[cc].entregue++; else if(r.status==='Devolução') m[cc].devolucao++; if(r.lt_vencido&&r.status!=='Entregue') m[cc].lt++ })
+    filtered.forEach(r=>{ const cc=r.centro_custo||'N/D'; if(!m[cc]) m[cc]={total:0,valor:0,exp:0,agendP:0,agend:0,entregue:0,devolucao:0,lt:0}; m[cc].total++; m[cc].valor+=Number(r.valor_produtos)||0; if(r.status==='Pendente Agendamento') m[cc].agendP++; else if(r.status==='Agendado') m[cc].agend++; else if(r.status==='Entregue') m[cc].entregue++; else if(r.status==='Devolução') m[cc].devolucao++; if(r.lt_vencido&&r.status!=='Entregue') m[cc].lt++ })
     return Object.entries(m).sort((a,b)=>b[1].valor-a[1].valor)
   },[filtered])
 
@@ -306,7 +312,7 @@ export default function DashboardGestao() {
 
         {/* KPIs — todos clicáveis */}
         <div style={{display:'grid',gridTemplateColumns:'repeat(6,1fr)',gap:8}}>
-          <KpiCard label="Pend. Expedição"   value={filtered.filter(r=>r.status==='Pendente Expedição').length}   color="#ea580c" sub={money(filtered.filter(r=>r.status==='Pendente Expedição').reduce((s,r)=>s+(Number(r.valor_produtos)||0),0))} navParams={{status:'Pendente Expedição'}}/>
+          <KpiCard label="NF c/ Ocorrência" value={filtered.filter(r=>r.status==='NF com Ocorrência').length}   color="#dc2626" sub={money(filtered.filter(r=>r.status==='NF com Ocorrência').reduce((s,r)=>s+(Number(r.valor_produtos)||0),0))} navParams={{status:'NF com Ocorrência'}}/>
           <KpiCard label="Pend. Agendamento" value={filtered.filter(r=>r.status==='Pendente Agendamento').length} color="#ca8a04" sub={money(filtered.filter(r=>r.status==='Pendente Agendamento').reduce((s,r)=>s+(Number(r.valor_produtos)||0),0))} navParams={{status:'Pendente Agendamento'}}/>
           <KpiCard label="Agendados"         value={filtered.filter(r=>r.status==='Agendado').length}            color="#3b82f6" sub={money(filtered.filter(r=>r.status==='Agendado').reduce((s,r)=>s+(Number(r.valor_produtos)||0),0))} navParams={{status:'Agendado'}}/>
           <KpiCard label="Entregues"         value={filtered.filter(r=>r.status==='Entregue').length}            color="#22c55e" sub={money(filtered.filter(r=>r.status==='Entregue').reduce((s,r)=>s+(Number(r.valor_produtos)||0),0))} navParams={{status:'Entregue'}}/>
@@ -350,19 +356,19 @@ export default function DashboardGestao() {
 
           {/* Previsão semanal */}
           <Card title="PREVISÃO DE ENTREGAS | SEMANAL">
-            <ResponsiveContainer width="100%" height={175}>
-              <ComposedChart data={semanalData} margin={{left:4,right:24,top:8,bottom:4}}>
+            <ResponsiveContainer width="100%" height={190}>
+              <ComposedChart data={semanalData} margin={{left:4,right:32,top:30,bottom:4}}>
                 <CartesianGrid strokeDasharray="3 3" stroke={T.border}/>
                 <XAxis dataKey="semana" tick={{fontSize:11,fill:T.text2}}/>
-                <YAxis yAxisId="val" tick={{fontSize:9,fill:T.text3}} tickFormatter={money}/>
-                <YAxis yAxisId="cnt" orientation="right" tick={{fontSize:9,fill:T.text3}}/>
+                <YAxis yAxisId="val" tick={{fontSize:9,fill:T.text3}} tickFormatter={money} domain={[0,'auto']}/>
+                <YAxis yAxisId="cnt" orientation="right" tick={{fontSize:9,fill:T.text3}} domain={[0,'auto']}/>
                 <Tooltip content={<Tip/>}/>
                 <Bar yAxisId="val" dataKey="valor" name="Valor" fill={`${T.blue}44`} radius={[4,4,0,0]}
-                  style={{cursor:'pointer'}} onClick={(d)=>navTo({status:'Agendado'})}>
-                  <LabelList dataKey="valor" position="top" formatter={(v:any)=>Number(v)>0?money(Number(v)):''} style={{fontSize:9,fill:T.text3}}/>
+                  style={{cursor:'pointer'}} onClick={()=>navTo({status:'Agendado'})}>
+                  <LabelList dataKey="valor" position="insideTop" formatter={(v:any)=>Number(v)>0?money(Number(v)):''} style={{fontSize:9,fill:T.text2}}/>
                 </Bar>
                 <Line yAxisId="cnt" type="monotone" dataKey="count" name="NFs" stroke={T.accent} strokeWidth={2.5} dot={{fill:T.accent,r:4,stroke:T.surface,strokeWidth:2}}>
-                  <LabelList dataKey="count" position="top" formatter={(v:any)=>Number(v)>0?`${v}`:''} style={{fontSize:10,fontWeight:700,fill:T.accent}}/>
+                  <LabelList dataKey="count" position="top" offset={12} formatter={(v:any)=>Number(v)>0?`${v} NFs`:''} style={{fontSize:10,fontWeight:700,fill:T.accent}}/>
                 </Line>
               </ComposedChart>
             </ResponsiveContainer>
@@ -479,7 +485,7 @@ export default function DashboardGestao() {
               {key:'valor',label:'Valor',render:r=><span style={{textAlign:'right' as const,display:'block',fontWeight:600,fontVariantNumeric:'tabular-nums' as const,color:T.text}}>{money(Number(r.valor_produtos))}</span>},
               {key:'transp',label:'Transportadora',render:r=><span style={{fontSize:11,color:T.text2}}>{r.transportador_nome?.split(' ').slice(0,2).join(' ')||'—'}</span>},
               {key:'lt',label:'LT Total',render:r=><span style={{fontSize:11,fontWeight:600,color:r.lt_vencido?T.red:T.green}}>{fmtDate(r.dt_lt_interno)||'—'}{r.lt_vencido?' ⚠':''}</span>},
-              {key:'status',label:'Status',render:r=><span style={{fontSize:10,fontWeight:600,color:r.status==='Pendente Expedição'?'#ea580c':r.status==='Pendente Agendamento'?'#ca8a04':'#3b82f6'}}>{r.status_detalhado?.substring(0,24)||r.status}</span>},
+              {key:'status',label:'Status',render:r=><span style={{fontSize:10,fontWeight:600,color:r.status==='Pendente Agendamento'?'#ca8a04':r.status==='Agendado'?'#3b82f6':'#6b7280'}}>{r.status_detalhado?.substring(0,24)||r.status}</span>},
             ]}
           />
         </Card>
