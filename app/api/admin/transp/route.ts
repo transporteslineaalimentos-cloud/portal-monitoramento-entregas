@@ -2,7 +2,6 @@ import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
-  // Inicialização lazy — evita erro em build time sem env vars
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -12,22 +11,32 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { action, ...data } = body
 
-    // ── Criar usuário de transportador ─────────────────────────────────────
+    // ── Criar usuário ──────────────────────────────────────────────────────
     if (action === 'criar_usuario') {
-      const { email, password, nome, empresa_id, telefone, cargo, created_by } = data
+      const { email, password, nome, telefone, cargo, created_by } = data
 
+      // 1. Cria o auth user SEM senha (workaround: createUser com password
+      //    tem bug em algumas versões do Supabase e não grava a senha)
       const { data: authUser, error: authErr } = await supabaseAdmin.auth.admin.createUser({
         email,
-        password,
-        email_confirm: true, // confirma automaticamente sem envio de email
+        email_confirm: true,
       })
       if (authErr) return NextResponse.json({ error: authErr.message }, { status: 400 })
 
+      const userId = authUser.user!.id
+
+      // 2. Define a senha explicitamente via updateUserById
+      const { error: pwErr } = await supabaseAdmin.auth.admin.updateUserById(userId, { password })
+      if (pwErr) {
+        await supabaseAdmin.auth.admin.deleteUser(userId)
+        return NextResponse.json({ error: `Erro ao definir senha: ${pwErr.message}` }, { status: 400 })
+      }
+
+      // 3. Insere perfil (sem empresa_id — coluna removida)
       const { error: dbErr } = await supabaseAdmin
         .from('transp_usuarios')
         .insert({
-          id: authUser.user!.id,
-          empresa_id,
+          id: userId,
           nome,
           email,
           telefone: telefone || null,
@@ -37,12 +46,11 @@ export async function POST(req: NextRequest) {
           created_by: created_by || null,
         })
       if (dbErr) {
-        // rollback: deletar o auth user se falhou o insert
-        await supabaseAdmin.auth.admin.deleteUser(authUser.user!.id)
+        await supabaseAdmin.auth.admin.deleteUser(userId)
         return NextResponse.json({ error: dbErr.message }, { status: 400 })
       }
 
-      return NextResponse.json({ user_id: authUser.user!.id })
+      return NextResponse.json({ user_id: userId })
     }
 
     // ── Resetar senha ──────────────────────────────────────────────────────
@@ -53,11 +61,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true })
     }
 
-    // ── Desativar / reativar usuário ───────────────────────────────────────
+    // ── Ativar / desativar ────────────────────────────────────────────────
     if (action === 'toggle_usuario') {
       const { user_id, ativo } = data
       const { error: authErr } = await supabaseAdmin.auth.admin.updateUserById(user_id, {
-        ban_duration: ativo ? 'none' : '876000h', // ~100 anos = banido
+        ban_duration: ativo ? 'none' : '876000h',
       })
       if (authErr) return NextResponse.json({ error: authErr.message }, { status: 400 })
       const { error: dbErr } = await supabaseAdmin
