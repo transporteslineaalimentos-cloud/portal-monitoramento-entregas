@@ -94,15 +94,15 @@ export default function PortalTransportador() {
   useEffect(() => {
     if (!user) return
     const init = async () => {
-      // busca empresa do usuário
-      const { data: uData } = await supabase
-        .from('transp_usuarios')
-        .select('empresa_id, transp_empresas(nome, cnpj)')
-        .eq('id', user.id)
-        .single()
-      if (uData?.transp_empresas) {
-        const emp = uData.transp_empresas as any
-        setEmpresa({ nome: emp.nome, cnpj: emp.cnpj })
+      // busca CNPJs e nome do transportador
+      const { data: cnpjsData } = await supabase
+        .from('transp_usuario_cnpjs')
+        .select('transportador_cnpj, transportador_nome')
+        .eq('usuario_id', user.id)
+      if (cnpjsData && cnpjsData.length > 0) {
+        const nome = cnpjsData[0].transportador_nome ?? 'Transportador'
+        const cnpjs = cnpjsData.map((c: any) => c.transportador_cnpj).join(', ')
+        setEmpresa({ nome, cnpj: cnpjs })
       }
       // atualiza último acesso
       await supabase.from('transp_usuarios').update({ ultimo_acesso: new Date().toISOString() }).eq('id', user.id)
@@ -175,15 +175,8 @@ export default function PortalTransportador() {
     if (!newStatus || !drawerNF || !user) return
     setSaving(true)
     const lookup = statusLookup.find(s => s.codigo === newStatus)
-    const { data: uData } = await supabase
-      .from('transp_usuarios')
-      .select('empresa_id')
-      .eq('id', user.id)
-      .single()
-
     const { data, error } = await supabase.from('transp_followup').insert({
       nf_numero: drawerNF.nf_numero,
-      empresa_id: uData?.empresa_id,
       usuario_id: user.id,
       codigo_status: newStatus,
       descricao_status: lookup?.descricao ?? newStatus,
