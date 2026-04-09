@@ -185,6 +185,8 @@ function ExecPage() {
     const m:Record<string,{count:number;valor:number}>={}
     filtered.forEach(r=>{ const s=r.status||'Outro'; if(!m[s]) m[s]={count:0,valor:0}; m[s].count++; m[s].valor+=Number(r.valor_produtos)||0 })
     return Object.entries(m).map(([status,v])=>({status,...v})).sort((a,b)=>b.valor-a.valor)
+  },[filtered])
+
   // Relatório: Valor por status — mês atual vs mês anterior
   const relatorioMensal = useMemo(() => {
     const now = new Date()
