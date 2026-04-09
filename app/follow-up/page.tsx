@@ -24,16 +24,15 @@ const moneyFull = (v:number) =>
   new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:0}).format(Number(v)||0)
 
 const FOLLOW_STATUS = [
-  'Pendente Expedição','Pendente Agendamento','Aguardando Retorno Cliente',
+  'Pendente Agendamento','Aguardando Retorno Cliente',
   'Agendado','Entrega Programada','Agend. Conforme Cliente',
   'Reagendada','Reagendamento Solicitado','Pendente Baixa Entrega','NF com Ocorrência',
 ]
 
 // KPIs do follow-up
-type KpiId = 'hoje'|'Pendente Expedição'|'Pendente Agendamento'|'Aguardando Retorno Cliente'|'Agendado'|'Entrega Programada'|'Agend. Conforme Cliente'|'Reagendada'|'Reagendamento Solicitado'|'Pendente Baixa Entrega'|'NF com Ocorrência'|'__lt'
+type KpiId = 'hoje'|'Pendente Agendamento'|'Aguardando Retorno Cliente'|'Agendado'|'Entrega Programada'|'Agend. Conforme Cliente'|'Reagendada'|'Reagendamento Solicitado'|'Pendente Baixa Entrega'|'NF com Ocorrência'|'__lt'
 const KPI_FU = [
   { id:'hoje'                         as KpiId, icon:'📅', label:'Entrega Hoje',          color:'#16a34a', bg:'rgba(22,163,74,0.08)' },
-  { id:'Pendente Expedição'           as KpiId, icon:'⏳', label:'Pend. Expedição',       color:'#ea580c', bg:'rgba(234,88,12,0.08)' },
   { id:'Pendente Agendamento'         as KpiId, icon:'📋', label:'Pend. Agendamento',     color:'#ca8a04', bg:'rgba(202,138,4,0.08)' },
   { id:'Aguardando Retorno Cliente'   as KpiId, icon:'⏱', label:'Ag. Retorno Cliente',   color:'#f59e0b', bg:'rgba(245,158,11,0.08)' },
   { id:'Reagendamento Solicitado'     as KpiId, icon:'🔄', label:'Reagend. Solicitado',   color:'#d97706', bg:'rgba(217,119,6,0.08)' },
