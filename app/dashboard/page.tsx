@@ -58,8 +58,16 @@ export default function DashboardGestao() {
   const getFirstDay = () => { const d=new Date(); return new Date(d.getFullYear(),d.getMonth(),1).toISOString().split('T')[0] }
   const getToday = () => new Date().toISOString().split('T')[0]
   const [periodo, setPeriodo]   = useState('')
-  const [dateFrom, setDateFrom] = useState(getFirstDay)
-  const [dateTo,   setDateTo]   = useState(getToday)
+  const [dateFrom, setDateFrom] = useState<string>(() => {
+    if (typeof window !== 'undefined') return sessionStorage.getItem('dashboard_dateFrom') || getFirstDay()
+    return getFirstDay()
+  })
+  const [dateTo, setDateTo] = useState<string>(() => {
+    if (typeof window !== 'undefined') return sessionStorage.getItem('dashboard_dateTo') || getToday()
+    return getToday()
+  })
+  useEffect(() => { sessionStorage.setItem('dashboard_dateFrom', dateFrom) }, [dateFrom])
+  useEffect(() => { sessionStorage.setItem('dashboard_dateTo', dateTo) }, [dateTo])
   const [filterCC, setFilterCC] = useState('(Todos)')
   const now = new Date()
 

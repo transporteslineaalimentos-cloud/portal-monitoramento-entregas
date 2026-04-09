@@ -58,8 +58,16 @@ export default function FollowUp() {
   const getFirstDay = () => { const d=new Date(); return new Date(d.getFullYear(),d.getMonth(),1).toISOString().split('T')[0] }
   const getToday = () => new Date().toISOString().split('T')[0]
   const [filtroAtivo, setFiltroAtivo] = useState<KpiId|null>(null)
-  const [dateFrom, setDateFrom] = useState(getFirstDay)
-  const [dateTo,   setDateTo]   = useState(getToday)
+  const [dateFrom, setDateFrom] = useState<string>(() => {
+    if (typeof window !== 'undefined') return sessionStorage.getItem('followup_dateFrom') || getFirstDay()
+    return getFirstDay()
+  })
+  const [dateTo, setDateTo] = useState<string>(() => {
+    if (typeof window !== 'undefined') return sessionStorage.getItem('followup_dateTo') || getToday()
+    return getToday()
+  })
+  useEffect(() => { sessionStorage.setItem('followup_dateFrom', dateFrom) }, [dateFrom])
+  useEffect(() => { sessionStorage.setItem('followup_dateTo', dateTo) }, [dateTo])
   const [filtroCC,    setFiltroCC]    = useState('')
   const [filtroTransp,setFiltroTransp]= useState('')
   const [sortField,   setSortField]   = useState('dt_previsao')

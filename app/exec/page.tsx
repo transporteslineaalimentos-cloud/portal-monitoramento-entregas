@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState, useCallback, useMemo, Suspense } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase, type Entrega } from '@/lib/supabase'
 import {
   ComposedChart, BarChart, Bar, Line, PieChart, Pie, Cell,
@@ -33,7 +34,6 @@ const STATUS_COLORS: Record<string,string> = {
   'Reagendamento Solicitado':  '#d97706',
   'Agendamento Solicitado':    '#f59e0b',
   'Pendente Agendamento':      '#ca8a04',
-  'Pendente Expedição':        '#ea580c',
   'Pendente Baixa Entrega':    '#e11d48',
     'NF com Ocorrência':           '#dc2626',
   'Devolução':                 '#ef4444',
@@ -101,10 +101,29 @@ function ExecPage() {
   const getFirstDay = () => { const d=new Date(); return new Date(d.getFullYear(),d.getMonth(),1).toISOString().split('T')[0] }
   const getToday = () => new Date().toISOString().split('T')[0]
   const [periodo,   setPeriodo]   = useState('')
-  const [dateFrom,  setDateFrom]  = useState(getFirstDay)
-  const [dateTo,    setDateTo]    = useState(getToday)
+  const [dateFrom, setDateFrom] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('exec_dateFrom') || getFirstDay()
+    }
+    return getFirstDay()
+  })
+  const [dateTo, setDateTo] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('exec_dateTo') || getToday()
+    }
+    return getToday()
+  })
+  useEffect(() => { sessionStorage.setItem('exec_dateFrom', dateFrom) }, [dateFrom])
+  useEffect(() => { sessionStorage.setItem('exec_dateTo', dateTo) }, [dateTo])
   const [tab,       setTab]       = useState<'dash'|'busca'>('dash')
   const now = new Date()
+  const router = useRouter()
+
+  // Navegar para monitoramento com filtros (passa datas do exec)
+  const navToMonitor = (params: Record<string,string>) => {
+    const q = new URLSearchParams({ de: dateFrom, ate: dateTo, ...params }).toString()
+    router.push(`/?${q}`)
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -135,7 +154,7 @@ function ExecPage() {
   const totalNFs   = filtered.length
   const entregues  = filtered.filter(r=>r.status==='Entregue')
   const agendados  = filtered.filter(r=>r.status==='Agendado')
-  const pendentes  = filtered.filter(r=>['Pendente Expedição','Pendente Agendamento'].includes(r.status))
+  const pendentes  = filtered.filter(r=>r.status==='Pendente Agendamento')
   const devolucoes = filtered.filter(r=>r.status==='Devolução')
   const ltVenc     = filtered.filter(r=>r.lt_vencido&&r.status!=='Entregue')
   const taxaEnt    = pct(entregues.length, totalNFs)
@@ -166,7 +185,50 @@ function ExecPage() {
     const m:Record<string,{count:number;valor:number}>={}
     filtered.forEach(r=>{ const s=r.status||'Outro'; if(!m[s]) m[s]={count:0,valor:0}; m[s].count++; m[s].valor+=Number(r.valor_produtos)||0 })
     return Object.entries(m).map(([status,v])=>({status,...v})).sort((a,b)=>b.valor-a.valor)
-  },[filtered])
+  // Relatório: Valor por status — mês atual vs mês anterior
+  const relatorioMensal = useMemo(() => {
+    const now = new Date()
+    const iniMesAtual = startOfMonth(now)
+    const iniMesAnt   = startOfMonth(subMonths(now, 1))
+    const fimMesAnt   = new Date(iniMesAtual.getTime() - 1)
+
+    const LINHAS = [
+      'Entregue',
+      'Agendamento Solicitado',
+      'Agendado',
+      'Devolução',
+      'Pendente Agendamento',
+      'NF com Ocorrência',
+      'Pendente Baixa Entrega',
+      'Reagendada',
+    ]
+
+    const calcMes = (de: Date, ate: Date) => {
+      const m: Record<string,{count:number;valor:number}> = {}
+      LINHAS.forEach(s => { m[s] = {count:0, valor:0} })
+      data.filter(r => {
+        if (!r.dt_emissao) return false
+        const d = new Date(r.dt_emissao)
+        return d >= de && d <= ate
+      }).forEach(r => {
+        const s = r.status || 'Outro'
+        if (!m[s]) m[s] = {count:0, valor:0}
+        m[s].count++
+        m[s].valor += Number(r.valor_produtos) || 0
+      })
+      return m
+    }
+
+    const mesAtual = calcMes(iniMesAtual, now)
+    const mesAnt   = calcMes(iniMesAnt, fimMesAnt)
+
+    const totalAtual = LINHAS.reduce((s,l) => s + (mesAtual[l]?.valor||0), 0)
+    const totalAnt   = LINHAS.reduce((s,l) => s + (mesAnt[l]?.valor||0), 0)
+
+    return { linhas: LINHAS, mesAtual, mesAnt, totalAtual, totalAnt,
+      labelAtual: format(iniMesAtual, 'MMM/yy', {locale: ptBR}).toUpperCase(),
+      labelAnt:   format(iniMesAnt,   'MMM/yy', {locale: ptBR}).toUpperCase() }
+  }, [data])
 
   const pendAgendCC = useMemo(()=>{
     const m:Record<string,{count:number;valor:number}>={}
@@ -216,7 +278,7 @@ function ExecPage() {
 
   const ccBreak = useMemo(()=>{
     const m:Record<string,{total:number;valor:number;exp:number;agendP:number;agend:number;entregue:number;lt:number;assistente:string}>={}
-    filtered.forEach(r=>{ const cc=r.centro_custo||'N/D'; if(!m[cc]) m[cc]={total:0,valor:0,exp:0,agendP:0,agend:0,entregue:0,lt:0,assistente:r.assistente||''}; m[cc].total++; m[cc].valor+=Number(r.valor_produtos)||0; m[cc].assistente=r.assistente||m[cc].assistente; if(r.status==='Pendente Expedição') m[cc].exp++; else if(r.status==='Pendente Agendamento') m[cc].agendP++; else if(r.status==='Agendado') m[cc].agend++; else if(r.status==='Entregue') m[cc].entregue++; if(r.lt_vencido&&r.status!=='Entregue') m[cc].lt++ })
+    filtered.forEach(r=>{ const cc=r.centro_custo||'N/D'; if(!m[cc]) m[cc]={total:0,valor:0,exp:0,agendP:0,agend:0,entregue:0,lt:0,assistente:r.assistente||''}; m[cc].total++; m[cc].valor+=Number(r.valor_produtos)||0; m[cc].assistente=r.assistente||m[cc].assistente; if(r.status==='Pendente Agendamento') m[cc].agendP++; else if(r.status==='Agendado') m[cc].agend++; else if(r.status==='Entregue') m[cc].entregue++; if(r.lt_vencido&&r.status!=='Entregue') m[cc].lt++ })
     return Object.entries(m).sort((a,b)=>b[1].valor-a[1].valor)
   },[filtered])
 
@@ -392,12 +454,12 @@ function ExecPage() {
             <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:8}}>
               {[
                 {label:'TOTAL EMITIDO',    value:moneyK(totalValor),    sub:`${totalNFs} notas`,          color:C.blue},
-                {label:'ENTREGUES',        value:entregues.length,       sub:`${taxaEnt}% de entrega`,     color:C.green},
-                {label:'AGENDADOS',        value:agendados.length,       sub:moneyK(agendados.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)), color:'#3b82f6'},
-                {label:'PENDENTES',        value:pendentes.length,       sub:moneyK(pendentes.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)), color:C.yellow},
-                {label:'DEVOLUÇÕES',       value:devolucoes.length,      sub:moneyK(devolucoes.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)),color:C.red},
+                {label:'ENTREGUES',        value:entregues.length,       sub:`${taxaEnt}% de entrega`,     color:C.green,   status:'Entregue'},
+                {label:'AGENDADOS',        value:agendados.length,       sub:moneyK(agendados.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)), color:'#3b82f6', status:'Agendado'},
+                {label:'PENDENTES',        value:pendentes.length,       sub:moneyK(pendentes.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)), color:C.yellow,  status:'Pendente Agendamento'},
+                {label:'DEVOLUÇÕES',       value:devolucoes.length,      sub:moneyK(devolucoes.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)),color:C.red,     status:'Devolução'},
               ].map(k=>(
-                <div key={k.label} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:'13px 15px',borderLeft:`3px solid ${k.color}`}}>
+                <div key={k.label} onClick={()=>(k as any).status!==undefined&&(k as any).status!==''&&navToMonitor({status:(k as any).status})} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:'13px 15px',borderLeft:`3px solid ${k.color}`,cursor:(k as any).status?'pointer':'default'}} onMouseEnter={e=>{if((k as any).status)(e.currentTarget as HTMLElement).style.opacity='.75'}} onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.opacity='1'}}>
                   <div style={{fontSize:9,fontWeight:700,color:C.text3,letterSpacing:'.06em',marginBottom:7}}>{k.label}</div>
                   <div style={{fontWeight:800,fontSize:26,color:k.color,lineHeight:1,letterSpacing:'-.03em',fontVariantNumeric:'tabular-nums'}}>{k.value}</div>
                   <div style={{fontSize:11,color:C.text3,marginTop:4}}>{k.sub}</div>
@@ -451,6 +513,65 @@ function ExecPage() {
                 </ResponsiveContainer>
               </SecCard>
             </div>
+
+            {/* Relatório: Valor por Status — Mês Atual vs Mês Anterior */}
+            <SecCard title={`📊 VALOR POR STATUS — ${relatorioMensal.labelAnt} vs ${relatorioMensal.labelAtual}`} sub="Emissão por mês · todos os CCs">
+              <div style={{overflowX:'auto'}}>
+                <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+                  <thead>
+                    <tr style={{borderBottom:`1px solid ${C.border}`}}>
+                      <th style={{textAlign:'left',padding:'7px 10px',fontSize:10,color:C.text3,letterSpacing:'.06em'}}>STATUS</th>
+                      <th style={{textAlign:'right',padding:'7px 10px',fontSize:10,color:C.text3,letterSpacing:'.06em'}}>{relatorioMensal.labelAnt}</th>
+                      <th style={{textAlign:'right',padding:'7px 10px',fontSize:10,color:C.text3,letterSpacing:'.06em'}}>{relatorioMensal.labelAtual}</th>
+                      <th style={{textAlign:'right',padding:'7px 10px',fontSize:10,color:C.text3,letterSpacing:'.06em'}}>TOTAL GERAL</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {relatorioMensal.linhas.map(linha => {
+                      const ant   = relatorioMensal.mesAnt[linha]   || {count:0,valor:0}
+                      const atual = relatorioMensal.mesAtual[linha] || {count:0,valor:0}
+                      if (ant.count === 0 && atual.count === 0) return null
+                      const cor = STATUS_COLORS[linha] || C.text3
+                      return (
+                        <tr key={linha} style={{borderBottom:`1px solid ${C.border}`}}>
+                          <td style={{padding:'8px 10px',display:'flex',alignItems:'center',gap:7}}>
+                            <div style={{width:8,height:8,borderRadius:'50%',background:cor,flexShrink:0}}/>
+                            <span style={{color:C.text,fontWeight:500}}>{linha}</span>
+                          </td>
+                          <td style={{padding:'8px 10px',textAlign:'right'}}>
+                            {ant.count > 0 ? (
+                              <div>
+                                <div style={{fontWeight:700,color:C.text,fontVariantNumeric:'tabular-nums'}}>{moneyFull(ant.valor)}</div>
+                                <div style={{fontSize:10,color:C.text3}}>{ant.count} NFs</div>
+                              </div>
+                            ) : <span style={{color:C.text4}}>—</span>}
+                          </td>
+                          <td style={{padding:'8px 10px',textAlign:'right'}}>
+                            {atual.count > 0 ? (
+                              <div>
+                                <div style={{fontWeight:700,color:C.text,fontVariantNumeric:'tabular-nums'}}>{moneyFull(atual.valor)}</div>
+                                <div style={{fontSize:10,color:C.text3}}>{atual.count} NFs</div>
+                              </div>
+                            ) : <span style={{color:C.text4}}>—</span>}
+                          </td>
+                          <td style={{padding:'8px 10px',textAlign:'right',fontWeight:700,color:C.accent,fontVariantNumeric:'tabular-nums'}}>
+                            {(ant.valor + atual.valor) > 0 ? moneyFull(ant.valor + atual.valor) : '—'}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{borderTop:`2px solid ${C.border2}`,background:C.surface2}}>
+                      <td style={{padding:'9px 10px',fontWeight:800,color:C.text,fontSize:13}}>TOTAL GERAL</td>
+                      <td style={{padding:'9px 10px',textAlign:'right',fontWeight:800,color:C.text,fontVariantNumeric:'tabular-nums'}}>{moneyFull(relatorioMensal.totalAnt)}</td>
+                      <td style={{padding:'9px 10px',textAlign:'right',fontWeight:800,color:C.text,fontVariantNumeric:'tabular-nums'}}>{moneyFull(relatorioMensal.totalAtual)}</td>
+                      <td style={{padding:'9px 10px',textAlign:'right',fontWeight:800,color:C.accent,fontVariantNumeric:'tabular-nums'}}>{moneyFull(relatorioMensal.totalAnt + relatorioMensal.totalAtual)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </SecCard>
 
             {/* Pend. Agendamento por CC + Assistente */}
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
@@ -608,7 +729,7 @@ function ExecPage() {
                     </thead>
                     <tbody>
                       {ccBreak.map(([cc,v],i)=>(
-                        <tr key={i} style={{borderBottom:`1px solid ${C.border}`}}>
+                        <tr key={i} onClick={()=>navToMonitor({cc})} style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer'}} onMouseEnter={e=>(e.currentTarget as HTMLElement).style.opacity='.7'} onMouseLeave={e=>(e.currentTarget as HTMLElement).style.opacity='1'}>
                           <td style={{fontWeight:700,color:C.blue}}>{cc}</td>
                           <td style={{color:C.text2,fontSize:11}}>{v.assistente||'—'}</td>
                           <td style={{textAlign:'right',color:v.exp+v.agendP>0?C.yellow:C.text4,fontWeight:v.exp+v.agendP>0?600:400}}>{(v.exp+v.agendP)||'—'}</td>

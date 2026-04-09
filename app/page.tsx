@@ -93,8 +93,20 @@ function MonitoramentoInner() {
   const [filterOcorrCod,  setFilterOcorrCod]  = useState(()=>searchParams.get('ocorrencia_cod')||'')
   const getFirstDayOfMonth = () => { const d=new Date(); return new Date(d.getFullYear(),d.getMonth(),1).toISOString().split('T')[0] }
   const getTodayStr = () => new Date().toISOString().split('T')[0]
-  const [dateFrom, setDateFrom] = useState(()=>searchParams.get('de')||getFirstDayOfMonth())
-  const [dateTo,   setDateTo]   = useState(()=>searchParams.get('ate')||getTodayStr())
+  const [dateFrom, setDateFrom] = useState<string>(()=>{
+    const urlVal = searchParams.get('de')
+    if (urlVal) return urlVal
+    if (typeof window !== 'undefined') return sessionStorage.getItem('monitor_dateFrom') || getFirstDayOfMonth()
+    return getFirstDayOfMonth()
+  })
+  const [dateTo, setDateTo] = useState<string>(()=>{
+    const urlVal = searchParams.get('ate')
+    if (urlVal) return urlVal
+    if (typeof window !== 'undefined') return sessionStorage.getItem('monitor_dateTo') || getTodayStr()
+    return getTodayStr()
+  })
+  useEffect(() => { sessionStorage.setItem('monitor_dateFrom', dateFrom) }, [dateFrom])
+  useEffect(() => { sessionStorage.setItem('monitor_dateTo', dateTo) }, [dateTo])
   const [sortField, setSortField] = useState('dt_emissao')
   const [sortDir,   setSortDir]   = useState<'asc'|'desc'>('desc')
   const [page, setPage] = useState(0)
