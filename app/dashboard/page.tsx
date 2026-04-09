@@ -418,7 +418,7 @@ export default function DashboardGestao() {
                 </ResponsiveContainer>}
           </Card>
 
-          <Card title="PENDENTE AGENDAMENTO POR ASSISTENTE"
+          <Card title="PENDENTE AGENDAMENTO POR RESPONSÁVEL"
             sub={money(pendAgendAssist.reduce((s,r)=>s+r.valor,0))}
             onClick={()=>navTo({status:'Pendente Agendamento'})}>
             {pendAgendAssist.length===0
@@ -538,8 +538,8 @@ export default function DashboardGestao() {
             <div style={{overflowX:'auto'}}>
               <table className="data-table" style={{fontSize:11}}>
                 <thead>
-                  <tr>{['CC','Assistente','Pend.Exp','Pend.Agd','Agendado','Entregue','LT Venc.','Total','Valor'].map(h=>(
-                    <th key={h} style={{textAlign:['CC','Assistente'].includes(h)?'left':'right',fontSize:10}}>{h}</th>
+                  <tr>{['CC','Responsável','Pend.Agd','Agendado','Entregue','LT Venc.','Total','Valor'].map(h=>(
+                    <th key={h} style={{textAlign:['CC','Responsável'].includes(h)?'left':'right',fontSize:10}}>{h}</th>
                   ))}</tr>
                 </thead>
                 <tbody>
@@ -547,8 +547,7 @@ export default function DashboardGestao() {
                     <tr key={i} style={{cursor:'pointer'}} onClick={()=>navTo({cc})}>
                       <td style={{fontWeight:600,color:T.blue}}>{cc}</td>
                       <td style={{color:T.text2,fontSize:10}}>{filtered.find(r=>r.centro_custo===cc)?.assistente||'—'}</td>
-                      <td style={{textAlign:'right',color:v.exp>0?'#ea580c':T.text4,fontWeight:v.exp>0?600:400}}>{v.exp||'—'}</td>
-                      <td style={{textAlign:'right',color:v.agendP>0?'#ca8a04':T.text4,fontWeight:v.agendP>0?600:400}}>{v.agendP||'—'}</td>
+                                      <td style={{textAlign:'right',color:v.agendP>0?'#ca8a04':T.text4,fontWeight:v.agendP>0?600:400}}>{v.agendP||'—'}</td>
                       <td style={{textAlign:'right',color:v.agend>0?'#3b82f6':T.text4,fontWeight:v.agend>0?600:400}}>{v.agend||'—'}</td>
                       <td style={{textAlign:'right',color:v.entregue>0?'#22c55e':T.text4,fontWeight:v.entregue>0?600:400}}>{v.entregue||'—'}</td>
                       <td style={{textAlign:'right',color:v.lt>0?'#dc2626':T.text4,fontWeight:v.lt>0?700:400}}>{v.lt||'—'}</td>
@@ -558,7 +557,6 @@ export default function DashboardGestao() {
                   ))}
                   <tr style={{background:T.surface3}}>
                     <td colSpan={2} style={{padding:'7px 10px',fontWeight:700,color:T.text}}>TOTAL</td>
-                    <td style={{textAlign:'right',padding:'7px 10px',fontWeight:700,color:'#ea580c'}}>{ccBreak.reduce((s,[,v])=>s+v.exp,0)||'—'}</td>
                     <td style={{textAlign:'right',padding:'7px 10px',fontWeight:700,color:'#ca8a04'}}>{ccBreak.reduce((s,[,v])=>s+v.agendP,0)||'—'}</td>
                     <td style={{textAlign:'right',padding:'7px 10px',fontWeight:700,color:'#3b82f6'}}>{ccBreak.reduce((s,[,v])=>s+v.agend,0)||'—'}</td>
                     <td style={{textAlign:'right',padding:'7px 10px',fontWeight:700,color:'#22c55e'}}>{ccBreak.reduce((s,[,v])=>s+v.entregue,0)||'—'}</td>

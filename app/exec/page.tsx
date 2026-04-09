@@ -121,8 +121,16 @@ function ExecPage() {
 
   // No /exec: filtrar internamente — NÃO navegar para o portal interno
   // Os executivos comerciais não têm acesso ao link interno de monitoramento
-  const [execFiltroStatus, setExecFiltroStatus] = useState('')
-  const [execFiltroCC, setExecFiltroCC] = useState('')
+  const [execFiltroStatus, setExecFiltroStatus] = useState<string>(()=>{
+    if (typeof window !== 'undefined') return sessionStorage.getItem('exec_filtro_status') || ''
+    return ''
+  })
+  const [execFiltroCC, setExecFiltroCC] = useState<string>(()=>{
+    if (typeof window !== 'undefined') return sessionStorage.getItem('exec_filtro_cc') || ''
+    return ''
+  })
+  useEffect(() => { sessionStorage.setItem('exec_filtro_status', execFiltroStatus) }, [execFiltroStatus])
+  useEffect(() => { sessionStorage.setItem('exec_filtro_cc', execFiltroCC) }, [execFiltroCC])
 
   const navToMonitor = (params: Record<string,string>) => {
     // Aplica filtros internamente na aba busca/lista do exec
@@ -431,7 +439,7 @@ function ExecPage() {
         </div>
         <div style={{display:'flex',gap:4,background:C.surface2,padding:4,borderRadius:9,border:`1px solid ${C.border}`}}>
           {[{id:'dash',label:'📊 Dashboard'},{id:'lista',label:'📋 Notas'},{id:'busca',label:'🔍 Consultar NF'}].map(t=>(
-            <button key={t.id} onClick={()=>{ if(t.id!=='lista'){setExecFiltroStatus('');setExecFiltroCC('')}; setTab(t.id as any) }}
+            <button key={t.id} onClick={()=>setTab(t.id as any)}
               style={{padding:'7px 18px',borderRadius:6,fontSize:12,fontWeight:600,border:'none',
                 background:tab===t.id?C.accent:'transparent',color:tab===t.id?'#fff':C.text3,transition:'all .15s'}}>
               {t.label}
@@ -792,7 +800,7 @@ function ExecPage() {
                   <table>
                     <thead>
                       <tr>
-                        <th>Canal</th><th>Assistente</th>
+                        <th>Canal</th><th>Responsável</th>
                         <th style={{textAlign:'right'}}>Pend.</th>
                         <th style={{textAlign:'right'}}>Agend.</th>
                         <th style={{textAlign:'right'}}>Entregue</th>
@@ -962,7 +970,7 @@ function ExecPage() {
                         {label:'Previsão Entrega',   value:r.dt_previsao?fmt(r.dt_previsao):(r.tem_romaneio?'Aguardando agendamento':'Não expedida'), color:r.dt_previsao?C.yellow:(r.tem_romaneio?C.text3:C.text4)},
                 
                         {label:'Data de Entrega',    value:(()=>{ const oc=ocorrencias.find(o=>['01','107','123','124'].includes(o.codigo_ocorrencia)); const d=r.dt_entrega||(oc?.data_ocorrencia); return d?fmt(d):'Não entregue' })(),  color:(r.dt_entrega||ocorrencias.some(o=>['01','107','123','124'].includes(o.codigo_ocorrencia)))?C.green:C.text3},
-                        {label:'Assistente',         value:r.assistente||'—',                  color:C.text},
+                        {label:'Responsável',        value:r.assistente||'—',                  color:C.text},
                         {label:'Volumes',            value:String(r.volumes||'—'),             color:C.text},
                         {label:'CFOP',               value:r.cfop||'—',                        color:C.text},
                       ].map(f=>(

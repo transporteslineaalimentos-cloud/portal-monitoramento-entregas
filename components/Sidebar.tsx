@@ -9,7 +9,6 @@ const nav = [
   { href: '/dashboard', label: 'Dashboard',      icon: '▦',  sub: 'Executivo' },
   { href: '/',          label: 'Monitoramento',  icon: '⊞',  sub: 'Tabela' },
   { href: '/follow-up', label: 'Follow-up',      icon: '◎',  sub: 'Diário' },
-  { href: '/comercial', label: 'Relatório',       icon: '📊',  sub: 'Comercial' },
   { href: '/aging',     label: 'Aging',          icon: '⏱',  sub: 'Transportadoras' },
   { href: '/config',    label: 'Configurações',  icon: '⚙',  sub: 'Sistema' },
 ]
