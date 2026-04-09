@@ -180,6 +180,23 @@ export default function DashboardGestao() {
       .sort((a,b)=>(Number(b.valor_produtos)||0)-(Number(a.valor_produtos)||0))
   ,[filtered])
 
+  // Compliance por transportadora (para o dashboard interno)
+  const transpCompliance = useMemo(()=>{
+    const m:Record<string,{nome:string;noPrazo:number;total:number;valor:number}> = {}
+    filtered.filter(r=>r.status==='Entregue'&&r.transportador_nome).forEach(r=>{
+      const t=r.transportador_nome
+      if(!m[t]) m[t]={nome:t,noPrazo:0,total:0,valor:0}
+      m[t].total++
+      m[t].valor+=Number(r.valor_produtos)||0
+      if(!r.lt_transp_vencido) m[t].noPrazo++
+    })
+    return Object.values(m)
+      .filter(v=>v.total>=3)
+      .map(v=>({...v, pct: Math.round((v.noPrazo/v.total)*100)}))
+      .sort((a,b)=>b.total-a.total)
+      .slice(0,8)
+  },[filtered])
+
   // Notas reagendadas
   const nfsReagendadas = useMemo(()=>
     filtered.filter(r=>r.codigo_ocorrencia==='108')
@@ -554,6 +571,32 @@ export default function DashboardGestao() {
             </div>
           </Card>
         </div>
+
+        {/* ROW 7: Compliance Transportadoras */}
+        {transpCompliance.length > 0 && (
+          <Card title="🏆 COMPLIANCE — ENTREGA NO PRAZO" sub={`${transpCompliance.length} transportadoras · min. 3 entregas`}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:'10px 24px'}}>
+              {transpCompliance.map((t,i)=>{
+                const cor = t.pct>=90?T.green:t.pct>=70?T.yellow:T.red
+                const nome = t.nome.split(' ').slice(0,4).join(' ')
+                return (
+                  <div key={i}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
+                      <span style={{fontSize:12,color:T.text2,fontWeight:500,flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:220}}>{nome}</span>
+                      <div style={{display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
+                        <span style={{fontSize:11,color:T.text3}}>{t.noPrazo}/{t.total} NFs</span>
+                        <span style={{fontSize:14,fontWeight:800,color:cor,minWidth:40,textAlign:'right'}}>{t.pct}%</span>
+                      </div>
+                    </div>
+                    <div style={{height:7,background:T.surface3,borderRadius:4,overflow:'hidden'}}>
+                      <div style={{height:'100%',width:`${t.pct}%`,background:`linear-gradient(90deg,${cor}77,${cor})`,borderRadius:4}}/>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </Card>
+        )}
 
       </main>
     </div>

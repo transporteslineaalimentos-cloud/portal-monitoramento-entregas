@@ -115,14 +115,20 @@ function ExecPage() {
   })
   useEffect(() => { sessionStorage.setItem('exec_dateFrom', dateFrom) }, [dateFrom])
   useEffect(() => { sessionStorage.setItem('exec_dateTo', dateTo) }, [dateTo])
-  const [tab,       setTab]       = useState<'dash'|'busca'>('dash')
+  const [tab,       setTab]       = useState<'dash'|'busca'|'lista'>('dash')
   const now = new Date()
   const router = useRouter()
 
-  // Navegar para monitoramento com filtros (passa datas do exec)
+  // No /exec: filtrar internamente — NÃO navegar para o portal interno
+  // Os executivos comerciais não têm acesso ao link interno de monitoramento
+  const [execFiltroStatus, setExecFiltroStatus] = useState('')
+  const [execFiltroCC, setExecFiltroCC] = useState('')
+
   const navToMonitor = (params: Record<string,string>) => {
-    const q = new URLSearchParams({ de: dateFrom, ate: dateTo, ...params }).toString()
-    router.push(`/?${q}`)
+    // Aplica filtros internamente na aba busca/lista do exec
+    if (params.status) setExecFiltroStatus(params.status)
+    if (params.cc) setExecFiltroCC(params.cc)
+    setTab('lista')
   }
 
   const load = useCallback(async () => {
@@ -238,22 +244,26 @@ function ExecPage() {
       labelAnt:   format(iniMesAnt,   'MMM/yy', {locale: ptBR}).toUpperCase() }
   }, [data])
 
-  // Compliance por transportadora (entregues no prazo vs total entregues)
-  const transpCompliance = useMemo(()=>{
-    const m:Record<string,{nome:string;noPrazo:number;atrasadas:number;total:number;valor:number}>= {}
-    filtered.filter(r=>r.status==='Entregue'&&r.transportador_nome).forEach(r=>{
-      const t=r.transportador_nome
-      if(!m[t]) m[t]={nome:t,noPrazo:0,atrasadas:0,total:0,valor:0}
-      m[t].total++
-      m[t].valor+=Number(r.valor_produtos)||0
-      if(r.lt_transp_vencido) m[t].atrasadas++
-      else m[t].noPrazo++
+  // Taxa de entrega por canal (para executivos comerciais)
+  const taxaPorCanal = useMemo(()=>{
+    const m:Record<string,{cc:string;total:number;entregue:number;pendente:number;ocorrencia:number;valor:number}> = {}
+    filtered.forEach(r=>{
+      const cc = r.centro_custo||'N/D'
+      if(!m[cc]) m[cc]={cc,total:0,entregue:0,pendente:0,ocorrencia:0,valor:0}
+      m[cc].total++
+      m[cc].valor+=Number(r.valor_produtos)||0
+      if(r.status==='Entregue') m[cc].entregue++
+      else if(r.status==='Devolução'||r.status==='NF com Ocorrência') m[cc].ocorrencia++
+      else m[cc].pendente++
     })
     return Object.values(m)
-      .filter(v=>v.total>=3)
-      .map(v=>({...v, pct: Math.round((v.noPrazo/v.total)*100)}))
-      .sort((a,b)=>b.total-a.total)
-      .slice(0,8)
+      .filter(v=>v.total>=5)
+      .map(v=>({...v,
+        pctEntregue: Math.round((v.entregue/v.total)*100),
+        pctOcorr: Math.round((v.ocorrencia/v.total)*100)
+      }))
+      .sort((a,b)=>b.valor-a.valor)
+      .slice(0,7)
   },[filtered])
 
   const pendAgendCC = useMemo(()=>{
@@ -420,8 +430,8 @@ function ExecPage() {
           </div>
         </div>
         <div style={{display:'flex',gap:4,background:C.surface2,padding:4,borderRadius:9,border:`1px solid ${C.border}`}}>
-          {[{id:'dash',label:'📊 Dashboard'},{id:'busca',label:'🔍 Consultar NF'}].map(t=>(
-            <button key={t.id} onClick={()=>setTab(t.id as any)}
+          {[{id:'dash',label:'📊 Dashboard'},{id:'lista',label:'📋 Notas'},{id:'busca',label:'🔍 Consultar NF'}].map(t=>(
+            <button key={t.id} onClick={()=>{ if(t.id!=='lista'){setExecFiltroStatus('');setExecFiltroCC('')}; setTab(t.id as any) }}
               style={{padding:'7px 18px',borderRadius:6,fontSize:12,fontWeight:600,border:'none',
                 background:tab===t.id?C.accent:'transparent',color:tab===t.id?'#fff':C.text3,transition:'all .15s'}}>
               {t.label}
@@ -625,29 +635,35 @@ function ExecPage() {
                     </ResponsiveContainer>}
               </SecCard>
 
-              {/* Compliance por Transportadora */}
-              <SecCard title="🏆 COMPLIANCE — ENTREGA NO PRAZO" sub={`${transpCompliance.length} transportadoras`} accent={C.green}>
-                {transpCompliance.length===0
-                  ? <div style={{textAlign:'center',padding:24,color:C.text3,fontSize:12}}>Sem dados de entrega no período</div>
-                  : <div style={{display:'flex',flexDirection:'column',gap:8,maxHeight:180,overflowY:'auto'}}>
-                      {transpCompliance.map((t,i)=>{
-                        const cor = t.pct>=90?C.green:t.pct>=70?C.yellow:C.red
-                        const nome = t.nome.split(' ').slice(0,3).join(' ')
+              {/* Taxa de Entrega por Canal — relevante para o comercial */}
+              <SecCard title="📈 TAXA DE ENTREGA POR CANAL" sub={`${taxaPorCanal.length} canais`} accent={C.green}>
+                {taxaPorCanal.length===0
+                  ? <div style={{textAlign:'center',padding:24,color:C.text3,fontSize:12}}>Sem dados no período</div>
+                  : <div style={{display:'flex',flexDirection:'column',gap:9,maxHeight:180,overflowY:'auto'}}>
+                      {taxaPorCanal.map((c,i)=>{
+                        const cor = c.pctEntregue>=80?C.green:c.pctEntregue>=60?C.yellow:C.red
+                        const cc = c.cc.replace(/^[A-Z]{2,4} - /,'')
                         return (
                           <div key={i}>
                             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
-                              <span style={{fontSize:11,color:C.text2,fontWeight:500,flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:180}}>{nome}</span>
+                              <span style={{fontSize:11,color:C.text2,fontWeight:500,flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:160}}>{cc}</span>
                               <div style={{display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
-                                <span style={{fontSize:10,color:C.text3}}>{t.noPrazo}/{t.total} NFs</span>
-                                <span style={{fontSize:13,fontWeight:800,color:cor,minWidth:38,textAlign:'right'}}>{t.pct}%</span>
+                                <span style={{fontSize:9,color:C.text3}}>{c.entregue}/{c.total}</span>
+                                {c.pctOcorr>0&&<span style={{fontSize:9,color:C.red,fontWeight:600}}>{c.pctOcorr}% ocorr.</span>}
+                                <span style={{fontSize:13,fontWeight:800,color:cor,minWidth:38,textAlign:'right'}}>{c.pctEntregue}%</span>
                               </div>
                             </div>
-                            <div style={{height:6,background:C.border,borderRadius:3,overflow:'hidden'}}>
-                              <div style={{height:'100%',width:`${t.pct}%`,background:`linear-gradient(90deg,${cor}99,${cor})`,borderRadius:3,transition:'width .3s'}}/>
+                            <div style={{height:5,background:C.border,borderRadius:3,overflow:'hidden',display:'flex',gap:1}}>
+                              <div style={{height:'100%',width:`${c.pctEntregue}%`,background:`linear-gradient(90deg,${cor}88,${cor})`,borderRadius:3}}/>
+                              {c.pctOcorr>0&&<div style={{height:'100%',width:`${c.pctOcorr}%`,background:C.red+'66',borderRadius:3}}/>}
                             </div>
                           </div>
                         )
                       })}
+                      <div style={{fontSize:10,color:C.text3,marginTop:4,display:'flex',gap:12}}>
+                        <span style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:8,height:8,background:C.green,borderRadius:2,display:'inline-block'}}/> Entregue</span>
+                        <span style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:8,height:8,background:C.red+'88',borderRadius:2,display:'inline-block'}}/> Ocorrência</span>
+                      </div>
                     </div>}
               </SecCard>
             </div>
@@ -807,7 +823,73 @@ function ExecPage() {
           </div>
         )}
 
-        {/* ══════════════ ABA BUSCA ══════════════════════════════════════ */}
+
+        {/* ══════════════ ABA LISTA (notas filtradas pelo card clicado) ═════════ */}
+        {tab==='lista' && (
+          <div style={{animation:'fadeIn .3s ease'}}>
+            <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:12,padding:'14px 20px',marginBottom:12,display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+              <div style={{fontSize:13,color:C.text2,fontWeight:500}}>
+                {execFiltroStatus && <span>Status: <strong style={{color:C.accent}}>{execFiltroStatus}</strong></span>}
+                {execFiltroCC && <span style={{marginLeft:8}}>Canal: <strong style={{color:C.accent}}>{execFiltroCC}</strong></span>}
+                {!execFiltroStatus&&!execFiltroCC && <span>Todas as notas do período</span>}
+              </div>
+              <button onClick={()=>{setExecFiltroStatus('');setExecFiltroCC('');setTab('dash')}}
+                style={{marginLeft:'auto',padding:'6px 14px',background:'none',border:`1px solid ${C.border}`,borderRadius:6,color:C.text3,fontSize:12,cursor:'pointer'}}>
+                ← Voltar ao Dashboard
+              </button>
+            </div>
+            {(() => {
+              const rows = filtered
+                .filter(r=> (!execFiltroStatus || r.status===execFiltroStatus) && (!execFiltroCC || r.centro_custo===execFiltroCC))
+                .sort((a,b)=>(Number(b.valor_produtos)||0)-(Number(a.valor_produtos)||0))
+              return (
+                <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:12,overflow:'hidden'}}>
+                  <div style={{padding:'10px 16px',background:C.surface2,borderBottom:`1px solid ${C.border}`,fontSize:11,color:C.text3,fontWeight:600}}>
+                    {rows.length} notas · {moneyFull(rows.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0))}
+                  </div>
+                  <div style={{overflowX:'auto'}}>
+                    <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+                      <thead>
+                        <tr style={{background:C.surface2,borderBottom:`1px solid ${C.border}`}}>
+                          {['NF','DESTINATÁRIO','CIDADE · UF','CANAL','VALOR','EXPEDIÇÃO','PREVISÃO','STATUS'].map(h=>(
+                            <th key={h} style={{padding:'8px 12px',textAlign:'left',fontSize:10,color:C.text3,letterSpacing:'.05em',whiteSpace:'nowrap'}}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rows.slice(0,100).map((r,i)=>{
+                          const sColor:Record<string,string>={'Entregue':C.green,'Agendado':C.blue,'Pendente Agendamento':'#ca8a04','Devolução':C.red,'NF com Ocorrência':'#dc2626','Pendente Baixa Entrega':'#e11d48'}
+                          const cor = sColor[r.status]||C.text3
+                          return (
+                            <tr key={i} style={{borderBottom:`1px solid ${C.border}`}}
+                              onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background=C.surface2}
+                              onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background=''}>
+                              <td style={{padding:'9px 12px',fontWeight:700,color:C.accent}}>{r.nf_numero}</td>
+                              <td style={{padding:'9px 12px',color:C.text2,maxWidth:160,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.destinatario_fantasia||r.destinatario_nome}</td>
+                              <td style={{padding:'9px 12px',color:C.text3,whiteSpace:'nowrap'}}>{r.cidade_destino} · {r.uf_destino}</td>
+                              <td style={{padding:'9px 12px'}}><span style={{fontSize:10,background:`${C.blue}22`,color:C.blue,padding:'2px 6px',borderRadius:4}}>{r.centro_custo}</span></td>
+                              <td style={{padding:'9px 12px',fontWeight:600,color:C.text,whiteSpace:'nowrap',fontVariantNumeric:'tabular-nums'}}>
+                                {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:0}).format(Number(r.valor_produtos)||0)}
+                              </td>
+                              <td style={{padding:'9px 12px',color:C.text3,whiteSpace:'nowrap'}}>{r.dt_expedida?format(new Date(r.dt_expedida.slice(0,10)+' 12:00'),'dd/MM/yy',{locale:ptBR}):'—'}</td>
+                              <td style={{padding:'9px 12px',whiteSpace:'nowrap',color:r.dt_previsao&&new Date(r.dt_previsao)<new Date()?C.red:C.text2}}>
+                                {r.dt_previsao?format(new Date(r.dt_previsao.slice(0,10)+' 12:00'),'dd/MM/yy',{locale:ptBR}):'—'}
+                              </td>
+                              <td style={{padding:'9px 12px'}}><span style={{fontSize:11,padding:'3px 7px',borderRadius:4,background:`${cor}20`,color:cor}}>{r.status}</span></td>
+                            </tr>
+                          )
+                        })}
+                        {rows.length>100&&<tr><td colSpan={8} style={{padding:'12px',textAlign:'center',color:C.text3,fontSize:12}}>+ {rows.length-100} notas adicionais — refine os filtros</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )
+            })()}
+          </div>
+        )}
+
+                {/* ══════════════ ABA BUSCA ══════════════════════════════════════ */}
         {tab==='busca' && (
           <div style={{animation:'fadeIn .3s ease',display:'flex',flexDirection:'column',gap:14}}>
 
