@@ -160,6 +160,7 @@ function EditTranspModal({ nf, onClose, onSaved }: {
           </div>
         </div>
       </div>
+    </>
   )
 }
 
