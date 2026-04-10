@@ -6,6 +6,7 @@ import { getTheme } from '@/lib/theme'
 import { format, isToday, parseISO, subMonths, startOfMonth } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import OcorrenciasDrawer from '@/components/OcorrenciasDrawer'
+import { OCORR_TODAS, type OcorrItem } from '@/lib/ocorrencias'
 
 /* ── Tipos ──────────────────────────────────────────────────────────────── */
 type TorreUser = { id: string; nome: string; email: string; centros_custo: string[] }
@@ -27,19 +28,7 @@ const KPI_FU = [
 ]
 
 /* ── Mapeamento de ocorrências com campos extras ─────────────────────── */
-type OcorrItem = { codigo: string; label: string; precisaData?: boolean; precisaHora?: boolean; labelData?: string }
-const OCORR_LISTA: OcorrItem[] = [
-  { codigo:'101', label:'Agendado',                   precisaData:true,  labelData:'Data agendada' },
-  { codigo:'91',  label:'Entrega Programada',         precisaData:true,  labelData:'Data programada' },
-  { codigo:'108', label:'Reagendada',                 precisaData:true,  labelData:'Nova data' },
-  { codigo:'109', label:'Reagendamento Solicitado',   precisaData:true,  labelData:'Data solicitada' },
-  { codigo:'102', label:'Aguardando Retorno Cliente', precisaData:false },
-  { codigo:'114', label:'Agend. Conforme Cliente',    precisaData:true,  labelData:'Data conforme cliente' },
-  { codigo:'106', label:'Em Tratativa Comercial',     precisaData:false },
-  { codigo:'03',  label:'Recusa - Falta de PO',       precisaData:false },
-  { codigo:'88',  label:'Recusado - Aguard. Neg.',    precisaData:false },
-  { codigo:'112', label:'Devolução Total',            precisaData:false },
-]
+// Ocorrências carregadas de @/lib/ocorrencias
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */
 const fmt = (d:string|null) => { if(!d) return '—'; try { return format(new Date(d.slice(0,10)+' 12:00'),'dd/MM/yy',{locale:ptBR}) } catch { return '—' } }
@@ -133,13 +122,21 @@ export default function TorrePage() {
   /* Lançamento de ocorrência inline */
   const [ocorrNF, setOcorrNF] = useState<Entrega|null>(null)
   const [ocorrCod, setOcorrCod] = useState('')
+  const [ocorrBusca, setOcorrBusca] = useState('')
+  const [ocorrDropOpen, setOcorrDropOpen] = useState(false)
   const [ocorrObs, setOcorrObs] = useState('')
   const [ocorrData, setOcorrData] = useState('')
   const [ocorrHora, setOcorrHora] = useState(() => new Date().toTimeString().slice(0,5))
   const [ocorrSending, setOcorrSending] = useState(false)
   const [ocorrMsg, setOcorrMsg] = useState<{ok:boolean;txt:string}|null>(null)
+  const [ocorrAnexo, setOcorrAnexo] = useState<{base64:string;nome:string}|null>(null)
 
-  const ocorrItemSelecionado = OCORR_LISTA.find(o=>o.codigo===ocorrCod)
+  const ocorrItemSelecionado = OCORR_TODAS.find(o=>o.codigo===ocorrCod)
+  const ocorrFiltradas = OCORR_TODAS.filter(o=>
+    !ocorrBusca || 
+    o.codigo.includes(ocorrBusca) || 
+    o.label.toLowerCase().includes(ocorrBusca.toLowerCase())
+  )
 
   /* Persistir login */
   useEffect(() => {
@@ -224,7 +221,7 @@ export default function TorrePage() {
   const enviarOcorrencia = async () => {
     if (!ocorrNF||!ocorrCod||!user) return
     setOcorrSending(true); setOcorrMsg(null)
-    const item = OCORR_LISTA.find(o=>o.codigo===ocorrCod)
+    const item = OCORR_TODAS.find(o=>o.codigo===ocorrCod)
 
     // Montar observação com data se houver
     let obs = ocorrObs
@@ -240,12 +237,13 @@ export default function TorrePage() {
         previsao_transportador: item?.precisaData&&ocorrData ? ocorrData+'T'+ocorrHora+':00' : undefined,
         usuario_responsavel: user.email,
         hora_ocorrencia: ocorrHora,
+        ...(ocorrAnexo ? { anexo_base64: ocorrAnexo.base64, anexo_nome: ocorrAnexo.nome } : {})
       })
     })
     const d = await res.json()
     setOcorrMsg({ok:d.ok, txt:d.mensagem||(d.ok?'Enviado!':'Erro')})
     if (d.ok) {
-      setOcorrCod(''); setOcorrObs(''); setOcorrData(''); setOcorrNF(null)
+      setOcorrCod(''); setOcorrBusca(''); setOcorrObs(''); setOcorrData(''); setOcorrAnexo(null); setOcorrNF(null)
       setTimeout(()=>{ setOcorrMsg(null); load() }, 2000)
     }
     setOcorrSending(false)
@@ -463,7 +461,7 @@ export default function TorrePage() {
                           </span>
                         </td>
                         <td onClick={e=>e.stopPropagation()}>
-                          <button onClick={()=>{ setOcorrNF(r); setOcorrCod(''); setOcorrObs(''); setOcorrData(''); setOcorrMsg(null) }}
+                          <button onClick={()=>{ setOcorrNF(r); setOcorrCod(''); setOcorrBusca(''); setOcorrObs(''); setOcorrData(''); setOcorrAnexo(null); setOcorrDropOpen(false); setOcorrMsg(null) }}
                             style={{fontSize:11,padding:'3px 10px',borderRadius:6,border:'1px solid rgba(249,115,22,.3)',
                               background:'rgba(249,115,22,.08)',color:'#f97316',cursor:'pointer',fontFamily:'inherit',fontWeight:600,whiteSpace:'nowrap'}}>
                             + registrar
@@ -485,7 +483,7 @@ export default function TorrePage() {
       {/* Modal de lançamento de ocorrência */}
       {ocorrNF && (
         <>
-          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:200}} onClick={()=>setOcorrNF(null)} />
+          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:200}} onClick={()=>{setOcorrNF(null);setOcorrCod('');setOcorrBusca('');setOcorrData('');setOcorrAnexo(null);setOcorrDropOpen(false)}} />
           <div style={{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',
             zIndex:201,width:500,background:T.surface,border:`1px solid ${T.border}`,
             borderRadius:14,boxShadow:'0 20px 60px rgba(0,0,0,.35)',overflow:'hidden'}}>
@@ -503,32 +501,99 @@ export default function TorrePage() {
 
             <div style={{padding:'18px 20px',display:'flex',flexDirection:'column',gap:14}}>
 
-              {/* Tipo de ocorrência */}
-              <div>
+              {/* Busca de ocorrência — autocomplete */}
+              <div style={{position:'relative'}}>
                 <div style={{fontSize:11,fontWeight:600,color:T.text3,marginBottom:6,letterSpacing:'.06em'}}>TIPO DE OCORRÊNCIA *</div>
-                <select value={ocorrCod} onChange={e=>{setOcorrCod(e.target.value);setOcorrData('');setOcorrMsg(null)}}
-                  style={{width:'100%',padding:'9px 12px',background:T.surface2,border:`1px solid ${T.border}`,borderRadius:8,color:T.text,fontSize:13,outline:'none',fontFamily:'inherit'}}>
-                  <option value=''>Selecionar...</option>
-                  {OCORR_LISTA.map(o=><option key={o.codigo} value={o.codigo}>[{o.codigo}] {o.label}</option>)}
-                </select>
+                {/* Campo selecionado */}
+                {ocorrCod && ocorrItemSelecionado ? (
+                  <div style={{display:'flex',alignItems:'center',gap:8,padding:'9px 12px',background:'rgba(249,115,22,.08)',border:'1px solid rgba(249,115,22,.3)',borderRadius:8}}>
+                    <span style={{fontSize:12,fontWeight:700,color:'#f97316',fontFamily:'var(--font-mono)'}}>{ocorrItemSelecionado.codigo}</span>
+                    <span style={{fontSize:13,fontWeight:600,color:T.text,flex:1}}>{ocorrItemSelecionado.label}</span>
+                    <button onClick={()=>{setOcorrCod('');setOcorrBusca('');setOcorrData('');setOcorrAnexo(null)}}
+                      style={{background:'none',border:'none',color:T.text3,cursor:'pointer',fontSize:16,padding:'0 4px'}}>×</button>
+                  </div>
+                ) : (
+                  <>
+                    <input
+                      type="text"
+                      value={ocorrBusca}
+                      onChange={e=>{setOcorrBusca(e.target.value);setOcorrDropOpen(true)}}
+                      onFocus={()=>setOcorrDropOpen(true)}
+                      placeholder="Digite código ou nome da ocorrência..."
+                      autoComplete="off"
+                      style={{width:'100%',padding:'9px 12px',background:T.surface2,border:`1px solid ${T.border}`,borderRadius:8,color:T.text,fontSize:13,outline:'none',fontFamily:'inherit',boxSizing:'border-box'}}
+                    />
+                    {ocorrDropOpen && (
+                      <div style={{position:'absolute',top:'100%',left:0,right:0,zIndex:50,
+                        background:T.surface,border:`1px solid ${T.border}`,borderRadius:8,
+                        boxShadow:'0 8px 24px rgba(0,0,0,.2)',maxHeight:240,overflowY:'auto',marginTop:4}}>
+                        {ocorrFiltradas.length===0 ? (
+                          <div style={{padding:'12px 14px',fontSize:13,color:T.text3}}>Nenhuma ocorrência encontrada</div>
+                        ) : ocorrFiltradas.map(o=>(
+                          <button key={o.codigo}
+                            onClick={()=>{setOcorrCod(o.codigo);setOcorrBusca('');setOcorrDropOpen(false);setOcorrData('');setOcorrMsg(null)}}
+                            style={{display:'flex',alignItems:'center',gap:10,width:'100%',padding:'9px 14px',
+                              border:'none',borderBottom:`1px solid ${T.border}`,background:'transparent',
+                              cursor:'pointer',textAlign:'left',fontFamily:'inherit',transition:'background .1s'}}
+                            onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background=T.surface2}
+                            onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background='transparent'}>
+                            <span style={{fontSize:11,fontWeight:700,color:'#f97316',minWidth:32,fontFamily:'var(--font-mono)'}}>{o.codigo}</span>
+                            <span style={{fontSize:13,color:T.text}}>{o.label}</span>
+                            {o.precisaData && <span style={{marginLeft:'auto',fontSize:10,color:'#3b82f6',background:'rgba(59,130,246,.1)',padding:'1px 6px',borderRadius:10,whiteSpace:'nowrap'}}>data</span>}
+                            {o.isEntrega && <span style={{marginLeft:o.precisaData?0:'auto',fontSize:10,color:'#16a34a',background:'rgba(22,163,74,.1)',padding:'1px 6px',borderRadius:10,whiteSpace:'nowrap'}}>📎 anexo</span>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
 
-              {/* Data da ocorrência — só aparece se o tipo precisar */}
+              {/* Data/Hora — aparece quando o tipo exige */}
               {ocorrItemSelecionado?.precisaData && (
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
                   <div>
                     <div style={{fontSize:11,fontWeight:600,color:T.text3,marginBottom:6,letterSpacing:'.06em'}}>
-                      {ocorrItemSelecionado.labelData?.toUpperCase()||'DATA'} *
+                      {ocorrItemSelecionado.labelData?.toUpperCase()||'DATA'} <span style={{color:'#ef4444'}}>*</span>
                     </div>
                     <input type="date" value={ocorrData} onChange={e=>setOcorrData(e.target.value)}
-                      min={new Date().toISOString().split('T')[0]}
-                      style={{width:'100%',padding:'9px 12px',background:T.surface2,border:`1px solid ${ocorrData?'#f97316':T.border}`,borderRadius:8,color:T.text,fontSize:13,outline:'none',fontFamily:'inherit',boxSizing:'border-box'}} />
+                      style={{width:'100%',padding:'9px 12px',background:T.surface2,
+                        border:`2px solid ${ocorrData?'#f97316':T.border}`,borderRadius:8,
+                        color:T.text,fontSize:13,outline:'none',fontFamily:'inherit',boxSizing:'border-box'}} />
                   </div>
                   <div>
                     <div style={{fontSize:11,fontWeight:600,color:T.text3,marginBottom:6,letterSpacing:'.06em'}}>HORA</div>
                     <input type="time" value={ocorrHora} onChange={e=>setOcorrHora(e.target.value)}
                       style={{width:'100%',padding:'9px 12px',background:T.surface2,border:`1px solid ${T.border}`,borderRadius:8,color:T.text,fontSize:13,outline:'none',fontFamily:'inherit',boxSizing:'border-box'}} />
                   </div>
+                </div>
+              )}
+
+              {/* Anexo — apenas para ocorrências de entrega */}
+              {ocorrItemSelecionado?.isEntrega && (
+                <div>
+                  <div style={{fontSize:11,fontWeight:600,color:T.text3,marginBottom:6,letterSpacing:'.06em'}}>📎 COMPROVANTE DE ENTREGA (opcional)</div>
+                  {ocorrAnexo ? (
+                    <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 12px',background:'rgba(34,197,94,.08)',border:'1px solid rgba(34,197,94,.3)',borderRadius:8}}>
+                      <span style={{fontSize:12,color:'#16a34a',flex:1}}>✓ {ocorrAnexo.nome}</span>
+                      <button onClick={()=>setOcorrAnexo(null)} style={{background:'none',border:'none',color:T.text3,cursor:'pointer',fontSize:16}}>×</button>
+                    </div>
+                  ) : (
+                    <label style={{display:'flex',alignItems:'center',gap:8,padding:'9px 14px',background:T.surface2,border:`1px dashed ${T.border}`,borderRadius:8,cursor:'pointer'}}>
+                      <span style={{fontSize:13,color:T.text3}}>Clique para selecionar imagem ou PDF</span>
+                      <input type="file" accept="image/*,.pdf" style={{display:'none'}}
+                        onChange={e=>{
+                          const file = e.target.files?.[0]
+                          if (!file) return
+                          const reader = new FileReader()
+                          reader.onload = ev => {
+                            const b64 = (ev.target?.result as string).split(',')[1]
+                            setOcorrAnexo({base64:b64, nome:file.name})
+                          }
+                          reader.readAsDataURL(file)
+                        }} />
+                    </label>
+                  )}
                 </div>
               )}
 

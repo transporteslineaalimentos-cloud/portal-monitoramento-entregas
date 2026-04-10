@@ -16,14 +16,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Body inválido' }, { status: 400 })
   }
 
-  const { nf_numero, codigo, descricao, observacao, previsao_transportador, hora_ocorrencia, usuario_responsavel } = body
+  const {
+    nf_numero, codigo, descricao, observacao,
+    previsao_transportador, hora_ocorrencia, usuario_responsavel,
+    anexo_base64, anexo_nome
+  } = body
+
   if (!nf_numero || !codigo || !descricao)
     return NextResponse.json({ error: 'nf_numero, codigo e descricao obrigatórios' }, { status: 400 })
 
   const db = supabaseAdmin()
-
-  // Buscar dados completos da NF
   let nf: any = null
+
   const { data: rows } = await db
     .from('v_monitoramento_completo')
     .select('nf_numero,nf_serie,nf_chave,dt_emissao,remetente_cnpj,remetente_nome,destinatario_cnpj,destinatario_nome,transportador_cnpj,transportador_nome')
@@ -44,28 +48,27 @@ export async function POST(req: NextRequest) {
   const dataOcorreu = now.toISOString().slice(0, 19)
   const horaOcorreu = now.toTimeString().slice(0, 5)
 
-
   const payload = [{
     Autenticacao: { Token_Integracao: ACTIVE_TOKEN },
     Embarcador: {
-      CNPJCPF: (nf.remetente_cnpj || '05207076000459').replace(/\D/g,''),
+      CNPJCPF: (nf.remetente_cnpj || '05207076000459').replace(/\D/g, ''),
       RazaoSocial: nf.remetente_nome || 'LINEA ALIMENTOS IND E COM S/A',
       IE: 'ISENTO'
     },
     Transportador: {
-      CNPJCPF: (nf.transportador_cnpj || '').replace(/\D/g,''),
+      CNPJCPF: (nf.transportador_cnpj || '').replace(/\D/g, ''),
       RazaoSocial: nf.transportador_nome || '',
       IE: 'ISENTO'
     },
     Interessado: {
-      CNPJCPF: (nf.destinatario_cnpj || '').replace(/\D/g,''),
+      CNPJCPF: (nf.destinatario_cnpj || '').replace(/\D/g, ''),
       RazaoSocial: nf.destinatario_nome || '',
       IE: 'ISENTO'
     },
     Documento: {
       Tipo: 'NotaFiscal',
-      Emissor_CNPJCPF: (nf.remetente_cnpj || '05207076000459').replace(/\D/g,''),
-      Emissao: nf.dt_emissao ? nf.dt_emissao.slice(0,10) + 'T00:00:00' : dataOcorreu,
+      Emissor_CNPJCPF: (nf.remetente_cnpj || '05207076000459').replace(/\D/g, ''),
+      Emissao: nf.dt_emissao ? nf.dt_emissao.slice(0, 10) + 'T00:00:00' : dataOcorreu,
       Numero: nf.nf_numero,
       Serie: nf.nf_serie || '2',
       Chave_Eletronica: nf.nf_chave || ''
@@ -77,7 +80,12 @@ export async function POST(req: NextRequest) {
     Observacao: observacao || '',
     Lancamento_Pelo: 'Interno',
     Lancamento_Nome: usuario_responsavel || 'Portal Linea',
-    ...(previsao_transportador ? { Solucao_Baixa: { Previsao_Transportador: previsao_transportador } } : {})
+    ...(previsao_transportador ? {
+      Solucao_Baixa: { Previsao_Transportador: previsao_transportador }
+    } : {}),
+    ...(anexo_base64 ? {
+      Anexo_Base64: [anexo_base64]
+    } : {}),
   }]
 
   try {

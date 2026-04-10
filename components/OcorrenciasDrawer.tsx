@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
+import { OCORR_TODAS } from '@/lib/ocorrencias'
 import { supabase, type Entrega } from '@/lib/supabase'
 import { useTheme } from '@/components/ThemeProvider'
 import { getTheme } from '@/lib/theme'
@@ -177,6 +178,11 @@ export default function OcorrenciasDrawer({ nf, onClose, onTranspEdited }: {
   const [transpNome, setTranspNome] = useState<string>('')
   const [showRegOcorr, setShowRegOcorr] = useState(false)
   const [ocorrCodigo, setOcorrCodigo] = useState('')
+  const [ocorrBusca, setOcorrBusca] = useState('')
+  const [ocorrDropOpen, setOcorrDropOpen] = useState(false)
+  const [ocorrData, setOcorrData] = useState('')
+  const [ocorrHora, setOcorrHora] = useState(() => typeof window !== 'undefined' ? new Date().toTimeString().slice(0,5) : '09:00')
+  const [ocorrAnexo, setOcorrAnexo] = useState<{base64:string;nome:string}|null>(null)
   const [ocorrObs, setOcorrObs] = useState('')
   const [ocorrEnviando, setOcorrEnviando] = useState(false)
   const [ocorrMsg, setOcorrMsg] = useState<{ok:boolean;txt:string}|null>(null)
@@ -204,25 +210,14 @@ export default function OcorrenciasDrawer({ nf, onClose, onTranspEdited }: {
     return () => document.removeEventListener('keydown', handler)
   }, [onClose])
 
-  const OCORR_OPCOES = [
-    { codigo: '101', label: 'Agendado' },
-    { codigo: '91',  label: 'Entrega Programada' },
-    { codigo: '108', label: 'Reagendada' },
-    { codigo: '109', label: 'Reagendamento Solicitado' },
-    { codigo: '102', label: 'Aguardando Retorno Cliente' },
-    { codigo: '114', label: 'Agend. Conforme Cliente' },
-    { codigo: '106', label: 'Em Tratativa Comercial' },
-    { codigo: '03',  label: 'Recusa - Falta de PO' },
-    { codigo: '09',  label: 'Mercadoria em Desacordo' },
-    { codigo: '19',  label: 'Reentrega Solicitada Cliente' },
-    { codigo: '88',  label: 'Recusado - Aguard. Negociação' },
-    { codigo: '112', label: 'Devolução Total' },
-  ]
+  // Lista de ocorrências carregada de @/lib/ocorrencias
+  const ocorrItemSel = OCORR_TODAS.find(o => o.codigo === ocorrCodigo)
+  const ocorrFiltradas = OCORR_TODAS.filter(o => !ocorrBusca || o.codigo.includes(ocorrBusca) || o.label.toLowerCase().includes(ocorrBusca.toLowerCase()))
 
   const enviarOcorrencia = async () => {
     if (!ocorrCodigo) return
     setOcorrEnviando(true); setOcorrMsg(null)
-    const opcao = OCORR_OPCOES.find(o => o.codigo === ocorrCodigo)
+    const opcao = ocorrItemSel
     try {
       const res = await fetch('/api/active/ocorrencia', {
         method: 'POST',
@@ -231,13 +226,16 @@ export default function OcorrenciasDrawer({ nf, onClose, onTranspEdited }: {
           nf_numero: nf?.nf_numero,
           codigo: ocorrCodigo,
           descricao: opcao?.label?.toUpperCase() || ocorrCodigo,
-          observacao: ocorrObs
+          observacao: ocorrObs,
+          hora_ocorrencia: ocorrHora,
+          previsao_transportador: opcao?.precisaData && ocorrData ? ocorrData + 'T' + ocorrHora + ':00' : undefined,
+          ...(ocorrAnexo ? { anexo_base64: ocorrAnexo.base64, anexo_nome: ocorrAnexo.nome } : {})
         })
       })
       const data = await res.json()
       if (data.ok) {
         setOcorrMsg({ ok: true, txt: data.mensagem })
-        setOcorrCodigo(''); setOcorrObs('')
+        setOcorrCodigo(''); setOcorrBusca(''); setOcorrObs(''); setOcorrData(''); setOcorrAnexo(null)
         setTimeout(() => { setShowRegOcorr(false); setOcorrMsg(null); load() }, 2000)
       } else {
         setOcorrMsg({ ok: false, txt: data.mensagem || 'Erro ao enviar' })
@@ -321,14 +319,75 @@ export default function OcorrenciasDrawer({ nf, onClose, onTranspEdited }: {
 
           {showRegOcorr && (
             <div style={{ background: T.surface2, border: `1px solid ${T.border}`, borderRadius: 10, padding: '14px 16px', marginBottom: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div>
+              {/* Busca de ocorrência */}
+              <div style={{position:'relative'}}>
                 <div style={{ fontSize: 11, fontWeight: 600, color: T.text3, marginBottom: 5 }}>TIPO DE OCORRÊNCIA</div>
-                <select value={ocorrCodigo} onChange={e => setOcorrCodigo(e.target.value)}
-                  style={{ width: '100%', padding: '7px 10px', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 6, color: T.text, fontSize: 13, outline: 'none' }}>
-                  <option value=''>Selecionar...</option>
-                  {OCORR_OPCOES.map(o => <option key={o.codigo} value={o.codigo}>[{o.codigo}] {o.label}</option>)}
-                </select>
+                {ocorrCodigo && ocorrItemSel ? (
+                  <div style={{display:'flex',alignItems:'center',gap:8,padding:'7px 10px',background:'rgba(249,115,22,.08)',border:'1px solid rgba(249,115,22,.3)',borderRadius:6}}>
+                    <span style={{fontSize:11,fontWeight:700,color:'#f97316'}}>{ocorrItemSel.codigo}</span>
+                    <span style={{fontSize:12,color:T.text,flex:1}}>{ocorrItemSel.label}</span>
+                    <button onClick={()=>{setOcorrCodigo('');setOcorrBusca('');setOcorrData('');setOcorrAnexo(null)}} style={{background:'none',border:'none',color:T.text3,cursor:'pointer',fontSize:15}}>×</button>
+                  </div>
+                ) : (
+                  <>
+                    <input type="text" value={ocorrBusca} onChange={e=>{setOcorrBusca(e.target.value);setOcorrDropOpen(true)}} onFocus={()=>setOcorrDropOpen(true)}
+                      placeholder="Buscar por código ou nome..." autoComplete="off"
+                      style={{width:'100%',padding:'7px 10px',background:T.surface,border:`1px solid ${T.border}`,borderRadius:6,color:T.text,fontSize:13,outline:'none',boxSizing:'border-box' as const}} />
+                    {ocorrDropOpen && (
+                      <div style={{position:'absolute',top:'100%',left:0,right:0,zIndex:50,background:T.surface,border:`1px solid ${T.border}`,borderRadius:7,boxShadow:'0 8px 24px rgba(0,0,0,.2)',maxHeight:180,overflowY:'auto',marginTop:3}}>
+                        {ocorrFiltradas.map(o=>(
+                          <button key={o.codigo} onClick={()=>{setOcorrCodigo(o.codigo);setOcorrBusca('');setOcorrDropOpen(false);setOcorrData('');setOcorrMsg(null)}}
+                            style={{display:'flex',alignItems:'center',gap:8,width:'100%',padding:'7px 10px',border:'none',borderBottom:`1px solid ${T.border}`,background:'transparent',cursor:'pointer',textAlign:'left',fontFamily:'inherit'}}
+                            onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background=T.surface2}
+                            onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background='transparent'}>
+                            <span style={{fontSize:10,fontWeight:700,color:'#f97316',minWidth:28}}>{o.codigo}</span>
+                            <span style={{fontSize:12,color:T.text}}>{o.label}</span>
+                            {o.precisaData && <span style={{marginLeft:'auto',fontSize:9,color:'#3b82f6'}}>data</span>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
+
+              {/* Data/Hora se necessário */}
+              {ocorrItemSel?.precisaData && (
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                  <div>
+                    <div style={{fontSize:11,fontWeight:600,color:T.text3,marginBottom:4}}>{ocorrItemSel.labelData?.toUpperCase()||'DATA'} *</div>
+                    <input type="date" value={ocorrData} onChange={e=>setOcorrData(e.target.value)}
+                      style={{width:'100%',padding:'7px 10px',background:T.surface,border:`2px solid ${ocorrData?'#f97316':T.border}`,borderRadius:6,color:T.text,fontSize:12,outline:'none',boxSizing:'border-box' as const}} />
+                  </div>
+                  <div>
+                    <div style={{fontSize:11,fontWeight:600,color:T.text3,marginBottom:4}}>HORA</div>
+                    <input type="time" value={ocorrHora} onChange={e=>setOcorrHora(e.target.value)}
+                      style={{width:'100%',padding:'7px 10px',background:T.surface,border:`1px solid ${T.border}`,borderRadius:6,color:T.text,fontSize:12,outline:'none',boxSizing:'border-box' as const}} />
+                  </div>
+                </div>
+              )}
+
+              {/* Anexo para ocorrências de entrega */}
+              {ocorrItemSel?.isEntrega && (
+                <div>
+                  <div style={{fontSize:11,fontWeight:600,color:T.text3,marginBottom:4}}>📎 COMPROVANTE (opcional)</div>
+                  {ocorrAnexo ? (
+                    <div style={{display:'flex',alignItems:'center',gap:6,padding:'6px 10px',background:'rgba(34,197,94,.08)',border:'1px solid rgba(34,197,94,.3)',borderRadius:6}}>
+                      <span style={{fontSize:11,color:'#16a34a',flex:1}}>✓ {ocorrAnexo.nome}</span>
+                      <button onClick={()=>setOcorrAnexo(null)} style={{background:'none',border:'none',color:T.text3,cursor:'pointer',fontSize:14}}>×</button>
+                    </div>
+                  ) : (
+                    <label style={{display:'flex',alignItems:'center',gap:6,padding:'7px 10px',background:T.surface,border:`1px dashed ${T.border}`,borderRadius:6,cursor:'pointer'}}>
+                      <span style={{fontSize:12,color:T.text3}}>Selecionar arquivo...</span>
+                      <input type="file" accept="image/*,.pdf" style={{display:'none'}} onChange={e=>{
+                        const f=e.target.files?.[0]; if(!f) return
+                        const r=new FileReader(); r.onload=ev=>{ setOcorrAnexo({base64:(ev.target?.result as string).split(',')[1],nome:f.name}) }; r.readAsDataURL(f)
+                      }} />
+                    </label>
+                  )}
+                </div>
+              )}
+
               <div>
                 <div style={{ fontSize: 11, fontWeight: 600, color: T.text3, marginBottom: 5 }}>OBSERVAÇÃO</div>
                 <textarea value={ocorrObs} onChange={e => setOcorrObs(e.target.value)}
@@ -347,9 +406,11 @@ export default function OcorrenciasDrawer({ nf, onClose, onTranspEdited }: {
                   style={{ padding: '7px 14px', background: 'none', border: `1px solid ${T.border}`, color: T.text3, borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
                   Cancelar
                 </button>
-                <button onClick={enviarOcorrencia} disabled={!ocorrCodigo || ocorrEnviando}
-                  style={{ padding: '7px 18px', background: ocorrCodigo && !ocorrEnviando ? '#f97316' : T.text4,
-                    border: 'none', color: '#fff', borderRadius: 6, cursor: ocorrCodigo && !ocorrEnviando ? 'pointer' : 'default', fontSize: 12, fontWeight: 600 }}>
+                <button onClick={enviarOcorrencia}
+                  disabled={!ocorrCodigo || (ocorrItemSel?.precisaData && !ocorrData) || ocorrEnviando}
+                  style={{ padding: '7px 18px', border: 'none', color: '#fff', borderRadius: 6, fontSize: 12, fontWeight: 600,
+                    background: ocorrCodigo && (!ocorrItemSel?.precisaData || ocorrData) && !ocorrEnviando ? '#f97316' : T.text4,
+                    cursor: ocorrCodigo && (!ocorrItemSel?.precisaData || ocorrData) && !ocorrEnviando ? 'pointer' : 'default' }}>
                   {ocorrEnviando ? 'Enviando...' : '→ Enviar ao Active'}
                 </button>
               </div>
