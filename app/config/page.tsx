@@ -2,12 +2,14 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase, type DepararAssistente, type StatusMap, type TranspUsuario } from '@/lib/supabase'
 import Sidebar from '@/components/Sidebar'
+import MainWrapper from '@/components/MainWrapper'
+import { useAdmin, AdminLoginScreen } from '@/components/AdminAuth'
 import { useTheme } from '@/components/ThemeProvider'
 import { getTheme } from '@/lib/theme'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
-type TabType = 'depara' | 'status' | 'transportadores'
+type TabType = 'depara' | 'status' | 'transportadores' | 'assistentes'
 
 type TranspCNPJ = {
   transportador_cnpj: string
@@ -23,6 +25,67 @@ type UsuarioComCNPJs = TranspUsuario & {
 export default function Config() {
   const { theme, toggle } = useTheme()
   const T = getTheme(theme)
+  const { admin, checked, login: adminLogin, logout: adminLogout } = useAdmin()
+
+  // ── Estado Assistentes Torre ───────────────────────────────────────────────
+  type TorreUsuario = { id: string; nome: string; email: string; senha_hash: string|null; centros_custo: string[]; ativo: boolean; ultimo_acesso: string|null }
+  const CC_OPTS = ['CANAL DIRETO','CANAL INDIRETO','CANAL VERDE','CASH & CARRY','ECOMMERCE','EIC','FARMA KEY ACCOUNT','KEY ACCOUNT','NOVOS NEGÓCIOS']
+  const [assistentes, setAssistentes] = useState<TorreUsuario[]>([])
+  const [assistForm, setAssistForm] = useState({ nome:'', email:'', senha:'', centros_custo:[] as string[] })
+  const [editAssist, setEditAssist] = useState<TorreUsuario|null>(null)
+  const [savingAssist, setSavingAssist] = useState(false)
+  const [assistMsg, setAssistMsg] = useState<{ok:boolean;txt:string}|null>(null)
+
+  const loadAssistentes = useCallback(async () => {
+    const res = await fetch('/api/admin/assistentes')
+    const data = await res.json()
+    if (Array.isArray(data)) setAssistentes(data)
+  }, [])
+
+  const saveAssistente = async (action: 'criar'|'atualizar') => {
+    setSavingAssist(true); setAssistMsg(null)
+    const form = action === 'criar' ? assistForm : { ...editAssist, ...assistForm }
+    const res = await fetch('/api/admin/assistentes', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ action, ...form })
+    })
+    const d = await res.json()
+    if (d.ok) {
+      setAssistMsg({ok:true, txt: action === 'criar' ? 'Assistente criada!' : 'Atualizado!'})
+      setAssistForm({nome:'',email:'',senha:'',centros_custo:[]})
+      setEditAssist(null)
+      loadAssistentes()
+    } else {
+      setAssistMsg({ok:false, txt: d.error || 'Erro ao salvar'})
+    }
+    setSavingAssist(false)
+  }
+
+  const toggleAssist = async (id: string, ativo: boolean) => {
+    await fetch('/api/admin/assistentes', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({action:'toggle_ativo', id, ativo})
+    })
+    loadAssistentes()
+  }
+
+  const deleteAssist = async (id: string) => {
+    if (!confirm('Remover esta assistente?')) return
+    await fetch('/api/admin/assistentes', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({action:'deletar', id})
+    })
+    loadAssistentes()
+  }
+
+  const toggleCC = (cc: string) => {
+    setAssistForm(f => ({
+      ...f,
+      centros_custo: f.centros_custo.includes(cc)
+        ? f.centros_custo.filter(c=>c!==cc)
+        : [...f.centros_custo, cc]
+    }))
+  }
   const [depara, setDepara] = useState<DepararAssistente[]>([])
   const [statusMap, setStatusMap] = useState<StatusMap[]>([])
   const [loading, setLoading] = useState(true)
@@ -76,11 +139,12 @@ export default function Config() {
   }, [])
 
   useEffect(() => {
+    if (activeTab === 'assistentes') { loadAssistentes(); return }
     if (activeTab === 'transportadores') {
       loadTransportadores()
       loadCnpjsDisponiveis()
     }
-  }, [activeTab, loadTransportadores, loadCnpjsDisponiveis])
+  }, [activeTab, loadTransportadores, loadCnpjsDisponiveis, loadAssistentes])
 
   const flash = (m: string, type: 'ok' | 'err' = 'ok') => {
     setMsg(m); setMsgType(type); setTimeout(() => setMsg(''), 4000)
@@ -189,13 +253,27 @@ export default function Config() {
     section:  { marginBottom: 10, background: T.surface2, border: `1px solid ${T.border}`, borderRadius: 8, padding: 14 },
   }
 
+  // Guard admin
+  if (!checked) return null
+  if (!admin) return <AdminLoginScreen onLogin={adminLogin} />
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: T.bg }}>
       <Sidebar theme={theme} onToggleTheme={toggle} />
-      <main style={{ marginLeft: 200, flex: 1, padding: '24px', maxWidth: 1100, fontFamily: "'Inter',sans-serif" }}>
+      <MainWrapper style={{ padding: '24px', maxWidth: 1100, fontFamily: "'Inter',sans-serif" }}>
         <div style={{ marginBottom: 24 }}>
-          <h1 style={{ fontWeight: 800, fontSize: 22, color: T.text, margin: 0 }}>Configurações</h1>
-          <div style={{ fontSize: 11, color: T.text3, marginTop: 4 }}>Tabelas de referência e gestão de acessos</div>
+          <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between'}}>
+            <div>
+              <h1 style={{ fontWeight: 800, fontSize: 22, color: T.text, margin: 0 }}>Configurações</h1>
+              <div style={{ fontSize: 11, color: T.text3, marginTop: 4 }}>Tabelas de referência e gestão de acessos</div>
+            </div>
+            <div style={{display:'flex',alignItems:'center',gap:10}}>
+              <div style={{fontSize:12,color:T.text3}}>🔐 <strong style={{color:T.text}}>{admin.nome}</strong></div>
+              <button onClick={adminLogout} style={{padding:'5px 12px',background:T.surface2,border:`1px solid ${T.border}`,color:T.text3,borderRadius:7,cursor:'pointer',fontSize:12,fontFamily:'inherit'}}>
+                Sair
+              </button>
+            </div>
+          </div>
         </div>
 
         {msg && (
@@ -206,7 +284,7 @@ export default function Config() {
 
         {/* Tabs */}
         <div style={{ display: 'flex', marginBottom: 20, borderBottom: `1px solid ${T.border}` }}>
-          {([['depara','De-Para: CC → Assistente'],['status','Mapa de Status'],['transportadores','🚚 Transportadores']] as const).map(([t, l]) => (
+          {([['depara','De-Para: CC → Assistente'],['status','Mapa de Status'],['transportadores','🚚 Transportadores'],['assistentes','👤 Assistentes Torre']] as const).map(([t, l]) => (
             <button key={t} onClick={() => setActiveTab(t)}
               style={{ padding: '8px 18px', fontSize: 12, border: 'none', borderBottom: '2px solid', marginBottom: -1,
                 borderBottomColor: activeTab === t ? '#f97316' : 'transparent',
@@ -255,6 +333,120 @@ export default function Config() {
             </table>
           </div>
 
+        ) : activeTab === 'assistentes' ? (
+          /* ─── Tab Assistentes Torre ─────────────────────────────────────── */
+          <div>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+              <div style={{fontSize:13,color:T.text2}}>{assistentes.length} assistente{assistentes.length!==1?'s':''} cadastrada{assistentes.length!==1?'s':''}</div>
+              <button style={s.primary} onClick={()=>{setAssistForm({nome:'',email:'',senha:'',centros_custo:[]});setEditAssist(null)}}>+ Nova Assistente</button>
+            </div>
+
+            {/* Formulário criar/editar */}
+            {(editAssist !== null || assistForm.nome !== '' || assistForm.email !== '') && (
+              <div style={{...s.section, borderColor:'#f97316', marginBottom:20}}>
+                <div style={{fontWeight:700,color:'#f97316',fontSize:13,marginBottom:14}}>
+                  {editAssist ? `Editando: ${editAssist.nome}` : 'Nova Assistente Torre'}
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'2fr 2fr 1fr',gap:10,marginBottom:12}}>
+                  <div>
+                    <label style={s.label}>NOME *</label>
+                    <input style={s.input} value={assistForm.nome} onChange={e=>setAssistForm(f=>({...f,nome:e.target.value}))} placeholder="Nome completo" />
+                  </div>
+                  <div>
+                    <label style={s.label}>EMAIL *</label>
+                    <input style={s.input} type="email" value={assistForm.email} onChange={e=>setAssistForm(f=>({...f,email:e.target.value}))} placeholder="email@linea.com.br" />
+                  </div>
+                  <div>
+                    <label style={s.label}>SENHA {editAssist?'(deixe em branco para manter)':'*'}</label>
+                    <input style={s.input} type="password" value={assistForm.senha} onChange={e=>setAssistForm(f=>({...f,senha:e.target.value}))} placeholder="••••••" />
+                  </div>
+                </div>
+
+                <div style={{marginBottom:14}}>
+                  <label style={{...s.label,marginBottom:8,display:'block'}}>CENTROS DE CUSTO VINCULADOS</label>
+                  <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+                    {CC_OPTS.map(cc=>(
+                      <button key={cc} onClick={()=>toggleCC(cc)}
+                        style={{padding:'5px 12px',borderRadius:16,border:'1px solid',fontSize:12,cursor:'pointer',fontFamily:'inherit',
+                          background:assistForm.centros_custo.includes(cc)?'#f97316':'transparent',
+                          borderColor:assistForm.centros_custo.includes(cc)?'#f97316':T.border,
+                          color:assistForm.centros_custo.includes(cc)?'#fff':T.text2,
+                          fontWeight:assistForm.centros_custo.includes(cc)?600:400}}>
+                        {cc}
+                      </button>
+                    ))}
+                  </div>
+                  {assistForm.centros_custo.length===0 && <div style={{fontSize:11,color:'#f59e0b',marginTop:6}}>⚠ Selecione ao menos um CC</div>}
+                </div>
+
+                {assistMsg && (
+                  <div style={{fontSize:12,padding:'7px 12px',borderRadius:6,marginBottom:10,
+                    background:assistMsg.ok?'#f0fdf4':'#fef2f2',
+                    color:assistMsg.ok?'#15803d':'#dc2626',
+                    border:`1px solid ${assistMsg.ok?'#bbf7d0':'#fecaca'}`}}>
+                    {assistMsg.ok?'✓ ':'✗ '}{assistMsg.txt}
+                  </div>
+                )}
+
+                <div style={{display:'flex',gap:8}}>
+                  <button style={s.primary} disabled={!assistForm.nome||!assistForm.email||assistForm.centros_custo.length===0||savingAssist}
+                    onClick={()=>saveAssistente(editAssist?'atualizar':'criar')}>
+                    {savingAssist?'Salvando...':`✓ ${editAssist?'Salvar alterações':'Criar assistente'}`}
+                  </button>
+                  <button style={{...s.primary,background:'transparent',color:T.text3,border:`1px solid ${T.border}`}}
+                    onClick={()=>{setEditAssist(null);setAssistForm({nome:'',email:'',senha:'',centros_custo:[]});setAssistMsg(null)}}>
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Lista de assistentes */}
+            <div style={{display:'flex',flexDirection:'column',gap:10}}>
+              {assistentes.length===0 && <div style={{textAlign:'center',padding:40,color:T.text3}}>Nenhuma assistente cadastrada</div>}
+              {assistentes.map(a=>(
+                <div key={a.id} style={{...s.section,opacity:a.ativo?1:.55,transition:'opacity .15s'}}>
+                  <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12}}>
+                    <div style={{flex:1}}>
+                      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:4}}>
+                        <span style={{fontSize:14,fontWeight:700,color:T.text}}>{a.nome}</span>
+                        <span style={{fontSize:10,fontWeight:600,padding:'2px 8px',borderRadius:10,
+                          background:a.ativo?'#f0fdf4':'#fef2f2',
+                          color:a.ativo?'#15803d':'#dc2626'}}>
+                          {a.ativo?'Ativo':'Inativo'}
+                        </span>
+                        {a.ultimo_acesso && <span style={{fontSize:10,color:T.text4}}>Último acesso: {new Date(a.ultimo_acesso).toLocaleDateString('pt-BR')}</span>}
+                      </div>
+                      <div style={{fontSize:12,color:T.text3,marginBottom:8}}>{a.email}</div>
+                      <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                        {a.centros_custo.map(cc=>(
+                          <span key={cc} style={{fontSize:11,fontWeight:600,padding:'2px 10px',borderRadius:10,
+                            background:'rgba(249,115,22,.1)',color:'#f97316',border:'1px solid rgba(249,115,22,.2)'}}>
+                            {cc}
+                          </span>
+                        ))}
+                        {a.centros_custo.length===0 && <span style={{fontSize:11,color:'#f59e0b'}}>⚠ Nenhum CC vinculado</span>}
+                      </div>
+                    </div>
+                    <div style={{display:'flex',gap:6,flexShrink:0}}>
+                      <button onClick={()=>{setEditAssist(a);setAssistForm({nome:a.nome,email:a.email,senha:'',centros_custo:a.centros_custo});setAssistMsg(null)}}
+                        style={{padding:'5px 12px',background:T.surface2,border:`1px solid ${T.border}`,color:T.text2,borderRadius:6,cursor:'pointer',fontSize:12,fontFamily:'inherit'}}>
+                        ✏️ Editar
+                      </button>
+                      <button onClick={()=>toggleAssist(a.id,!a.ativo)}
+                        style={{padding:'5px 12px',background:T.surface2,border:`1px solid ${T.border}`,color:a.ativo?'#f59e0b':'#22c55e',borderRadius:6,cursor:'pointer',fontSize:12,fontFamily:'inherit'}}>
+                        {a.ativo?'⏸ Desativar':'▶ Ativar'}
+                      </button>
+                      <button onClick={()=>deleteAssist(a.id)}
+                        style={{padding:'5px 10px',background:'transparent',border:'1px solid #ef444440',color:'#ef4444',borderRadius:6,cursor:'pointer',fontSize:12,fontFamily:'inherit'}}>
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         ) : (
           /* ─── Tab Transportadores ─────────────────────────────────────────── */
           <div>
@@ -430,7 +622,7 @@ export default function Config() {
             })}
           </div>
         )}
-      </main>
+      </MainWrapper>
     </div>
   )
 }

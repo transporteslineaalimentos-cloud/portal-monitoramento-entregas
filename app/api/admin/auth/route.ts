@@ -1,0 +1,24 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+
+const db = () => createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { persistSession: false } }
+)
+
+export async function POST(req: NextRequest) {
+  const { email, senha } = await req.json().catch(() => ({}))
+  if (!email || !senha) return NextResponse.json({ error: 'Email e senha obrigatórios' }, { status: 400 })
+
+  const { data: user } = await db()
+    .from('portal_admin_users')
+    .select('id, nome, email, ativo, senha')
+    .eq('email', email.trim().toLowerCase())
+    .single()
+
+  if (!user || !user.ativo) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 401 })
+  if (user.senha !== senha) return NextResponse.json({ error: 'Senha incorreta' }, { status: 401 })
+
+  return NextResponse.json({ ok: true, admin: { id: user.id, nome: user.nome, email: user.email } })
+}
