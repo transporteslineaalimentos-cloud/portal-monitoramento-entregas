@@ -152,7 +152,8 @@ export default function DashboardGestao() {
   // Agendadas por dia
   const agendDia = useMemo(()=>{
     const m: Record<string,{valor:number;count:number}> = {}
-    filtered.filter(r=>r.status==='Agendado'&&r.dt_previsao).forEach(r=>{ const d=fmtDay(r.dt_previsao); if(!m[d]) m[d]={valor:0,count:0}; m[d].valor+=Number(r.valor_produtos)||0; m[d].count++ })
+    const STATUS_AGUARD = ['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada']
+    filtered.filter(r=>STATUS_AGUARD.includes(r.status)&&r.dt_previsao).forEach(r=>{ const d=fmtDay(r.dt_previsao); if(!m[d]) m[d]={valor:0,count:0}; m[d].valor+=Number(r.valor_produtos)||0; m[d].count++ })
     return Object.entries(m).sort((a,b)=>a[0].localeCompare(b[0])).slice(0,14).map(([dia,v])=>({dia,...v}))
   },[filtered])
 
@@ -441,7 +442,7 @@ export default function DashboardGestao() {
         </div>
 
         {/* ROW 3: Agendadas por dia (span2) */}
-        <Card title="AGENDADAS | AGUARDANDO ENTREGA POR DIA" sub={money(agendDia.reduce((s,r)=>s+r.valor,0))}
+        <Card title="AGUARDANDO ENTREGA POR DIA (Agendado + Reagendada + Conf. Cliente + Programada)" sub={money(agendDia.reduce((s,r)=>s+r.valor,0))}
           onClick={()=>navTo({status:'Agendado'})}>
           {agendDia.length===0
             ? <div style={{textAlign:'center',padding:20,color:T.text3,fontSize:12}}>Sem NFs agendadas com previsão definida</div>

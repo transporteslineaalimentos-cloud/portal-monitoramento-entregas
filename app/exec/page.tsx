@@ -306,7 +306,8 @@ function ExecPage() {
 
   const agendDia = useMemo(()=>{
     const m:Record<string,{valor:number;count:number}>={}
-    filtered.filter(r=>r.status==='Agendado'&&r.dt_previsao).forEach(r=>{ const d=fmtDia(r.dt_previsao); if(!m[d]) m[d]={valor:0,count:0}; m[d].valor+=Number(r.valor_produtos)||0; m[d].count++ })
+    const STATUS_AGUARD_EXEC = ['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada']
+    filtered.filter(r=>STATUS_AGUARD_EXEC.includes(r.status)&&r.dt_previsao).forEach(r=>{ const d=fmtDia(r.dt_previsao); if(!m[d]) m[d]={valor:0,count:0}; m[d].valor+=Number(r.valor_produtos)||0; m[d].count++ })
     return Object.entries(m).sort((a,b)=>a[0].localeCompare(b[0])).slice(0,14).map(([dia,v])=>({dia,...v}))
   },[filtered])
 
@@ -677,7 +678,7 @@ function ExecPage() {
 
             {/* Agendadas por dia */}
             {agendDia.length>0 && (
-              <SecCard title="AGENDADAS — AGUARDANDO ENTREGA POR DIA" sub={moneyK(agendDia.reduce((s,r)=>s+r.valor,0))} accent={C.blue}>
+              <SecCard title="AGUARDANDO ENTREGA POR DIA" sub={moneyK(agendDia.reduce((s,r)=>s+r.valor,0))} accent={C.blue}>
                 <ResponsiveContainer width="100%" height={145}>
                   <ComposedChart data={agendDia} margin={{left:4,right:24,top:8,bottom:4}}>
                     <CartesianGrid strokeDasharray="3 3" stroke={C.border}/>
