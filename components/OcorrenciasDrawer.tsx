@@ -350,9 +350,6 @@ export default function OcorrenciasDrawer({ nf, onClose, onTranspEdited }: {
           )}
         </div>
       </div>
-    <>
-
-
     </>
   )
 }
