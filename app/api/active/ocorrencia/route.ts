@@ -44,6 +44,8 @@ export async function POST(req: NextRequest) {
   const dataOcorreu = now.toISOString().slice(0, 19)
   const horaOcorreu = now.toTimeString().slice(0, 5)
 
+  const { previsao_transportador, hora_ocorrencia, usuario_responsavel } = body
+
   const payload = [{
     Autenticacao: { Token_Integracao: ACTIVE_TOKEN },
     Embarcador: {
@@ -72,9 +74,11 @@ export async function POST(req: NextRequest) {
     Codigo: codigo,
     Descricao: descricao,
     Ocorreu_Data: dataOcorreu,
-    Ocorreu_Hora: horaOcorreu,
+    Ocorreu_Hora: hora_ocorrencia || horaOcorreu,
     Observacao: observacao || '',
     Lancamento_Pelo: 'Interno',
+    Lancamento_Nome: usuario_responsavel || 'Portal Linea',
+    ...(previsao_transportador ? { Solucao_Baixa: { Previsao_Transportador: previsao_transportador } } : {})
   }]
 
   try {
