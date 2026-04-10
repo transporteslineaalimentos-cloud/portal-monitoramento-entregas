@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Body inválido' }, { status: 400 })
   }
 
-  const { nf_numero, codigo, descricao, observacao, previsao_transportador } = body
+  const { nf_numero, codigo, descricao, observacao, previsao_transportador, hora_ocorrencia, usuario_responsavel } = body
   if (!nf_numero || !codigo || !descricao)
     return NextResponse.json({ error: 'nf_numero, codigo e descricao obrigatórios' }, { status: 400 })
 
@@ -44,7 +44,6 @@ export async function POST(req: NextRequest) {
   const dataOcorreu = now.toISOString().slice(0, 19)
   const horaOcorreu = now.toTimeString().slice(0, 5)
 
-  const { previsao_transportador, hora_ocorrencia, usuario_responsavel } = body
 
   const payload = [{
     Autenticacao: { Token_Integracao: ACTIVE_TOKEN },
