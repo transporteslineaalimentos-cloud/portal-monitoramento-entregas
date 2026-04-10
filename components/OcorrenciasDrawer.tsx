@@ -228,7 +228,7 @@ export default function OcorrenciasDrawer({ nf, onClose, onTranspEdited }: {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          nf_numero: nf.nf_numero,
+          nf_numero: nf?.nf_numero,
           codigo: ocorrCodigo,
           descricao: opcao?.label?.toUpperCase() || ocorrCodigo,
           observacao: ocorrObs
