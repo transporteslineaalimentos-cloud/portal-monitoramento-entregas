@@ -179,7 +179,7 @@ function ExecPage() {
   const nfsOcorrencia = useMemo(()=>
     filtered.filter(r=>
       // Devolução TOTAL apenas — excluir 79 (devolução parcial)
-      (r.status==='Devolução' && r.codigo_ocorrencia !== '79') ||
+      (r.status==='Devolução' && !['79','113'].includes(r.codigo_ocorrencia||'')) ||
       // Outros códigos problemáticos
       ['106','109','110','111','116','120','61'].includes(r.codigo_ocorrencia||'')
     )

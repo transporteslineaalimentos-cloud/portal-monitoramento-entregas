@@ -175,7 +175,7 @@ export default function DashboardGestao() {
   const nfsOcorrencia = useMemo(()=>
     filtered.filter(r=>
       // Devolução TOTAL apenas (excluir 79 = devolução parcial)
-      (r.status==='Devolução' && r.codigo_ocorrencia !== '79') ||
+      (r.status==='Devolução' && !['79','113'].includes(r.codigo_ocorrencia||'')) ||
       ['106','109','110','111','116','120','61'].includes(r.codigo_ocorrencia||'')
     )
       .sort((a,b)=>(Number(b.valor_produtos)||0)-(Number(a.valor_produtos)||0))
@@ -284,7 +284,7 @@ export default function DashboardGestao() {
             <thead><tr>{cols.map(c=><th key={c.key} style={{fontSize:10}}>{c.label}</th>)}</tr></thead>
             <tbody>
               {rows.slice(0,15).map((r,i)=>(
-                <tr key={i} style={{cursor:'pointer'}} onClick={()=>navTo({nf:r.nf_numero})}>
+                <tr key={i} style={{cursor:'pointer'}} onClick={(e)=>{e.stopPropagation();navTo({nf:r.nf_numero})}}>
                   {cols.map(c=><td key={c.key}>{c.render(r)}</td>)}
                 </tr>
               ))}
