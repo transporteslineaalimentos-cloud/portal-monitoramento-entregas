@@ -1,4 +1,5 @@
 'use client'
+import MainWrapper from '@/components/MainWrapper'
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase, type Entrega } from '@/lib/supabase'
@@ -270,9 +271,9 @@ export default function DashboardGestao() {
   if (loading) return (
     <div style={{display:'flex',minHeight:'100vh',background:T.bg}}>
       <Sidebar theme={theme} onToggleTheme={toggle}/>
-      <main style={{marginLeft:210,flex:1,display:'flex',alignItems:'center',justifyContent:'center'}}>
+      <MainWrapper style={{display:'flex',alignItems:'center',justifyContent:'center'}}>
         <div style={{color:T.text3}}>Carregando...</div>
-      </main>
+      </MainWrapper>
     </div>
   )
 
@@ -296,7 +297,7 @@ export default function DashboardGestao() {
   return (
     <div style={{display:'flex',minHeight:'100vh',background:T.bg}}>
       <Sidebar theme={theme} onToggleTheme={toggle}/>
-      <main style={{marginLeft:210,flex:1,padding:'18px 20px',display:'flex',flexDirection:'column',gap:14}}>
+      <MainWrapper style={{padding:'18px 20px',display:'flex',flexDirection:'column',gap:14}}>
 
         {/* HEADER */}
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:10}}>
@@ -597,7 +598,7 @@ export default function DashboardGestao() {
           </Card>
         )}
 
-      </main>
+      </MainWrapper>
     </div>
   )
 }

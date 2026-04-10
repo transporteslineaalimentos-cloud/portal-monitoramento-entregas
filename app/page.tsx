@@ -1,4 +1,5 @@
 'use client'
+import MainWrapper from '@/components/MainWrapper'
 import { useEffect, useState, useCallback, useMemo, useRef, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase, type Entrega } from '@/lib/supabase'
@@ -288,7 +289,7 @@ function MonitoramentoInner() {
   return (
     <div style={{ display:'flex', minHeight:'100vh', background:T.bg }}>
       <Sidebar theme={theme} onToggleTheme={toggle} />
-      <main style={{ marginLeft:210, flex:1, padding:'18px 20px', minWidth:0, display:'flex', flexDirection:'column', gap:14 }}>
+      <MainWrapper style={{ padding:'18px 20px', minWidth:0, display:'flex', flexDirection:'column', gap:14 }}>
 
         {/* ── HEADER ─────────────────────────────────────────── */}
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
@@ -687,7 +688,7 @@ function MonitoramentoInner() {
           )}
         </div>
 
-      </main>
+      </MainWrapper>
 
       {/* Click outside col picker */}
       {showColPicker && (

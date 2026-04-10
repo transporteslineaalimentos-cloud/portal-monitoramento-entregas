@@ -1,4 +1,5 @@
 'use client'
+import MainWrapper from '@/components/MainWrapper'
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { supabase, type Entrega } from '@/lib/supabase'
 import { useTheme } from '@/components/ThemeProvider'
@@ -152,7 +153,7 @@ export default function FollowUp() {
   return (
     <div style={{ display:'flex', minHeight:'100vh', background:T.bg }}>
       <Sidebar theme={theme} onToggleTheme={toggle} />
-      <main style={{ marginLeft:210, flex:1, padding:'18px 20px', display:'flex', flexDirection:'column', gap:14, minWidth:0 }}>
+      <MainWrapper style={{ padding:'18px 20px', display:'flex', flexDirection:'column', gap:14, minWidth:0 }}>
 
         {/* HEADER */}
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
@@ -245,7 +246,7 @@ export default function FollowUp() {
         <div style={{ background:T.surface, border:`1px solid ${T.border}`, borderRadius:10, overflow:'hidden', flex:1 }}>
           {/* Scrollbar espelho */}
           <div ref={topRef} onScroll={()=>syncScroll('top')}
-            style={{ overflowX:'auto', overflowY:'hidden', height:7, borderBottom:`1px solid ${T.border}` }}>
+            style={{ overflowX:'auto', overflowY:'hidden', height:14, borderBottom:`1px solid ${T.border}`, cursor:'col-resize' }}>
             <div style={{ height:1, width:tableW }} />
           </div>
           <div ref={botRef} onScroll={()=>syncScroll('bot')}
@@ -379,7 +380,7 @@ export default function FollowUp() {
             )}
           </div>
         </div>
-      </main>
+      </MainWrapper>
 
       <OcorrenciasDrawer nf={selectedNF} onClose={()=>setSelectedNF(null)} />
       <FollowupModal nf={followupNF} onClose={()=>setFollowupNF(null)} onSaved={load} />
