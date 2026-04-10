@@ -175,6 +175,11 @@ export default function OcorrenciasDrawer({ nf, onClose, onTranspEdited }: {
   const [ocorrs, setOcorrs] = useState<Ocorrencia[]>([])
   const [loading, setLoading] = useState(false)
   const [transpNome, setTranspNome] = useState<string>('')
+  const [showRegOcorr, setShowRegOcorr] = useState(false)
+  const [ocorrCodigo, setOcorrCodigo] = useState('')
+  const [ocorrObs, setOcorrObs] = useState('')
+  const [ocorrEnviando, setOcorrEnviando] = useState(false)
+  const [ocorrMsg, setOcorrMsg] = useState<{ok:boolean;txt:string}|null>(null)
 
   // Sync transpNome com a prop nf
   useEffect(() => { setTranspNome(nf?.transportador_nome || '') }, [nf])
@@ -198,6 +203,48 @@ export default function OcorrenciasDrawer({ nf, onClose, onTranspEdited }: {
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
   }, [onClose])
+
+  const OCORR_OPCOES = [
+    { codigo: '101', label: 'Agendado' },
+    { codigo: '91',  label: 'Entrega Programada' },
+    { codigo: '108', label: 'Reagendada' },
+    { codigo: '109', label: 'Reagendamento Solicitado' },
+    { codigo: '102', label: 'Aguardando Retorno Cliente' },
+    { codigo: '114', label: 'Agend. Conforme Cliente' },
+    { codigo: '106', label: 'Em Tratativa Comercial' },
+    { codigo: '03',  label: 'Recusa - Falta de PO' },
+    { codigo: '09',  label: 'Mercadoria em Desacordo' },
+    { codigo: '19',  label: 'Reentrega Solicitada Cliente' },
+    { codigo: '88',  label: 'Recusado - Aguard. Negociação' },
+    { codigo: '112', label: 'Devolução Total' },
+  ]
+
+  const enviarOcorrencia = async () => {
+    if (!ocorrCodigo) return
+    setOcorrEnviando(true); setOcorrMsg(null)
+    const opcao = OCORR_OPCOES.find(o => o.codigo === ocorrCodigo)
+    try {
+      const res = await fetch('/api/active/ocorrencia', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nf_numero: nf.nf_numero,
+          codigo: ocorrCodigo,
+          descricao: opcao?.label?.toUpperCase() || ocorrCodigo,
+          observacao: ocorrObs
+        })
+      })
+      const data = await res.json()
+      if (data.ok) {
+        setOcorrMsg({ ok: true, txt: data.mensagem })
+        setOcorrCodigo(''); setOcorrObs('')
+        setTimeout(() => { setShowRegOcorr(false); setOcorrMsg(null); load() }, 2000)
+      } else {
+        setOcorrMsg({ ok: false, txt: data.mensagem || 'Erro ao enviar' })
+      }
+    } catch { setOcorrMsg({ ok: false, txt: 'Falha de conexão' }) }
+    setOcorrEnviando(false)
+  }
 
   if (!nf) return null
 
@@ -260,10 +307,54 @@ export default function OcorrenciasDrawer({ nf, onClose, onTranspEdited }: {
 
                 {/* Ocorrências */}
         <div style={{ padding: '16px 20px', flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: showRegOcorr ? 12 : 14 }}>
             <span style={{ fontSize: 13, fontWeight: 700, color: T.text }}>Histórico de Ocorrências</span>
             {!loading && <span style={{ fontSize: 11, color: T.text3, background: T.surface2, padding: '1px 8px', borderRadius: 10, border: `1px solid ${T.border}` }}>{ocorrs.length} registros</span>}
+            <button
+              onClick={() => { setShowRegOcorr(!showRegOcorr); setOcorrMsg(null) }}
+              style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 6,
+                background: showRegOcorr ? T.surface2 : 'rgba(249,115,22,.1)', border: '1px solid rgba(249,115,22,.3)',
+                color: '#f97316', cursor: 'pointer' }}>
+              {showRegOcorr ? '✕ Fechar' : '+ Registrar Ocorrência'}
+            </button>
           </div>
+
+          {showRegOcorr && (
+            <div style={{ background: T.surface2, border: `1px solid ${T.border}`, borderRadius: 10, padding: '14px 16px', marginBottom: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: T.text3, marginBottom: 5 }}>TIPO DE OCORRÊNCIA</div>
+                <select value={ocorrCodigo} onChange={e => setOcorrCodigo(e.target.value)}
+                  style={{ width: '100%', padding: '7px 10px', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 6, color: T.text, fontSize: 13, outline: 'none' }}>
+                  <option value=''>Selecionar...</option>
+                  {OCORR_OPCOES.map(o => <option key={o.codigo} value={o.codigo}>[{o.codigo}] {o.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: T.text3, marginBottom: 5 }}>OBSERVAÇÃO</div>
+                <textarea value={ocorrObs} onChange={e => setOcorrObs(e.target.value)}
+                  placeholder='Detalhar a ocorrência...' rows={2}
+                  style={{ width: '100%', padding: '7px 10px', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 6, color: T.text, fontSize: 13, outline: 'none', resize: 'vertical', fontFamily: 'inherit' }} />
+              </div>
+              {ocorrMsg && (
+                <div style={{ fontSize: 12, padding: '7px 12px', borderRadius: 6, fontWeight: 600,
+                  background: ocorrMsg.ok ? 'rgba(34,197,94,.1)' : 'rgba(239,68,68,.1)',
+                  color: ocorrMsg.ok ? '#16a34a' : '#dc2626', border: `1px solid ${ocorrMsg.ok ? '#bbf7d0' : '#fecaca'}` }}>
+                  {ocorrMsg.ok ? '✓ ' : '✗ '}{ocorrMsg.txt}
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                <button onClick={() => setShowRegOcorr(false)}
+                  style={{ padding: '7px 14px', background: 'none', border: `1px solid ${T.border}`, color: T.text3, borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
+                  Cancelar
+                </button>
+                <button onClick={enviarOcorrencia} disabled={!ocorrCodigo || ocorrEnviando}
+                  style={{ padding: '7px 18px', background: ocorrCodigo && !ocorrEnviando ? '#f97316' : T.text4,
+                    border: 'none', color: '#fff', borderRadius: 6, cursor: ocorrCodigo && !ocorrEnviando ? 'pointer' : 'default', fontSize: 12, fontWeight: 600 }}>
+                  {ocorrEnviando ? 'Enviando...' : '→ Enviar ao Active'}
+                </button>
+              </div>
+            </div>
+          )}
 
           {loading && <div style={{ textAlign: 'center', padding: 32, color: T.text3 }}>Carregando...</div>}
 
