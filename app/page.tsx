@@ -72,6 +72,8 @@ function MonitoramentoInner() {
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date())
   const [selectedNF, setSelectedNF]   = useState<Entrega | null>(null)
   const [followupNF, setFollowupNF]   = useState<Entrega | null>(null)
+  // Abrir drawer automaticamente quando vem ?nf= da URL
+  const _urlNfRef = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('nf') : null
   const [showColPicker, setShowColPicker] = useState(false)
 
   // Visible columns (stored in state, default from ColDef)
@@ -94,13 +96,21 @@ function MonitoramentoInner() {
   const getFirstDayOfMonth = () => { const d=new Date(); return new Date(d.getFullYear(),d.getMonth(),1).toISOString().split('T')[0] }
   const getTodayStr = () => new Date().toISOString().split('T')[0]
   const [dateFrom, setDateFrom] = useState<string>(()=>{
+    const urlNf = searchParams.get('nf')
+    const urlPeriodo = searchParams.get('periodo')
     const urlVal = searchParams.get('de')
+    // Se veio com NF específica ou periodo=all, não aplicar filtro de data
+    if (urlNf || urlPeriodo === 'all') return ''
     if (urlVal) return urlVal
     if (typeof window !== 'undefined') return sessionStorage.getItem('monitor_dateFrom') || getFirstDayOfMonth()
     return getFirstDayOfMonth()
   })
   const [dateTo, setDateTo] = useState<string>(()=>{
+    const urlNf = searchParams.get('nf')
+    const urlPeriodo = searchParams.get('periodo')
     const urlVal = searchParams.get('ate')
+    // Se veio com NF específica ou periodo=all, não aplicar filtro de data
+    if (urlNf || urlPeriodo === 'all') return ''
     if (urlVal) return urlVal
     if (typeof window !== 'undefined') return sessionStorage.getItem('monitor_dateTo') || getTodayStr()
     return getTodayStr()
@@ -141,6 +151,13 @@ function MonitoramentoInner() {
   }, [sortField, sortDir])
 
   useEffect(() => { load() }, [load])
+  // Quando dados carregam e temos NF específica na URL → abre drawer
+  useEffect(() => {
+    if (_urlNfRef && data.length > 0 && !selectedNF) {
+      const nf = data.find(r => r.nf_numero === _urlNfRef)
+      if (nf) setSelectedNF(nf)
+    }
+  }, [data, _urlNfRef]) // eslint-disable-line
   useEffect(() => {
     const ch = supabase.channel('mon-rt')
       .on('postgres_changes', { event:'*', schema:'public', table:'active_ocorrencias' }, load)

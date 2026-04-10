@@ -174,7 +174,8 @@ export default function DashboardGestao() {
   // Notas com ocorrência problemática (devoluções + reagendamentos)
   const nfsOcorrencia = useMemo(()=>
     filtered.filter(r=>
-      (r.status==='Devolução') ||
+      // Devolução TOTAL apenas (excluir 79 = devolução parcial)
+      (r.status==='Devolução' && r.codigo_ocorrencia !== '79') ||
       ['106','109','110','111','116','120','61'].includes(r.codigo_ocorrencia||'')
     )
       .sort((a,b)=>(Number(b.valor_produtos)||0)-(Number(a.valor_produtos)||0))
