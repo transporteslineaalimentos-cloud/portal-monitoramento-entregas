@@ -677,7 +677,22 @@ function MonitoramentoInner() {
         <div style={{ position:'fixed', inset:0, zIndex:199 }} onClick={()=>setShowColPicker(false)} />
       )}
 
-      <OcorrenciasDrawer nf={selectedNF} onClose={()=>setSelectedNF(null)} />
+      <OcorrenciasDrawer
+        nf={selectedNF}
+        onClose={()=>setSelectedNF(null)}
+        onTranspEdited={(nfNumero, novoNome) => {
+          // Atualizar localmente sem reload completo
+          setData(prev => prev.map(r =>
+            r.nf_numero === nfNumero
+              ? { ...r, transportador_nome: novoNome, transp_editado: true }
+              : r
+          ))
+          setSelectedNF(prev => prev?.nf_numero === nfNumero
+            ? { ...prev, transportador_nome: novoNome, transp_editado: true }
+            : prev
+          )
+        }}
+      />
       <FollowupModal nf={followupNF} onClose={()=>setFollowupNF(null)} onSaved={load} />
     </div>
   )

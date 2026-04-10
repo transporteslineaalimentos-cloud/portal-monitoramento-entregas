@@ -65,6 +65,7 @@ export type Entrega = {
   assistente: string
   dt_recebido: string
   is_mock: boolean
+  transp_editado: boolean
 }
 
 export type FollowupStatus = {

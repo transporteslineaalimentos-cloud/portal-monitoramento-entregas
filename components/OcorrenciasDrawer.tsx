@@ -33,11 +33,150 @@ const COD_COLOR = (cod: string) => {
   return '#94a3b8'
 }
 
-export default function OcorrenciasDrawer({ nf, onClose }: { nf: Entrega | null; onClose: () => void }) {
+// ── Modal de edição de transportador ─────────────────────────────────────────
+function EditTranspModal({ nf, onClose, onSaved }: {
+  nf: Entrega
+  onClose: () => void
+  onSaved: (nome: string) => void
+}) {
+  const { theme } = useTheme()
+  const T = getTheme(theme)
+  const [opcoes, setOpcoes] = useState<{cnpj:string;nome:string}[]>([])
+  const [busca, setBusca] = useState('')
+  const [selecionado, setSelecionado] = useState<{cnpj:string;nome:string}|null>(null)
+  const [motivo, setMotivo] = useState('')
+  const [salvando, setSalvando] = useState(false)
+  const [erro, setErro] = useState('')
+
+  useEffect(() => {
+    supabase.from('v_transp_cnpjs_disponiveis').select('*').then(({ data }) => {
+      setOpcoes((data as any[] || []))
+    })
+  }, [])
+
+  const filtradas = busca.length >= 2
+    ? opcoes.filter(o => o.nome.toLowerCase().includes(busca.toLowerCase()) || o.cnpj.includes(busca))
+    : opcoes.slice(0, 10)
+
+  const salvar = async () => {
+    if (!selecionado) { setErro('Selecione uma transportadora'); return }
+    setSalvando(true); setErro('')
+    const { error } = await supabase.from('mon_transp_override').upsert({
+      nf_numero: nf.nf_numero,
+      transportador_cnpj: selecionado.cnpj,
+      transportador_nome: selecionado.nome,
+      motivo: motivo || null,
+      atualizado_em: new Date().toISOString(),
+    }, { onConflict: 'nf_numero' })
+    setSalvando(false)
+    if (error) { setErro('Erro ao salvar: ' + error.message); return }
+    onSaved(selecionado.nome)
+    onClose()
+  }
+
+  const remover = async () => {
+    setSalvando(true); setErro('')
+    await supabase.from('mon_transp_override').delete().eq('nf_numero', nf.nf_numero)
+    setSalvando(false)
+    onSaved(nf.transportador_nome) // volta ao original
+    onClose()
+  }
+
+  return (
+    <>
+      <div style={{ position:'fixed',inset:0,background:'rgba(0,0,0,.6)',zIndex:200 }} onClick={onClose}/>
+      <div style={{
+        position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',
+        zIndex:201,width:480,background:T.surface,border:`1px solid ${T.border}`,
+        borderRadius:14,boxShadow:'0 20px 60px rgba(0,0,0,.4)',overflow:'hidden'
+      }}>
+        <div style={{padding:'16px 20px',background:T.surface2,borderBottom:`1px solid ${T.border}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <div>
+            <div style={{fontWeight:700,fontSize:14,color:T.text}}>✏️ Editar Transportadora</div>
+            <div style={{fontSize:11,color:T.text3,marginTop:2}}>NF {nf.nf_numero} · atual: <strong style={{color:T.text2}}>{nf.transportador_nome?.split(' ').slice(0,3).join(' ')}</strong></div>
+          </div>
+          <button onClick={onClose} style={{background:'none',border:'none',cursor:'pointer',fontSize:18,color:T.text3}}>×</button>
+        </div>
+
+        <div style={{padding:'16px 20px',display:'flex',flexDirection:'column',gap:12}}>
+          {/* Busca */}
+          <div>
+            <label style={{fontSize:11,fontWeight:600,color:T.text3,display:'block',marginBottom:4}}>TRANSPORTADORA CORRETA</label>
+            <input
+              type="text" placeholder="Buscar por nome ou CNPJ..."
+              value={busca} onChange={e=>{setBusca(e.target.value);setSelecionado(null)}}
+              style={{width:'100%',padding:'8px 12px',background:T.surface2,border:`1px solid ${selecionado?'#22c55e':T.border}`,
+                borderRadius:7,color:T.text,fontSize:13,outline:'none',boxSizing:'border-box'}}
+            />
+            {/* Lista de opções */}
+            <div style={{maxHeight:180,overflowY:'auto',border:`1px solid ${T.border}`,borderRadius:7,marginTop:4,background:T.surface2}}>
+              {filtradas.length === 0
+                ? <div style={{padding:'10px 12px',fontSize:12,color:T.text3}}>Nenhuma transportadora encontrada</div>
+                : filtradas.map(o=>(
+                  <div key={o.cnpj} onClick={()=>{setSelecionado(o);setBusca(o.nome)}}
+                    style={{padding:'8px 12px',cursor:'pointer',fontSize:12,
+                      background:selecionado?.cnpj===o.cnpj?'rgba(34,197,94,.12)':'transparent',
+                      color:selecionado?.cnpj===o.cnpj?'#22c55e':T.text,
+                      borderBottom:`1px solid ${T.border}`}}
+                    onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background='rgba(255,255,255,.05)'}
+                    onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background=selecionado?.cnpj===o.cnpj?'rgba(34,197,94,.12)':'transparent'}>
+                    <div style={{fontWeight:600}}>{o.nome}</div>
+                    <div style={{fontSize:10,color:T.text3}}>{o.cnpj}</div>
+                  </div>
+                ))
+              }
+            </div>
+          </div>
+
+          {/* Motivo */}
+          <div>
+            <label style={{fontSize:11,fontWeight:600,color:T.text3,display:'block',marginBottom:4}}>MOTIVO DA CORREÇÃO (opcional)</label>
+            <input type="text" placeholder="Ex: Romaneio emitido para FAST, CTe veio de subcontratada"
+              value={motivo} onChange={e=>setMotivo(e.target.value)}
+              style={{width:'100%',padding:'8px 12px',background:T.surface2,border:`1px solid ${T.border}`,
+                borderRadius:7,color:T.text,fontSize:13,outline:'none',boxSizing:'border-box'}}/>
+          </div>
+
+          {erro && <div style={{fontSize:12,color:'#ef4444',background:'rgba(239,68,68,.1)',padding:'8px 12px',borderRadius:6}}>{erro}</div>}
+
+          <div style={{display:'flex',gap:8,justifyContent:'space-between',marginTop:4}}>
+            {nf.transp_editado && (
+              <button onClick={remover} disabled={salvando}
+                style={{padding:'8px 14px',background:'rgba(239,68,68,.1)',border:'1px solid rgba(239,68,68,.3)',
+                  color:'#ef4444',borderRadius:7,cursor:'pointer',fontSize:12,fontWeight:600}}>
+                🔄 Restaurar original
+              </button>
+            )}
+            <div style={{display:'flex',gap:8,marginLeft:'auto'}}>
+              <button onClick={onClose} style={{padding:'8px 16px',background:'none',border:`1px solid ${T.border}`,
+                color:T.text3,borderRadius:7,cursor:'pointer',fontSize:13}}>Cancelar</button>
+              <button onClick={salvar} disabled={!selecionado||salvando}
+                style={{padding:'8px 20px',background:selecionado&&!salvando?'#22c55e':'#94a3b8',
+                  border:'none',color:'#fff',borderRadius:7,cursor:selecionado&&!salvando?'pointer':'default',
+                  fontSize:13,fontWeight:600}}>
+                {salvando?'Salvando...':'✓ Confirmar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+  )
+}
+
+// ── Drawer principal ─────────────────────────────────────────────────────────
+export default function OcorrenciasDrawer({ nf, onClose, onTranspEdited }: {
+  nf: Entrega | null
+  onClose: () => void
+  onTranspEdited?: (nfNumero: string, novoNome: string) => void
+}) {
   const { theme } = useTheme()
   const T = getTheme(theme)
   const [ocorrs, setOcorrs] = useState<Ocorrencia[]>([])
   const [loading, setLoading] = useState(false)
+  const [transpNome, setTranspNome] = useState<string>('')
+
+  // Sync transpNome com a prop nf
+  useEffect(() => { setTranspNome(nf?.transportador_nome || '') }, [nf])
 
   const load = useCallback(async () => {
     if (!nf) return
@@ -60,6 +199,9 @@ export default function OcorrenciasDrawer({ nf, onClose }: { nf: Entrega | null;
   }, [onClose])
 
   if (!nf) return null
+
+  const transpDisplay = transpNome?.split(' ').slice(0,3).join(' ') || '—'
+  const editado = nf.transp_editado
 
   return (
     <>
@@ -86,8 +228,10 @@ export default function OcorrenciasDrawer({ nf, onClose }: { nf: Entrega | null;
               <div style={{ fontSize: 13, color: T.text, fontWeight: 600, marginBottom: 2 }}>
                 {nf.destinatario_fantasia || nf.destinatario_nome || '—'}
               </div>
+              {/* Transportadora — editável apenas no Active OnSupply */}
               <div style={{ fontSize: 12, color: T.text3 }}>
-                {nf.cidade_destino} · {nf.uf_destino} · {nf.transportador_nome?.split(' ').slice(0,3).join(' ') || '—'}
+                {nf.cidade_destino} · {nf.uf_destino} · <span style={{color: editado ? '#22c55e' : T.text3, fontWeight: editado ? 600 : 400}}>{transpDisplay}</span>
+                {editado && <span style={{fontSize:10,color:'#22c55e',marginLeft:4}} title="Transportadora corrigida via Active OnSupply">✏️</span>}
               </div>
             </div>
             <button onClick={onClose} style={{
@@ -113,7 +257,7 @@ export default function OcorrenciasDrawer({ nf, onClose }: { nf: Entrega | null;
           ))}
         </div>
 
-        {/* Ocorrências */}
+                {/* Ocorrências */}
         <div style={{ padding: '16px 20px', flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
             <span style={{ fontSize: 13, fontWeight: 700, color: T.text }}>Histórico de Ocorrências</span>
@@ -205,6 +349,9 @@ export default function OcorrenciasDrawer({ nf, onClose }: { nf: Entrega | null;
           )}
         </div>
       </div>
+    <>
+
+
     </>
   )
 }
