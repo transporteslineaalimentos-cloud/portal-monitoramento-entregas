@@ -187,7 +187,7 @@ export default function TorrePage() {
   /* Filtragem */
   const filtered = useMemo(()=>{
     let d=data
-    if (filtroAtivo==='hoje')  d=d.filter(r=>r.status==='Agendado'&&r.dt_previsao&&isToday(parseISO(r.dt_previsao)))
+    if (filtroAtivo==='hoje')  d=d.filter(r=>['Agendado','Reagendada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao)))
     else if (filtroAtivo==='__lt') d=d.filter(r=>r.lt_vencido&&r.status!=='Entregue')
     else if (filtroAtivo)      d=d.filter(r=>r.status===filtroAtivo)
     if (filtroTransp) d=d.filter(r=>r.transportador_nome?.toLowerCase().includes(filtroTransp.toLowerCase()))
@@ -206,15 +206,25 @@ export default function TorrePage() {
     })
   },[data,filtroAtivo,filtroTransp,filtroNF,sortField,dateFrom,dateTo])
 
-  /* KPIs com count e valor */
+  /* Base filtrada por data/transp (sem filtroAtivo) — para os KPI cards */
+  const baseParaKpi = useMemo(()=>{
+    let d = data
+    if (filtroTransp) d=d.filter(r=>r.transportador_nome?.toLowerCase().includes(filtroTransp.toLowerCase()))
+    if (filtroNF)     d=d.filter(r=>r.nf_numero?.includes(filtroNF))
+    if (dateFrom) { const f=new Date(dateFrom); f.setHours(0,0,0,0); d=d.filter(r=>r.dt_emissao&&new Date(r.dt_emissao)>=f) }
+    if (dateTo)   { const t=new Date(dateTo); t.setHours(23,59,59,999); d=d.filter(r=>r.dt_emissao&&new Date(r.dt_emissao)<=t) }
+    return d
+  },[data,filtroTransp,filtroNF,dateFrom,dateTo])
+
+  /* KPIs com count e valor — baseados nos filtros ativos (exceto filtroAtivo) */
   const kpiData = KPI_FU.map(k=>({
     ...k,
-    count: k.id==='hoje'  ? data.filter(r=>r.status==='Agendado'&&r.dt_previsao&&isToday(parseISO(r.dt_previsao))).length
-         : k.id==='__lt'  ? data.filter(r=>r.lt_vencido&&r.status!=='Entregue').length
-         : data.filter(r=>r.status===k.id).length,
-    valor: k.id==='hoje'  ? data.filter(r=>r.status==='Agendado'&&r.dt_previsao&&isToday(parseISO(r.dt_previsao))).reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
-         : k.id==='__lt'  ? data.filter(r=>r.lt_vencido&&r.status!=='Entregue').reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
-         : data.filter(r=>r.status===k.id).reduce((s,r)=>s+(Number(r.valor_produtos)||0),0),
+    count: k.id==='hoje'  ? baseParaKpi.filter(r=>['Agendado','Reagendada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao))).length
+         : k.id==='__lt'  ? baseParaKpi.filter(r=>r.lt_vencido&&r.status!=='Entregue').length
+         : baseParaKpi.filter(r=>r.status===k.id).length,
+    valor: k.id==='hoje'  ? baseParaKpi.filter(r=>['Agendado','Reagendada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao))).reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
+         : k.id==='__lt'  ? baseParaKpi.filter(r=>r.lt_vencido&&r.status!=='Entregue').reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
+         : baseParaKpi.filter(r=>r.status===k.id).reduce((s,r)=>s+(Number(r.valor_produtos)||0),0),
   }))
 
   const totalValor = filtered.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
@@ -260,6 +270,42 @@ export default function TorrePage() {
       {label}{sortField===field?' ↑':''}
     </th>
   )
+
+  // Exportar Excel da lista filtrada
+  const exportExcel = () => {
+    const rows = (activeSection==='sem-cc' ? nfsSemCC : filtered).map(r=>({
+      'NF': r.nf_numero,
+      'Filial': r.filial,
+      'Emissão': r.dt_emissao?.slice(0,10)||'',
+      'Destinatário': r.destinatario_fantasia||r.destinatario_nome||'',
+      'Cidade': r.cidade_destino||'',
+      'UF': r.uf_destino||'',
+      'C. Custo': r.centro_custo||'',
+      'Valor': Number(r.valor_produtos)||0,
+      'Transportadora': r.transportador_nome||'',
+      'Expedida': r.dt_expedida?.slice(0,10)||'',
+      'Previsão': r.dt_previsao||'',
+      'LT Interno': r.dt_lt_interno?.slice(0,10)||'',
+      'Ocorrência': r.ultima_ocorrencia||'',
+      'Status': r.status||'',
+      'Follow-up': r.followup_obs||'',
+    }))
+    if (rows.length===0) return
+    const headers = Object.keys(rows[0])
+    const csvLines = [
+      headers.join(';'),
+      ...rows.map(r=>headers.map(h=>{
+        const v = (r as Record<string,unknown>)[h]
+        const s = String(v??'').replace(/;/g,',')
+        return `"${s}"`
+      }).join(';'))
+    ]
+    const blob = new Blob(['﻿'+csvLines.join('\n')], {type:'text/csv;charset=utf-8'})
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a'); a.href=url
+    a.download = `notas_${activeSection}_${new Date().toISOString().slice(0,10)}.csv`
+    a.click(); URL.revokeObjectURL(url)
+  }
 
   const CC_OPTS = ['CANAL DIRETO','CANAL INDIRETO','CANAL VERDE','CASH & CARRY','ECOMMERCE','EIC','FARMA KEY ACCOUNT','KEY ACCOUNT','NOVOS NEGÓCIOS']
 
@@ -324,7 +370,7 @@ export default function TorrePage() {
               <span style={{fontSize:13}}>{k.icon}</span>
               <span style={{flex:1}}>{k.label}</span>
               <span style={{fontSize:11,fontWeight:700,color:filtroAtivo===k.id?k.color:T.text3}}>
-                {k.id==='hoje' ? data.filter(r=>r.status==='Agendado'&&r.dt_previsao&&isToday(parseISO(r.dt_previsao))).length
+                {k.id==='hoje' ? data.filter(r=>['Agendado','Reagendada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao))).length
                 : k.id==='__lt' ? data.filter(r=>r.lt_vencido&&r.status!=='Entregue').length
                 : data.filter(r=>r.status===k.id).length}
               </span>
@@ -354,9 +400,14 @@ export default function TorrePage() {
               </span>
             </div>
           </div>
-          <button onClick={load} style={{display:'flex',alignItems:'center',gap:6,padding:'7px 14px',background:T.surface,border:`1px solid ${T.border}`,color:T.text2,borderRadius:8,cursor:'pointer',fontSize:13,fontFamily:'inherit'}}>
-            ↻ Atualizar
-          </button>
+          <div style={{display:'flex',gap:8}}>
+            <button onClick={exportExcel} style={{display:'flex',alignItems:'center',gap:6,padding:'7px 14px',background:'#f97316',border:'none',color:'#fff',borderRadius:8,cursor:'pointer',fontSize:13,fontFamily:'inherit',fontWeight:600}}>
+              ↓ Excel
+            </button>
+            <button onClick={load} style={{display:'flex',alignItems:'center',gap:6,padding:'7px 14px',background:T.surface,border:`1px solid ${T.border}`,color:T.text2,borderRadius:8,cursor:'pointer',fontSize:13,fontFamily:'inherit'}}>
+              ↻ Atualizar
+            </button>
+          </div>
         </div>
 
         {/* KPI CARDS — clicáveis, com valor */}
@@ -379,25 +430,24 @@ export default function TorrePage() {
           })}
         </div>
 
-        {/* Filtros — idênticos ao follow-up */}
-        <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
+        {/* Filtros compactos — linha única */}
+        <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'nowrap',overflowX:'auto'}}>
           <select value={filtroTransp} onChange={e=>setFiltroTransp(e.target.value)}
-            style={{padding:'6px 10px',background:T.surface,border:`1px solid ${T.border}`,borderRadius:20,color:T.text,fontSize:12,outline:'none'}}>
-            <option value=''>Transportadora (todas)</option>
-            {trOpts.map(t=><option key={t} value={t}>{t}</option>)}
+            style={{padding:'5px 8px',background:T.surface,border:`1px solid ${T.border}`,borderRadius:16,color:T.text,fontSize:11,outline:'none',maxWidth:170,flexShrink:0}}>
+            <option value=''>Transp. (todas)</option>
+            {trOpts.map(t=><option key={t} value={t}>{t.split(' ')[0]}</option>)}
           </select>
-          <label style={{fontSize:12,color:T.text3}}>De</label>
           <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)}
-            style={{padding:'5px 10px',background:T.surface,border:`1px solid ${T.border}`,borderRadius:8,color:T.text,fontSize:12,outline:'none'}} />
-          <label style={{fontSize:12,color:T.text3}}>até</label>
+            style={{padding:'4px 8px',background:T.surface,border:`1px solid ${T.border}`,borderRadius:7,color:T.text,fontSize:11,outline:'none',flexShrink:0}} />
+          <span style={{fontSize:11,color:T.text3,flexShrink:0}}>–</span>
           <input type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)}
-            style={{padding:'5px 10px',background:T.surface,border:`1px solid ${T.border}`,borderRadius:8,color:T.text,fontSize:12,outline:'none'}} />
+            style={{padding:'4px 8px',background:T.surface,border:`1px solid ${T.border}`,borderRadius:7,color:T.text,fontSize:11,outline:'none',flexShrink:0}} />
           <button onClick={()=>{ setDateFrom(getToday()); setDateTo(getToday()) }}
-            style={{padding:'5px 10px',background:T.surface2,border:`1px solid ${T.border}`,color:T.text3,borderRadius:8,cursor:'pointer',fontSize:12,fontFamily:'inherit'}}>
+            style={{padding:'4px 8px',background:T.surface2,border:`1px solid ${T.border}`,color:T.text3,borderRadius:7,cursor:'pointer',fontSize:11,fontFamily:'inherit',flexShrink:0}}>
             Hoje
           </button>
           <input value={filtroNF} onChange={e=>setFiltroNF(e.target.value)} placeholder="Buscar NF..."
-            style={{padding:'6px 12px',background:T.surface,border:`1px solid ${T.border}`,borderRadius:20,color:T.text,fontSize:12,outline:'none',width:140}} />
+            style={{padding:'5px 10px',background:T.surface,border:`1px solid ${T.border}`,borderRadius:16,color:T.text,fontSize:11,outline:'none',width:120,flexShrink:0}} />
           <div style={{marginLeft:'auto',fontSize:12,color:T.text2,fontWeight:500,fontVariantNumeric:'tabular-nums'}}>
             {filtered.length} notas · {money(totalValor)}
           </div>
