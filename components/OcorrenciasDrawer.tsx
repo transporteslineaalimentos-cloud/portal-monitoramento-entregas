@@ -178,6 +178,8 @@ export default function OcorrenciasDrawer({ nf, onClose, onTranspEdited }: {
   const [transpNome, setTranspNome] = useState<string>('')
   const [showRegOcorr, setShowRegOcorr] = useState(false)
   const [drawerTab, setDrawerTab] = useState<'ocorr'|'status'>('ocorr')
+  const [transpFollowups, setTranspFollowups] = useState<any[]>([])
+  const [loadingTransp, setLoadingTransp] = useState(false)
   const [ocorrCodigo, setOcorrCodigo] = useState('')
   const [ocorrBusca, setOcorrBusca] = useState('')
   const [ocorrDropOpen, setOcorrDropOpen] = useState(false)
@@ -310,7 +312,16 @@ export default function OcorrenciasDrawer({ nf, onClose, onTranspEdited }: {
           {/* Tab bar */}
           <div style={{ display: 'flex', borderBottom: `1px solid ${T.border}`, marginBottom: 14, gap: 0 }}>
             {([['ocorr','📋 Ocorrências'],['status','🚚 Status Transportador']] as const).map(([t,l])=>(
-              <button key={t} onClick={()=>setDrawerTab(t)}
+              <button key={t} onClick={()=>{
+                setDrawerTab(t)
+                if (t==='status' && nf) {
+                  setLoadingTransp(true)
+                  fetch(`/api/transp-status?nf=${nf.nf_numero}`)
+                    .then(r=>r.json())
+                    .then(data=>{ setTranspFollowups(Array.isArray(data)?data:[]); setLoadingTransp(false) })
+                    .catch(()=>{ setTranspFollowups([]); setLoadingTransp(false) })
+                }
+              }}
                 style={{ padding: '12px 16px', border: 'none', borderBottom: `2px solid ${drawerTab===t?'#f97316':'transparent'}`,
                   background: 'transparent', color: drawerTab===t?'#f97316':T.text3,
                   fontSize: 12, fontWeight: drawerTab===t?700:400, cursor: 'pointer', fontFamily: 'inherit', marginBottom: -1 }}>
@@ -326,31 +337,46 @@ export default function OcorrenciasDrawer({ nf, onClose, onTranspEdited }: {
               </button>
             )}
           </div>
-          {/* Conteúdo da aba Status Transportador */}
+          {/* Conteúdo da aba Status Transportador — registros da transp_followup */}
           {drawerTab==='status' && (
-            <div style={{ padding: '4px 0', flex: 1, overflowY: 'auto' }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: T.text, marginBottom: 10 }}>
-                Status atual no Active OnSupply
+            <div style={{ padding: '4px 0', flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: T.text }}>
+                Histórico de Status do Transportador
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {[
-                  { label: 'Status', value: nf.status_detalhado || nf.status || '—' },
-                  { label: 'Última Ocorrência', value: nf.ultima_ocorrencia || '—' },
-                  { label: 'Código', value: nf.codigo_ocorrencia || '—' },
-                  { label: 'Data Ocorrência', value: nf.dt_ultima_ocorrencia ? nf.dt_ultima_ocorrencia.slice(0,10) : '—' },
-                  { label: 'Observação', value: nf.obs_ocorrencia || '—' },
-                  { label: 'Transportadora', value: nf.transportador_nome || '—' },
-                  { label: 'Previsão de Entrega', value: nf.dt_previsao || '—' },
-                  { label: 'Data Entrega', value: nf.dt_entrega || '—' },
-                  { label: 'Follow-up', value: nf.followup_obs || '—' },
-                  { label: 'Follow-up por', value: nf.followup_usuario || '—' },
-                ].map(p => (
-                  <div key={p.label} style={{ display: 'flex', gap: 10, padding: '8px 12px', background: T.surface2, borderRadius: 7, border: `1px solid ${T.border}` }}>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: T.text3, minWidth: 120, flexShrink: 0 }}>{p.label}</span>
-                    <span style={{ fontSize: 12, color: T.text, wordBreak: 'break-word' }}>{p.value}</span>
+              {loadingTransp && <div style={{ textAlign: 'center', padding: 24, color: T.text3 }}>Carregando...</div>}
+              {!loadingTransp && transpFollowups.length === 0 && (
+                <div style={{ textAlign: 'center', padding: 28, color: T.text3, fontSize: 12, border: `1px dashed ${T.border}`, borderRadius: 8 }}>
+                  Nenhum status registrado pelo transportador para esta NF
+                </div>
+              )}
+              {!loadingTransp && transpFollowups.map((fu, i) => {
+                const STATUS_COLORS: Record<string,string> = {
+                  agendamento_confirmado: '#3b82f6',
+                  veiculo_rota: '#f97316',
+                  entrega_realizada: '#22c55e',
+                  tentativa_sem_sucesso: '#ef4444',
+                  reagendamento_necessario: '#eab308',
+                  outro: '#9ca3af',
+                }
+                const cor = STATUS_COLORS[fu.codigo_status] ?? T.text3
+                const isFirst = i === 0
+                return (
+                  <div key={fu.id||i} style={{ background: isFirst ? `${cor}0d` : T.surface2, border: `1px solid ${isFirst ? `${cor}40` : T.border}`, borderRadius: 9, padding: '12px 14px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: fu.observacao||fu.dt_previsao ? 8 : 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: cor, flexShrink: 0, display: 'inline-block' }} />
+                        <span style={{ fontSize: 12, fontWeight: 700, color: isFirst ? cor : T.text }}>{fu.descricao_status}</span>
+                        {isFirst && <span style={{ fontSize: 9, fontWeight: 700, background: cor, color: '#fff', padding: '1px 6px', borderRadius: 3 }}>MAIS RECENTE</span>}
+                      </div>
+                      <span style={{ fontSize: 10, color: T.text3, flexShrink: 0, marginLeft: 8 }}>
+                        {fu.created_at ? new Date(fu.created_at).toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—'}
+                      </span>
+                    </div>
+                    {fu.observacao && <div style={{ fontSize: 11, color: T.text2, marginTop: 4 }}>📝 {fu.observacao}</div>}
+                    {fu.dt_previsao && <div style={{ fontSize: 11, color: '#f97316', fontWeight: 600, marginTop: 4 }}>📅 Prev. entrega: {new Date(fu.dt_previsao+'T12:00').toLocaleDateString('pt-BR')}</div>}
                   </div>
-                ))}
-              </div>
+                )
+              })}
             </div>
           )}
           {/* Conteúdo da aba Ocorrências */}
