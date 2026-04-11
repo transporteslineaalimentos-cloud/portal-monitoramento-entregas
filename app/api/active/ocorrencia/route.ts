@@ -18,8 +18,8 @@ export async function POST(req: NextRequest) {
 
   const {
     nf_numero, codigo, descricao, observacao,
-    previsao_transportador, hora_ocorrencia, usuario_responsavel,
-    anexo_base64, anexo_nome
+    previsao_transportador, hora_ocorrencia, ocorreu_data,
+    usuario_responsavel, anexo_base64, anexo_nome
   } = body
 
   if (!nf_numero || !codigo || !descricao)
@@ -45,8 +45,16 @@ export async function POST(req: NextRequest) {
   if (!nf) return NextResponse.json({ error: `NF ${nf_numero} não encontrada` }, { status: 404 })
 
   const now = new Date()
-  const dataOcorreu = now.toISOString().slice(0, 19)
   const horaOcorreu = now.toTimeString().slice(0, 5)
+
+  // ── Determinar data/hora da ocorrência ──────────────────────────────────
+  // Se o usuário informou uma data específica (ex: agendamento para dia X),
+  // usa essa data em Ocorreu_Data. Caso contrário usa agora.
+  const dataParaActive = ocorreu_data
+    ? `${ocorreu_data}T${hora_ocorrencia || horaOcorreu}:00`
+    : now.toISOString().slice(0, 19)
+
+  const horaParaActive = hora_ocorrencia || horaOcorreu
 
   const payload = [{
     Autenticacao: { Token_Integracao: ACTIVE_TOKEN },
@@ -68,24 +76,23 @@ export async function POST(req: NextRequest) {
     Documento: {
       Tipo: 'NotaFiscal',
       Emissor_CNPJCPF: (nf.remetente_cnpj || '05207076000459').replace(/\D/g, ''),
-      Emissao: nf.dt_emissao ? nf.dt_emissao.slice(0, 10) + 'T00:00:00' : dataOcorreu,
+      Emissao: nf.dt_emissao ? nf.dt_emissao.slice(0, 10) + 'T00:00:00' : dataParaActive,
       Numero: nf.nf_numero,
       Serie: nf.nf_serie || '2',
       Chave_Eletronica: nf.nf_chave || ''
     },
     Codigo: codigo,
     Descricao: descricao,
-    Ocorreu_Data: dataOcorreu,
-    Ocorreu_Hora: hora_ocorrencia || horaOcorreu,
+    // Ocorreu_Data = data em que a ocorrência aconteceu (ex: data do agendamento)
+    Ocorreu_Data: dataParaActive,
+    Ocorreu_Hora: horaParaActive,
     Observacao: observacao || '',
     Lancamento_Pelo: 'Interno',
     Lancamento_Nome: usuario_responsavel || 'Portal Linea',
     ...(previsao_transportador ? {
       Solucao_Baixa: { Previsao_Transportador: previsao_transportador }
     } : {}),
-    ...(anexo_base64 ? {
-      Anexo_Base64: [anexo_base64]
-    } : {}),
+    ...(anexo_base64 ? { Anexo_Base64: [anexo_base64] } : {}),
   }]
 
   try {

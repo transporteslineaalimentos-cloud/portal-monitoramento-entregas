@@ -121,6 +121,10 @@ export default function TorrePage() {
 
   /* Lançamento de ocorrência inline */
   const [ocorrNF, setOcorrNF] = useState<Entrega|null>(null)
+  const [activeSection, setActiveSection] = useState<'notas'|'sem-cc'>('notas')
+  const [editCCNF, setEditCCNF] = useState<string|null>(null)
+  const [editCCValor, setEditCCValor] = useState('')
+  const [editCCSaving, setEditCCSaving] = useState(false)
   const [ocorrCod, setOcorrCod] = useState('')
   const [ocorrBusca, setOcorrBusca] = useState('')
   const [ocorrDropOpen, setOcorrDropOpen] = useState(false)
@@ -234,9 +238,11 @@ export default function TorrePage() {
         codigo: ocorrCod,
         descricao: item?.label?.toUpperCase()||ocorrCod,
         observacao: obs,
-        previsao_transportador: item?.precisaData&&ocorrData ? ocorrData+'T'+ocorrHora+':00' : undefined,
-        usuario_responsavel: user.email,
+        // ocorreu_data = data que o usuário digitou (vai para Ocorreu_Data no Active)
+        ocorreu_data: item?.precisaData && ocorrData ? ocorrData : undefined,
         hora_ocorrencia: ocorrHora,
+        previsao_transportador: item?.precisaData && ocorrData ? ocorrData+'T'+ocorrHora+':00' : undefined,
+        usuario_responsavel: user.email,
         ...(ocorrAnexo ? { anexo_base64: ocorrAnexo.base64, anexo_nome: ocorrAnexo.nome } : {})
       })
     })
@@ -254,6 +260,24 @@ export default function TorrePage() {
       {label}{sortField===field?' ↑':''}
     </th>
   )
+
+  const CC_OPTS = ['CANAL DIRETO','CANAL INDIRETO','CANAL VERDE','CASH & CARRY','ECOMMERCE','EIC','FARMA KEY ACCOUNT','KEY ACCOUNT','NOVOS NEGÓCIOS']
+
+  const saveCC = async (nf_numero: string, cc: string) => {
+    if (!cc.trim()) return
+    setEditCCSaving(true)
+    await fetch('/api/cc-override', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nf_numero, centro_custo: cc, editado_por: user?.email })
+    })
+    setEditCCNF(null); setEditCCValor('')
+    setEditCCSaving(false)
+    load()
+  }
+
+  // NFs sem centro de custo (visíveis para todas as assistentes)
+  const nfsSemCC = data.filter(r => !r.centro_custo || r.centro_custo.trim() === '' || r.centro_custo === 'Não mapeado')
 
   if (!checked) return null
   if (!user) return <LoginScreen onLogin={handleLogin} />
@@ -275,12 +299,21 @@ export default function TorrePage() {
           <div style={{fontSize:10,color:T.text3,marginTop:2}}>{user.centros_custo.join(', ')}</div>
         </div>
         <div style={{padding:'8px 0',flex:1,overflowY:'auto'}}>
-          <button onClick={()=>setFiltroAtivo(null)}
+          <button onClick={()=>{setFiltroAtivo(null);setActiveSection('notas')}}
             style={{display:'flex',alignItems:'center',gap:9,width:'100%',padding:'9px 14px',border:'none',
-              background:filtroAtivo===null?`rgba(249,115,22,.1)`:'transparent',
-              borderLeft:`2px solid ${filtroAtivo===null?'#f97316':'transparent'}`,
-              color:filtroAtivo===null?'#f97316':T.text2,fontSize:13,fontWeight:filtroAtivo===null?600:400,cursor:'pointer',textAlign:'left',fontFamily:'inherit'}}>
+              background:activeSection==='notas'&&filtroAtivo===null?`rgba(249,115,22,.1)`:'transparent',
+              borderLeft:`2px solid ${activeSection==='notas'&&filtroAtivo===null?'#f97316':'transparent'}`,
+              color:activeSection==='notas'&&filtroAtivo===null?'#f97316':T.text2,fontSize:13,fontWeight:activeSection==='notas'&&filtroAtivo===null?600:400,cursor:'pointer',textAlign:'left',fontFamily:'inherit'}}>
             <span>📋</span> Minhas Notas
+          </button>
+          <button onClick={()=>setActiveSection('sem-cc')}
+            style={{display:'flex',alignItems:'center',gap:9,width:'100%',padding:'9px 14px',border:'none',
+              background:activeSection==='sem-cc'?`rgba(239,68,68,.1)`:'transparent',
+              borderLeft:`2px solid ${activeSection==='sem-cc'?'#ef4444':'transparent'}`,
+              color:activeSection==='sem-cc'?'#ef4444':T.text2,fontSize:13,fontWeight:activeSection==='sem-cc'?600:400,cursor:'pointer',textAlign:'left',fontFamily:'inherit'}}>
+            <span>⚠️</span>
+            <span style={{flex:1}}>Sem Centro de Custo</span>
+            {nfsSemCC.length>0 && <span style={{fontSize:11,fontWeight:700,color:'#ef4444',background:'rgba(239,68,68,.12)',padding:'1px 6px',borderRadius:10}}>{nfsSemCC.length}</span>}
           </button>
           {KPI_FU.map(k=>(
             <button key={k.id} onClick={()=>setFiltroAtivo(filtroAtivo===k.id?null:k.id)}
@@ -383,8 +416,73 @@ export default function TorrePage() {
           </div>
         </div>
 
-        {/* Tabela */}
-        <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:10,overflow:'hidden',flex:1}}>
+        {/* Seção Sem Centro de Custo — visível para todas as assistentes */}
+        {activeSection === 'sem-cc' && (
+          <div style={{background:T.surface,border:`1px solid #ef4444`,borderRadius:10,overflow:'hidden',flex:1}}>
+            <div style={{padding:'12px 16px',background:'rgba(239,68,68,.06)',borderBottom:`1px solid #ef444430`,display:'flex',alignItems:'center',gap:10}}>
+              <span style={{fontSize:13,fontWeight:700,color:'#ef4444'}}>⚠️ Notas sem Centro de Custo — {nfsSemCC.length} NFs</span>
+              <span style={{fontSize:12,color:T.text3}}>Visível para todas as assistentes. Edite o CC para vincular à assistente correta.</span>
+            </div>
+            <div style={{overflowX:'auto',overflowY:'auto',maxHeight:'calc(100vh - 320px)'}}>
+              {nfsSemCC.length===0 ? (
+                <div style={{textAlign:'center',padding:48,color:T.text3}}>✓ Nenhuma nota sem centro de custo</div>
+              ) : (
+                <table className="data-table">
+                  <thead><tr>
+                    <th style={{minWidth:80}}>NF</th>
+                    <th style={{minWidth:80}}>Filial</th>
+                    <th style={{minWidth:90}}>Emissão</th>
+                    <th style={{minWidth:180}}>Destinatário</th>
+                    <th style={{minWidth:140}}>Cidade/UF</th>
+                    <th style={{minWidth:90}}>Valor</th>
+                    <th style={{minWidth:130}}>Transportadora</th>
+                    <th style={{minWidth:200}}>Centro de Custo</th>
+                    <th style={{minWidth:130}}>Status</th>
+                  </tr></thead>
+                  <tbody>
+                    {nfsSemCC.map((r,i)=>(
+                      <tr key={i}>
+                        <td><span style={{color:T.accent,fontWeight:700,fontFamily:'var(--font-mono)'}}>{r.nf_numero}</span></td>
+                        <td><span style={{fontSize:10,fontWeight:700,padding:'2px 5px',borderRadius:4,background:r.filial==='CHOCOLATE'?'#faf5ff':'rgba(148,163,184,.1)',color:r.filial==='CHOCOLATE'?'#7c3aed':T.text3}}>{r.filial}</span></td>
+                        <td style={{fontSize:11}}>{r.dt_emissao?r.dt_emissao.slice(0,10):'—'}</td>
+                        <td style={{maxWidth:180,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontWeight:500}}>{r.destinatario_fantasia||r.destinatario_nome||'—'}</td>
+                        <td style={{fontSize:11,color:T.text2}}>{r.cidade_destino} · {r.uf_destino}</td>
+                        <td style={{fontVariantNumeric:'tabular-nums',fontSize:12}}>R${(Number(r.valor_produtos)||0).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0})}</td>
+                        <td style={{fontSize:11,maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.transportador_nome?.split(' ').slice(0,2).join(' ')||'—'}</td>
+                        <td>
+                          {editCCNF===r.nf_numero ? (
+                            <div style={{display:'flex',gap:4,alignItems:'center'}}>
+                              <select value={editCCValor} onChange={e=>setEditCCValor(e.target.value)}
+                                style={{padding:'4px 8px',background:T.surface,border:`1px solid #f97316`,borderRadius:6,color:T.text,fontSize:12,outline:'none',flex:1}}>
+                                <option value=''>Selecionar CC...</option>
+                                {CC_OPTS.map(cc=><option key={cc} value={cc}>{cc}</option>)}
+                              </select>
+                              <button onClick={()=>saveCC(r.nf_numero,editCCValor)} disabled={!editCCValor||editCCSaving}
+                                style={{padding:'4px 10px',background:editCCValor&&!editCCSaving?'#f97316':'#9ca3af',border:'none',color:'#fff',borderRadius:6,cursor:editCCValor&&!editCCSaving?'pointer':'default',fontSize:12,fontFamily:'inherit',fontWeight:600}}>
+                                {editCCSaving?'...':'✓ Salvar'}
+                              </button>
+                              <button onClick={()=>{setEditCCNF(null);setEditCCValor('')}}
+                                style={{padding:'4px 8px',background:'none',border:`1px solid ${T.border}`,color:T.text3,borderRadius:6,cursor:'pointer',fontSize:12}}>✕</button>
+                            </div>
+                          ) : (
+                            <button onClick={()=>{setEditCCNF(r.nf_numero);setEditCCValor('')}}
+                              style={{padding:'4px 12px',background:'rgba(249,115,22,.1)',border:'1px solid rgba(249,115,22,.3)',color:'#f97316',borderRadius:6,cursor:'pointer',fontSize:12,fontFamily:'inherit',fontWeight:600}}>
+                              + Definir CC
+                            </button>
+                          )}
+                        </td>
+                        <td><span style={{fontSize:11,fontWeight:600,padding:'2px 7px',borderRadius:10,background:T.surface2,color:T.text3}}>{r.status}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Tabela principal — notas da assistente */}
+        {activeSection === 'notas' && <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:10,overflow:'hidden',flex:1}}>
           {/* Scrollbar espelho no topo */}
           <div ref={topRef} onScroll={()=>syncScroll('top')}
             style={{overflowX:'auto',overflowY:'hidden',height:14,borderBottom:`1px solid ${T.border}`,cursor:'col-resize'}}>
@@ -405,7 +503,7 @@ export default function TorrePage() {
                     <Th field="dt_emissao"       label="EMISSÃO"       w={85}/>
                     <Th                          label="DESTINATÁRIO"  w={170}/>
                     <Th                          label="CIDADE · UF"   w={140}/>
-                    <Th                          label="C. CUSTO"      w={130}/>
+                    <Th                          label="C. CUSTO"      w={160}/>
                     <Th field="valor_produtos"   label="VALOR"         w={80}/>
                     <Th                          label="TRANSPORTADORA"w={130}/>
                     <Th                          label="EXPEDIDA"      w={80}/>
@@ -432,11 +530,33 @@ export default function TorrePage() {
                           {r.destinatario_fantasia||r.destinatario_nome||'—'}
                         </td>
                         <td style={{fontSize:11,color:T.text2}}>{r.cidade_destino} · {r.uf_destino}</td>
-                        <td>
-                          <span style={{fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:4,
-                            background:'rgba(249,115,22,.1)',color:'#f97316',border:'1px solid rgba(249,115,22,.2)',whiteSpace:'nowrap'}}>
-                            {r.centro_custo||'—'}
-                          </span>
+                        <td onClick={e=>e.stopPropagation()}>
+                          {editCCNF===r.nf_numero ? (
+                            <div style={{display:'flex',gap:4,alignItems:'center'}}>
+                              <select value={editCCValor} onChange={e=>setEditCCValor(e.target.value)}
+                                style={{padding:'2px 6px',background:T.surface,border:`1px solid ${T.border}`,borderRadius:5,color:T.text,fontSize:11,outline:'none'}}>
+                                <option value=''>Selecionar...</option>
+                                {CC_OPTS.map(cc=><option key={cc} value={cc}>{cc}</option>)}
+                              </select>
+                              <button onClick={()=>saveCC(r.nf_numero,editCCValor)} disabled={!editCCValor||editCCSaving}
+                                style={{padding:'2px 7px',background:editCCValor&&!editCCSaving?'#f97316':'#9ca3af',border:'none',color:'#fff',borderRadius:5,cursor:editCCValor&&!editCCSaving?'pointer':'default',fontSize:11,fontFamily:'inherit'}}>
+                                {editCCSaving?'...':'✓'}
+                              </button>
+                              <button onClick={()=>{setEditCCNF(null);setEditCCValor('')}}
+                                style={{padding:'2px 6px',background:'none',border:`1px solid ${T.border}`,color:T.text3,borderRadius:5,cursor:'pointer',fontSize:11}}>✕</button>
+                            </div>
+                          ) : (
+                            <div style={{display:'flex',alignItems:'center',gap:4}}>
+                              <span style={{fontSize:10,fontWeight:700,padding:'2px 6px',borderRadius:4,
+                                background:r.centro_custo&&r.centro_custo!=='Não mapeado'?'rgba(249,115,22,.1)':'rgba(239,68,68,.1)',
+                                color:r.centro_custo&&r.centro_custo!=='Não mapeado'?'#f97316':'#ef4444',
+                                border:`1px solid ${r.centro_custo&&r.centro_custo!=='Não mapeado'?'rgba(249,115,22,.2)':'rgba(239,68,68,.2)'}`,whiteSpace:'nowrap'}}>
+                                {r.centro_custo||'Sem CC'}
+                              </span>
+                              <button onClick={()=>{setEditCCNF(r.nf_numero);setEditCCValor(r.centro_custo||'')}}
+                                style={{padding:'1px 5px',background:'none',border:`1px solid ${T.border}`,color:T.text3,borderRadius:4,cursor:'pointer',fontSize:10}}>✏</button>
+                            </div>
+                          )}
                         </td>
                         <td style={{fontVariantNumeric:'tabular-nums',fontSize:12}}>{money(Number(r.valor_produtos)||0)}</td>
                         <td style={{fontSize:11,maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:T.text2}}>
@@ -474,7 +594,7 @@ export default function TorrePage() {
               </table>
             )}
           </div>
-        </div>
+        </div>}
       </main>
 
       {/* Drawer de ocorrências completo */}

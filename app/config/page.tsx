@@ -3,7 +3,6 @@ import { useEffect, useState, useCallback } from 'react'
 import { supabase, type DepararAssistente, type StatusMap, type TranspUsuario } from '@/lib/supabase'
 import Sidebar from '@/components/Sidebar'
 import MainWrapper from '@/components/MainWrapper'
-import { useAdmin, AdminLoginScreen } from '@/components/AdminAuth'
 import { useTheme } from '@/components/ThemeProvider'
 import { getTheme } from '@/lib/theme'
 import { format } from 'date-fns'
@@ -25,7 +24,6 @@ type UsuarioComCNPJs = TranspUsuario & {
 export default function Config() {
   const { theme, toggle } = useTheme()
   const T = getTheme(theme)
-  const { admin, checked, login: adminLogin, logout: adminLogout } = useAdmin()
 
   // ── Estado Assistentes Torre ───────────────────────────────────────────────
   type TorreUsuario = { id: string; nome: string; email: string; senha_hash: string|null; centros_custo: string[]; ativo: boolean; ultimo_acesso: string|null }
@@ -253,10 +251,6 @@ export default function Config() {
     section:  { marginBottom: 10, background: T.surface2, border: `1px solid ${T.border}`, borderRadius: 8, padding: 14 },
   }
 
-  // Guard admin
-  if (!checked) return null
-  if (!admin) return <AdminLoginScreen onLogin={adminLogin} />
-
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: T.bg }}>
       <Sidebar theme={theme} onToggleTheme={toggle} />
@@ -268,8 +262,8 @@ export default function Config() {
               <div style={{ fontSize: 11, color: T.text3, marginTop: 4 }}>Tabelas de referência e gestão de acessos</div>
             </div>
             <div style={{display:'flex',alignItems:'center',gap:10}}>
-              <div style={{fontSize:12,color:T.text3}}>🔐 <strong style={{color:T.text}}>{admin.nome}</strong></div>
-              <button onClick={adminLogout} style={{padding:'5px 12px',background:T.surface2,border:`1px solid ${T.border}`,color:T.text3,borderRadius:7,cursor:'pointer',fontSize:12,fontFamily:'inherit'}}>
+              <div style={{fontSize:12,color:T.text3}}>🔐 <strong style={{color:T.text}}>Admin</strong></div>
+              <button onClick={()=>{ sessionStorage.removeItem('portal_admin'); window.location.reload() }} style={{padding:'5px 12px',background:T.surface2,border:`1px solid ${T.border}`,color:T.text3,borderRadius:7,cursor:'pointer',fontSize:12,fontFamily:'inherit'}}>
                 Sair
               </button>
             </div>

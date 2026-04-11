@@ -177,6 +177,7 @@ export default function OcorrenciasDrawer({ nf, onClose, onTranspEdited }: {
   const [loading, setLoading] = useState(false)
   const [transpNome, setTranspNome] = useState<string>('')
   const [showRegOcorr, setShowRegOcorr] = useState(false)
+  const [drawerTab, setDrawerTab] = useState<'ocorr'|'status'>('ocorr')
   const [ocorrCodigo, setOcorrCodigo] = useState('')
   const [ocorrBusca, setOcorrBusca] = useState('')
   const [ocorrDropOpen, setOcorrDropOpen] = useState(false)
@@ -227,6 +228,7 @@ export default function OcorrenciasDrawer({ nf, onClose, onTranspEdited }: {
           codigo: ocorrCodigo,
           descricao: opcao?.label?.toUpperCase() || ocorrCodigo,
           observacao: ocorrObs,
+          ocorreu_data: opcao?.precisaData && ocorrData ? ocorrData : undefined,
           hora_ocorrencia: ocorrHora,
           previsao_transportador: opcao?.precisaData && ocorrData ? ocorrData + 'T' + ocorrHora + ':00' : undefined,
           ...(ocorrAnexo ? { anexo_base64: ocorrAnexo.base64, anexo_nome: ocorrAnexo.nome } : {})
@@ -303,19 +305,56 @@ export default function OcorrenciasDrawer({ nf, onClose, onTranspEdited }: {
           ))}
         </div>
 
-                {/* Ocorrências */}
-        <div style={{ padding: '16px 20px', flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: showRegOcorr ? 12 : 14 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: T.text }}>Histórico de Ocorrências</span>
-            {!loading && <span style={{ fontSize: 11, color: T.text3, background: T.surface2, padding: '1px 8px', borderRadius: 10, border: `1px solid ${T.border}` }}>{ocorrs.length} registros</span>}
-            <button
-              onClick={() => { setShowRegOcorr(!showRegOcorr); setOcorrMsg(null) }}
-              style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 6,
-                background: showRegOcorr ? T.surface2 : 'rgba(249,115,22,.1)', border: '1px solid rgba(249,115,22,.3)',
-                color: '#f97316', cursor: 'pointer' }}>
-              {showRegOcorr ? '✕ Fechar' : '+ Registrar Ocorrência'}
-            </button>
+                {/* Ocorrências / Status Transportador */}
+        <div style={{ padding: '0 20px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+          {/* Tab bar */}
+          <div style={{ display: 'flex', borderBottom: `1px solid ${T.border}`, marginBottom: 14, gap: 0 }}>
+            {([['ocorr','📋 Ocorrências'],['status','🚚 Status Transportador']] as const).map(([t,l])=>(
+              <button key={t} onClick={()=>setDrawerTab(t)}
+                style={{ padding: '12px 16px', border: 'none', borderBottom: `2px solid ${drawerTab===t?'#f97316':'transparent'}`,
+                  background: 'transparent', color: drawerTab===t?'#f97316':T.text3,
+                  fontSize: 12, fontWeight: drawerTab===t?700:400, cursor: 'pointer', fontFamily: 'inherit', marginBottom: -1 }}>
+                {l}
+              </button>
+            ))}
+            {drawerTab==='ocorr' && (
+              <button onClick={()=>{ setShowRegOcorr(!showRegOcorr); setOcorrMsg(null) }}
+                style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 6, alignSelf: 'center',
+                  background: showRegOcorr ? T.surface2 : 'rgba(249,115,22,.1)', border: '1px solid rgba(249,115,22,.3)',
+                  color: '#f97316', cursor: 'pointer' }}>
+                {showRegOcorr ? '✕ Fechar' : '+ Registrar Ocorrência'}
+              </button>
+            )}
           </div>
+          {/* Conteúdo da aba Status Transportador */}
+          {drawerTab==='status' && (
+            <div style={{ padding: '4px 0', flex: 1, overflowY: 'auto' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: T.text, marginBottom: 10 }}>
+                Status atual no Active OnSupply
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {[
+                  { label: 'Status', value: nf.status_detalhado || nf.status || '—' },
+                  { label: 'Última Ocorrência', value: nf.ultima_ocorrencia || '—' },
+                  { label: 'Código', value: nf.codigo_ocorrencia || '—' },
+                  { label: 'Data Ocorrência', value: nf.dt_ultima_ocorrencia ? nf.dt_ultima_ocorrencia.slice(0,10) : '—' },
+                  { label: 'Observação', value: nf.obs_ocorrencia || '—' },
+                  { label: 'Transportadora', value: nf.transportador_nome || '—' },
+                  { label: 'Previsão de Entrega', value: nf.dt_previsao || '—' },
+                  { label: 'Data Entrega', value: nf.dt_entrega || '—' },
+                  { label: 'Follow-up', value: nf.followup_obs || '—' },
+                  { label: 'Follow-up por', value: nf.followup_usuario || '—' },
+                ].map(p => (
+                  <div key={p.label} style={{ display: 'flex', gap: 10, padding: '8px 12px', background: T.surface2, borderRadius: 7, border: `1px solid ${T.border}` }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: T.text3, minWidth: 120, flexShrink: 0 }}>{p.label}</span>
+                    <span style={{ fontSize: 12, color: T.text, wordBreak: 'break-word' }}>{p.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {/* Conteúdo da aba Ocorrências */}
+          {drawerTab==='ocorr' && <div style={{ flex: 1, overflowY: 'auto' }}>
 
           {showRegOcorr && (
             <div style={{ background: T.surface2, border: `1px solid ${T.border}`, borderRadius: 10, padding: '14px 16px', marginBottom: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -500,6 +539,7 @@ export default function OcorrenciasDrawer({ nf, onClose, onTranspEdited }: {
               })}
             </div>
           )}
+          </div>}
         </div>
       </div>
     </>
