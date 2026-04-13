@@ -202,6 +202,7 @@ export default function PortalTransportador() {
 
   // cards resumo
   const cards = [
+    { label: 'Entrega Hoje', count: notas.filter(n => ['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(n.status)&&n.dt_previsao&&new Date(n.dt_previsao.slice(0,10)+'T12:00').toDateString()===new Date().toDateString()).length, cor: '#16a34a' },
     { label: 'Pend. Agendamento', count: notas.filter(n => n.status === 'Pendente Agendamento').length, cor: '#ca8a04' },
     { label: 'Agendadas', count: notas.filter(n => ['Agendado', 'Entrega Programada', 'Agend. Conforme Cliente', 'Reagendada'].includes(n.status)).length, cor: C.blue },
     { label: 'Ag. Retorno Cliente', count: notas.filter(n => n.status === 'Aguardando Retorno Cliente').length, cor: '#f59e0b' },

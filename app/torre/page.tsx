@@ -187,7 +187,7 @@ export default function TorrePage() {
   /* Filtragem */
   const filtered = useMemo(()=>{
     let d=data
-    if (filtroAtivo==='hoje')  d=d.filter(r=>['Agendado','Reagendada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao)))
+    if (filtroAtivo==='hoje')  d=d.filter(r=>['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao)))
     else if (filtroAtivo==='__lt') d=d.filter(r=>r.lt_vencido&&r.status!=='Entregue')
     else if (filtroAtivo)      d=d.filter(r=>r.status===filtroAtivo)
     if (filtroTransp) d=d.filter(r=>r.transportador_nome?.toLowerCase().includes(filtroTransp.toLowerCase()))
@@ -219,10 +219,10 @@ export default function TorrePage() {
   /* KPIs com count e valor — baseados nos filtros ativos (exceto filtroAtivo) */
   const kpiData = KPI_FU.map(k=>({
     ...k,
-    count: k.id==='hoje'  ? baseParaKpi.filter(r=>['Agendado','Reagendada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao))).length
+    count: k.id==='hoje'  ? baseParaKpi.filter(r=>['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao))).length
          : k.id==='__lt'  ? baseParaKpi.filter(r=>r.lt_vencido&&r.status!=='Entregue').length
          : baseParaKpi.filter(r=>r.status===k.id).length,
-    valor: k.id==='hoje'  ? baseParaKpi.filter(r=>['Agendado','Reagendada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao))).reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
+    valor: k.id==='hoje'  ? baseParaKpi.filter(r=>['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao))).reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
          : k.id==='__lt'  ? baseParaKpi.filter(r=>r.lt_vencido&&r.status!=='Entregue').reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
          : baseParaKpi.filter(r=>r.status===k.id).reduce((s,r)=>s+(Number(r.valor_produtos)||0),0),
   }))
@@ -370,7 +370,7 @@ export default function TorrePage() {
               <span style={{fontSize:13}}>{k.icon}</span>
               <span style={{flex:1}}>{k.label}</span>
               <span style={{fontSize:11,fontWeight:700,color:filtroAtivo===k.id?k.color:T.text3}}>
-                {k.id==='hoje' ? data.filter(r=>['Agendado','Reagendada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao))).length
+                {k.id==='hoje' ? data.filter(r=>['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao))).length
                 : k.id==='__lt' ? data.filter(r=>r.lt_vencido&&r.status!=='Entregue').length
                 : data.filter(r=>r.status===k.id).length}
               </span>
@@ -567,7 +567,7 @@ export default function TorrePage() {
                 <tbody>
                   {filtered.map((r,i)=>{
                     const ltVenc = r.lt_vencido&&r.status!=='Entregue'
-                    const hoje = r.status==='Agendado'&&r.dt_previsao&&isToday(parseISO(r.dt_previsao))
+                    const hoje = ['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao))
                     return (
                       <tr key={i} onClick={()=>setSelectedNF(r)} style={{cursor:'pointer',
                         background:ocorrNF?.nf_numero===r.nf_numero?`rgba(249,115,22,.06)`:undefined}}>

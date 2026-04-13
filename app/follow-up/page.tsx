@@ -98,11 +98,11 @@ export default function FollowUp() {
 
   useEffect(() => { load() }, [load])
 
-  const nfsHoje = useMemo(()=>data.filter(r=>['Agendado','Reagendada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao))),[data])
+  const nfsHoje = useMemo(()=>data.filter(r=>['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao))),[data])
 
   const filtered = useMemo(() => {
     let d = data
-    if (filtroAtivo==='hoje')    d = d.filter(r=>['Agendado','Reagendada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao)))
+    if (filtroAtivo==='hoje')    d = d.filter(r=>['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao)))
     else if (filtroAtivo==='__lt')    d = d.filter(r=>r.lt_vencido)
     else if (filtroAtivo)        d = d.filter(r=>r.status===filtroAtivo)
     if (filtroCC)    d = d.filter(r=>r.centro_custo?.toLowerCase().includes(filtroCC.toLowerCase()))
@@ -128,10 +128,10 @@ export default function FollowUp() {
 
   const kpiData = KPI_FU.map(k => ({
     ...k,
-    count: k.id==='hoje' ? filtered.filter(r=>['Agendado','Reagendada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao))).length
+    count: k.id==='hoje' ? filtered.filter(r=>['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao))).length
          : k.id==='__lt' ? filtered.filter(r=>r.lt_vencido).length
          : filtered.filter(r=>r.status===k.id).length,
-    valor: k.id==='hoje' ? filtered.filter(r=>['Agendado','Reagendada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao))).reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
+    valor: k.id==='hoje' ? filtered.filter(r=>['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao))).reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
          : k.id==='__lt' ? 0
          : filtered.filter(r=>r.status===k.id).reduce((s,r)=>s+(Number(r.valor_produtos)||0),0),
   }))
