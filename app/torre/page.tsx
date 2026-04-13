@@ -19,7 +19,7 @@ const KPI_FU = [
   { id:'Aguardando Retorno Cliente'  as KpiId, icon:'⏱', label:'Ag. Retorno Cliente', color:'#f59e0b', bg:'rgba(245,158,11,0.08)'  },
   { id:'Reagendamento Solicitado'    as KpiId, icon:'🔄', label:'Reagend. Solicitado', color:'#d97706', bg:'rgba(217,119,6,0.08)'   },
   { id:'Agendado'                    as KpiId, icon:'◆',  label:'Agendados',           color:'#2563eb', bg:'rgba(37,99,235,0.08)'   },
-  { id:'Entrega Programada'          as KpiId, icon:'🚚', label:'Entrega Programada',  color:'#0891b2', bg:'rgba(8,145,178,0.08)'   },
+  // Entrega Programada integrada ao fluxo de Agendados — não aparece separada
   { id:'Reagendada'                  as KpiId, icon:'↺',  label:'Reagendadas',         color:'#eab308', bg:'rgba(234,179,8,0.08)'   },
   { id:'Agend. Conforme Cliente'     as KpiId, icon:'👤', label:'Ag. Conf. Cliente',   color:'#6366f1', bg:'rgba(99,102,241,0.08)'  },
   { id:'Pendente Baixa Entrega'      as KpiId, icon:'🔴', label:'Pend. Baixa',         color:'#e11d48', bg:'rgba(225,29,72,0.08)'   },
@@ -163,8 +163,13 @@ export default function TorrePage() {
       all=all.concat(rows as Entrega[]); if(rows.length<PAGE) break; from+=PAGE
     }
     // Filtrar apenas CCs da assistente
-    const meusCCs = user.centros_custo.map(c=>c.toLowerCase())
-    setData(all.filter(r=> meusCCs.some(cc=> (r.centro_custo||'').toLowerCase().includes(cc)||cc.includes((r.centro_custo||'').toLowerCase()))))
+    const meusCCs = user.centros_custo.map(c=>c.toLowerCase().trim())
+    setData(all.filter(r=> {
+      const ccNota = (r.centro_custo||'').toLowerCase().trim()
+      if (!ccNota) return false
+      // Comparação EXATA — evita "key account" matchear "farma key account"
+      return meusCCs.some(cc=> cc === ccNota)
+    }))
     setLastUpdate(new Date())
     setLoading(false)
   }, [user])
@@ -189,6 +194,8 @@ export default function TorrePage() {
     let d=data
     if (filtroAtivo==='hoje')  d=d.filter(r=>['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao)))
     else if (filtroAtivo==='__lt') d=d.filter(r=>r.lt_vencido&&r.status!=='Entregue')
+    // Agendado no filtro inclui Entrega Programada
+    else if (filtroAtivo==='Agendado') d=d.filter(r=>['Agendado','Entrega Programada'].includes(r.status))
     else if (filtroAtivo)      d=d.filter(r=>r.status===filtroAtivo)
     if (filtroTransp) d=d.filter(r=>r.transportador_nome?.toLowerCase().includes(filtroTransp.toLowerCase()))
     if (filtroNF)     d=d.filter(r=>r.nf_numero?.includes(filtroNF))
@@ -221,9 +228,12 @@ export default function TorrePage() {
     ...k,
     count: k.id==='hoje'  ? baseParaKpi.filter(r=>['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao))).length
          : k.id==='__lt'  ? baseParaKpi.filter(r=>r.lt_vencido&&r.status!=='Entregue').length
+         // Agendado inclui Entrega Programada no count
+         : k.id==='Agendado' ? baseParaKpi.filter(r=>['Agendado','Entrega Programada'].includes(r.status)).length
          : baseParaKpi.filter(r=>r.status===k.id).length,
     valor: k.id==='hoje'  ? baseParaKpi.filter(r=>['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao))).reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
          : k.id==='__lt'  ? baseParaKpi.filter(r=>r.lt_vencido&&r.status!=='Entregue').reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
+         : k.id==='Agendado' ? baseParaKpi.filter(r=>['Agendado','Entrega Programada'].includes(r.status)).reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
          : baseParaKpi.filter(r=>r.status===k.id).reduce((s,r)=>s+(Number(r.valor_produtos)||0),0),
   }))
 
@@ -372,6 +382,7 @@ export default function TorrePage() {
               <span style={{fontSize:11,fontWeight:700,color:filtroAtivo===k.id?k.color:T.text3}}>
                 {k.id==='hoje' ? data.filter(r=>['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao))).length
                 : k.id==='__lt' ? data.filter(r=>r.lt_vencido&&r.status!=='Entregue').length
+                : k.id==='Agendado' ? data.filter(r=>['Agendado','Entrega Programada'].includes(r.status)).length
                 : data.filter(r=>r.status===k.id).length}
               </span>
             </button>
