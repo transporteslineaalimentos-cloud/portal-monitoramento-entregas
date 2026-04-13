@@ -128,7 +128,8 @@ export async function POST(req: NextRequest) {
         IDENTIFICADOR: item.Guid_Processamento || null,
       }
 
-      await db.from('active_ocorrencias').insert({
+      // Insere localmente — erro de duplicata é ignorado (unique index protege)
+      try { await db.from('active_ocorrencias').insert({
         tipo: 'ocorrencia',
         source: 'portal',
         nf_numero: nf.nf_numero,
@@ -144,9 +145,8 @@ export async function POST(req: NextRequest) {
         destinatario_cnpj: nf.destinatario_cnpj || null,
         destinatario_nome: nf.destinatario_nome || null,
         payload_raw: payloadRaw,
-        // data_ocorrencia = timestamp da ocorrência
         data_ocorrencia: dataParaActive,
-      })
+      }) } catch (_) { /* duplicata — ignora */ }
 
       return NextResponse.json({ ok: true, mensagem: item.Mensagem, guid: item.Guid_Processamento })
     }
