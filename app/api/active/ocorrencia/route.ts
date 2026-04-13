@@ -47,14 +47,13 @@ export async function POST(req: NextRequest) {
   const now = new Date()
   const horaOcorreu = now.toTimeString().slice(0, 5)
 
-  // ── Determinar data/hora da ocorrência ──────────────────────────────────
-  // Se o usuário informou uma data específica (ex: agendamento para dia X),
-  // usa essa data em Ocorreu_Data. Caso contrário usa agora.
   const dataParaActive = ocorreu_data
     ? `${ocorreu_data}T${hora_ocorrencia || horaOcorreu}:00`
     : now.toISOString().slice(0, 19)
 
   const horaParaActive = hora_ocorrencia || horaOcorreu
+  // Data limpa (só YYYY-MM-DD) para o campo OCORREU_DATA do payload
+  const ocorreuDataStr = ocorreu_data || now.toISOString().slice(0, 10)
 
   const payload = [{
     Autenticacao: { Token_Integracao: ACTIVE_TOKEN },
@@ -83,7 +82,6 @@ export async function POST(req: NextRequest) {
     },
     Codigo: codigo,
     Descricao: descricao,
-    // Ocorreu_Data = data em que a ocorrência aconteceu (ex: data do agendamento)
     Ocorreu_Data: dataParaActive,
     Ocorreu_Hora: horaParaActive,
     Observacao: observacao || '',
@@ -104,8 +102,55 @@ export async function POST(req: NextRequest) {
     })
     const result = await resp.json()
     const item = Array.isArray(result) ? result[0] : result
-    if (item?.Erro === false)
+
+    if (item?.Erro === false) {
+      // ── Salvar imediatamente no banco para refletir no portal em tempo real ──
+      // Monta payload_raw no mesmo formato que o webhook do Active enviaria,
+      // para que a view v_monitoramento_entregas processe corretamente.
+      const payloadRaw = {
+        OCORRENCIA: {
+          CODIGO: codigo,
+          DESCRICAO: descricao,
+          OBSERVACAO: observacao || '',
+          OCORREU_DATA: ocorreuDataStr,
+          OCORREU_HORA: horaParaActive,
+          DATAPREVISAO_TRANSPORTADOR: previsao_transportador || null,
+          ORIGEM_INFORMACAO: 'PORTAL',
+          RESPONSAVEL: usuario_responsavel || 'Portal Linea',
+        },
+        DOCUMENTO: {
+          TIPO: 'Nota Fiscal',
+          NUMERO: nf.nf_numero,
+          SERIE: nf.nf_serie || '2',
+          CHAVE: nf.nf_chave || '',
+          EMISSAO: nf.dt_emissao ? nf.dt_emissao.slice(0, 10) + 'T00:00:00' : null,
+        },
+        IDENTIFICADOR: item.Guid_Processamento || null,
+      }
+
+      await db.from('active_ocorrencias').insert({
+        tipo: 'ocorrencia',
+        source: 'portal',
+        nf_numero: nf.nf_numero,
+        nf_serie: nf.nf_serie || '2',
+        nf_chave: nf.nf_chave || '',
+        codigo_ocorrencia: String(codigo),
+        descricao_ocorrencia: descricao,
+        observacao: observacao || null,
+        transportador_cnpj: nf.transportador_cnpj || null,
+        transportador_nome: nf.transportador_nome || null,
+        remetente_cnpj: nf.remetente_cnpj || null,
+        remetente_nome: nf.remetente_nome || null,
+        destinatario_cnpj: nf.destinatario_cnpj || null,
+        destinatario_nome: nf.destinatario_nome || null,
+        payload_raw: payloadRaw,
+        // data_ocorrencia = timestamp da ocorrência
+        data_ocorrencia: dataParaActive,
+      })
+
       return NextResponse.json({ ok: true, mensagem: item.Mensagem, guid: item.Guid_Processamento })
+    }
+
     return NextResponse.json({ ok: false, mensagem: item?.Mensagem || 'Erro desconhecido' }, { status: 422 })
   } catch (e: any) {
     return NextResponse.json({ ok: false, mensagem: 'Falha com Active: ' + e.message }, { status: 503 })
