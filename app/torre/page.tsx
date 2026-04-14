@@ -12,19 +12,19 @@ import { OCORR_TODAS, type OcorrItem } from '@/lib/ocorrencias'
 type TorreUser = { id: string; nome: string; email: string; centros_custo: string[] }
 
 /* ── KPIs idênticos ao Follow-up ──────────────────────────────────────── */
-type KpiId = 'hoje'|'Pendente Agendamento'|'Aguardando Retorno Cliente'|'Reagendamento Solicitado'|'Agendado'|'Entrega Programada'|'Reagendada'|'Agend. Conforme Cliente'|'Pendente Baixa Entrega'|'NF com Ocorrência'|'__lt'
+type KpiId = 'hoje'|'Pendente Agendamento'|'Aguardando Retorno Cliente'|'Reagendamento Solicitado'|'Agendado'|'Entrega Programada'|'Reagendada'|'Agend. Conforme Cliente'|'Pendente Baixa Entrega'|'NF com Ocorrência'|'__lt'|'Entregue'
 const KPI_FU = [
   { id:'hoje'                        as KpiId, icon:'📅', label:'Entrega Hoje',        color:'#16a34a', bg:'rgba(22,163,74,0.08)'   },
   { id:'Pendente Agendamento'        as KpiId, icon:'📋', label:'Pend. Agendamento',   color:'#ca8a04', bg:'rgba(202,138,4,0.08)'   },
   { id:'Aguardando Retorno Cliente'  as KpiId, icon:'⏱', label:'Ag. Retorno Cliente', color:'#f59e0b', bg:'rgba(245,158,11,0.08)'  },
   { id:'Reagendamento Solicitado'    as KpiId, icon:'🔄', label:'Reagend. Solicitado', color:'#d97706', bg:'rgba(217,119,6,0.08)'   },
   { id:'Agendado'                    as KpiId, icon:'◆',  label:'Agendados',           color:'#2563eb', bg:'rgba(37,99,235,0.08)'   },
-  // Entrega Programada integrada ao fluxo de Agendados — não aparece separada
   { id:'Reagendada'                  as KpiId, icon:'↺',  label:'Reagendadas',         color:'#eab308', bg:'rgba(234,179,8,0.08)'   },
   { id:'Agend. Conforme Cliente'     as KpiId, icon:'👤', label:'Ag. Conf. Cliente',   color:'#6366f1', bg:'rgba(99,102,241,0.08)'  },
   { id:'Pendente Baixa Entrega'      as KpiId, icon:'🔴', label:'Pend. Baixa',         color:'#e11d48', bg:'rgba(225,29,72,0.08)'   },
   { id:'NF com Ocorrência'           as KpiId, icon:'⚡', label:'NF c/ Ocorrência',    color:'#dc2626', bg:'rgba(220,38,38,0.08)'   },
   { id:'__lt'                        as KpiId, icon:'⚠',  label:'LT Vencidos',         color:'#dc2626', bg:'rgba(220,38,38,0.08)'   },
+  { id:'Entregue'                    as KpiId, icon:'✅', label:'Entregue',             color:'#22c55e', bg:'rgba(34,197,94,0.08)'   },
 ]
 
 /* ── Mapeamento de ocorrências com campos extras ─────────────────────── */
@@ -333,7 +333,10 @@ export default function TorrePage() {
   }
 
   // NFs sem centro de custo (visíveis para todas as assistentes)
-  const nfsSemCC = data.filter(r => !r.centro_custo || r.centro_custo.trim() === '' || r.centro_custo === 'Não mapeado')
+  const nfsSemCC = data.filter(r => {
+    const cc = (r.centro_custo || '').trim()
+    return !cc || cc === '' || cc === '-' || cc === 'Não mapeado'
+  })
 
   if (!checked) return null
   if (!user) return <LoginScreen onLogin={handleLogin} />
@@ -449,10 +452,10 @@ export default function TorrePage() {
             {trOpts.map(t=><option key={t} value={t}>{t.split(' ')[0]}</option>)}
           </select>
           <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)}
-            style={{padding:'4px 8px',background:T.surface,border:`1px solid ${T.border}`,borderRadius:7,color:T.text,fontSize:11,outline:'none',flexShrink:0}} />
+            style={{padding:'4px 6px',background:T.surface,border:`1px solid ${T.border}`,borderRadius:7,color:T.text,fontSize:11,outline:'none',flexShrink:0,width:120}} />
           <span style={{fontSize:11,color:T.text3,flexShrink:0}}>–</span>
           <input type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)}
-            style={{padding:'4px 8px',background:T.surface,border:`1px solid ${T.border}`,borderRadius:7,color:T.text,fontSize:11,outline:'none',flexShrink:0}} />
+            style={{padding:'4px 6px',background:T.surface,border:`1px solid ${T.border}`,borderRadius:7,color:T.text,fontSize:11,outline:'none',flexShrink:0,width:120}} />
           <button onClick={()=>{ setDateFrom(getToday()); setDateTo(getToday()) }}
             style={{padding:'4px 8px',background:T.surface2,border:`1px solid ${T.border}`,color:T.text3,borderRadius:7,cursor:'pointer',fontSize:11,fontFamily:'inherit',flexShrink:0}}>
             Hoje
