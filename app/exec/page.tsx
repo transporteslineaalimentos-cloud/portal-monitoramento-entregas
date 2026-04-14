@@ -298,9 +298,21 @@ function ExecPage() {
       const w=Math.round((dm.getTime()-rm.getTime())/(7*86400000))
       return w<=-2?'S-2':w===-1?'S-1':w===0?'S0':w===1?'S+1':w===2?'S+2':'S+3'
     }
+    const isPast=(s:string)=>s==='S-2'||s==='S-1'
     const wk:Record<string,{valor:number;count:number}>={}
     WEEKS.forEach(w=>{wk[w]={valor:0,count:0}})
-    filtered.forEach(r=>{ if(!r.dt_previsao) return; const l=wkOf(new Date(r.dt_previsao)); if(!wk[l]) return; wk[l].valor+=Number(r.valor_produtos)||0; wk[l].count++ })
+    filtered.forEach(r=>{
+      // Semanas passadas: contar NFs entregues pelo dt_entrega real
+      if(r.dt_entrega && r.status==='Entregue'){
+        const l=wkOf(new Date(r.dt_entrega.slice(0,10)+' 12:00'))
+        if(isPast(l)&&wk[l]){wk[l].valor+=Number(r.valor_produtos)||0;wk[l].count++}
+      }
+      // Semanas atuais/futuras: contar agendamentos pelo dt_previsao
+      if(r.dt_previsao){
+        const l=wkOf(new Date(r.dt_previsao.slice(0,10)+' 12:00'))
+        if(!isPast(l)&&wk[l]){wk[l].valor+=Number(r.valor_produtos)||0;wk[l].count++}
+      }
+    })
     return WEEKS.map(s=>({semana:s,...wk[s]}))
   },[filtered])
 

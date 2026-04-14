@@ -143,9 +143,21 @@ export default function DashboardGestao() {
 
   // Previsão semanal
   const semanalData = useMemo(()=>{
+    const isPast=(s:string)=>s==='S-2'||s==='S-1'
     const wk: Record<string,{valor:number;count:number}> = {}
     WEEKS.forEach(w=>{ wk[w]={valor:0,count:0} })
-    filtered.forEach(r=>{ if(!r.dt_previsao) return; const lbl=wkOf(new Date(r.dt_previsao),now); if(!wk[lbl]) return; wk[lbl].valor+=Number(r.valor_produtos)||0; wk[lbl].count++ })
+    filtered.forEach(r=>{
+      // Semanas passadas: contar apenas entregues pelo dt_entrega real
+      if(r.dt_entrega && r.status==='Entregue'){
+        const lbl=wkOf(new Date(r.dt_entrega.slice(0,10)+' 12:00'),now)
+        if(isPast(lbl)&&wk[lbl]){wk[lbl].valor+=Number(r.valor_produtos)||0;wk[lbl].count++}
+      }
+      // Semanas atuais/futuras: contar agendamentos pelo dt_previsao
+      if(r.dt_previsao){
+        const lbl=wkOf(new Date(r.dt_previsao.slice(0,10)+' 12:00'),now)
+        if(!isPast(lbl)&&wk[lbl]){wk[lbl].valor+=Number(r.valor_produtos)||0;wk[lbl].count++}
+      }
+    })
     return WEEKS.map(s=>({semana:s,...wk[s]}))
   },[filtered])
 

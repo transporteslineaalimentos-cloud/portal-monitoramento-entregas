@@ -6,7 +6,7 @@ import { AdminLoginScreen } from '@/components/AdminAuth'
 type AdminUser = { id: string; nome: string; email: string }
 
 // Rotas que têm login próprio e não precisam do guard admin
-const PUBLIC_PREFIXES = ['/torre', '/transportador']
+const PUBLIC_PREFIXES = ['/torre', '/transportador', '/exec']
 
 export function AdminGuard({ children }: { children: ReactNode }) {
   const pathname = usePathname()
