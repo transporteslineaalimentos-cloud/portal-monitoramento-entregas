@@ -378,12 +378,26 @@ export default function TorrePage() {
     setCanhotoSaving(null)
   }
 
-  const handleDANFE = (nf_numero: string) => {
+  // DANFE: verifica se tem XML salvo → abre PDF direto; senão → pede upload
+  const handleDANFE = async (nf_numero: string) => {
+    // Sempre tenta /api/danfe/pdf — ele usa XML salvo se existir, ou fallback do banco
     window.open(`/api/danfe/pdf?nf=${nf_numero}`, '_blank')
   }
 
-  // Upload de XML para gerar DANFE completo (com produtos e lotes)
-  const handleDANFEXML = (nf_numero: string) => {
+  // Upload manual de XML (fallback caso queira forçar atualização)
+  const handleDANFEXML = async (nf_numero: string) => {
+    // Verificar primeiro se já tem XML salvo no banco
+    try {
+      const r = await fetch(`/api/danfe/check-xml?nf=${nf_numero}`)
+      const data = await r.json()
+      if (data.tem_xml) {
+        // Já tem XML — abre PDF direto
+        window.open(`/api/danfe/pdf?nf=${nf_numero}`, '_blank')
+        return
+      }
+    } catch { /* se falhar, continua para upload */ }
+
+    // Sem XML salvo — pede upload
     const input = document.createElement('input')
     input.type = 'file'
     input.accept = '.xml,application/xml,text/xml'
