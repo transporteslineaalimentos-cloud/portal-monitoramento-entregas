@@ -379,9 +379,35 @@ export default function TorrePage() {
   }
 
   const handleDANFE = (nf_numero: string) => {
-    // Gera DANFE em PDF direto no portal — sem conexão com SEFAZ
     window.open(`/api/danfe/pdf?nf=${nf_numero}`, '_blank')
   }
+
+  // Upload de XML para gerar DANFE completo (com produtos e lotes)
+  const handleDANFEXML = (nf_numero: string) => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.xml,application/xml,text/xml'
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (!file) return
+      const form = new FormData()
+      form.append('xml', file)
+      form.append('nf_numero', nf_numero)
+      try {
+        const resp = await fetch('/api/danfe/from-xml', { method: 'POST', body: form })
+        if (resp.ok) {
+          const blob = await resp.blob()
+          const url = URL.createObjectURL(blob)
+          window.open(url, '_blank')
+          setTimeout(() => URL.revokeObjectURL(url), 10000)
+        } else {
+          alert('Erro ao gerar DANFE do XML')
+        }
+      } catch { alert('Erro de conexão') }
+    }
+    input.click()
+  }
+
   if (!user) return <LoginScreen onLogin={handleLogin} />
 
   return (
@@ -774,8 +800,8 @@ export default function TorrePage() {
                           </button>
                         </td>
                         <td onClick={e=>e.stopPropagation()}>
-                          <button onClick={()=>handleDANFE(r.nf_numero)}
-                            title="Abrir DANFE no portal SEFAZ"
+                          <button onClick={()=>handleDANFEXML(r.nf_numero)}
+                            title="Gerar DANFE do XML (completo com produtos)"
                             style={{fontSize:10,padding:'3px 7px',borderRadius:5,border:`1px solid ${T.border}`,
                               background:T.surface2,color:T.text3,cursor:'pointer',fontFamily:'inherit'}}>
                             📄

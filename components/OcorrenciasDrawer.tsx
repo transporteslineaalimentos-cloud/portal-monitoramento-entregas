@@ -306,12 +306,40 @@ export default function OcorrenciasDrawer({ nf, onClose, onTranspEdited }: {
             </div>
           ))}
           {/* Botão DANFE */}
-          <button
-            onClick={() => window.open(`/api/danfe/pdf?nf=${nf.nf_numero}`, '_blank')}
-            style={{ padding: '4px 10px', background: '#1D4ED8', border: 'none', color: '#fff',
-              borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: 'inherit' }}>
-            📄 DANFE
-          </button>
+          <div style={{ display: 'flex', gap: 4 }}>
+            <button
+              onClick={() => window.open(`/api/danfe/pdf?nf=${nf.nf_numero}`, '_blank')}
+              style={{ padding: '4px 8px', background: '#1D4ED8', border: 'none', color: '#fff',
+                borderRadius: 6, cursor: 'pointer', fontSize: 10, fontWeight: 700, fontFamily: 'inherit' }}
+              title="DANFE simplificado (dados do portal)">
+              📄 DANFE
+            </button>
+            <button
+              onClick={() => {
+                const input = document.createElement('input')
+                input.type = 'file'; input.accept = '.xml,application/xml,text/xml'
+                input.onchange = async (e) => {
+                  const file = (e.target as HTMLInputElement).files?.[0]
+                  if (!file) return
+                  const form = new FormData()
+                  form.append('xml', file)
+                  form.append('nf_numero', nf.nf_numero)
+                  const resp = await fetch('/api/danfe/from-xml', { method: 'POST', body: form })
+                  if (resp.ok) {
+                    const blob = await resp.blob()
+                    const url = URL.createObjectURL(blob)
+                    window.open(url, '_blank')
+                    setTimeout(() => URL.revokeObjectURL(url), 10000)
+                  }
+                }
+                input.click()
+              }}
+              style={{ padding: '4px 8px', background: '#059669', border: 'none', color: '#fff',
+                borderRadius: 6, cursor: 'pointer', fontSize: 10, fontWeight: 700, fontFamily: 'inherit' }}
+              title="DANFE completo com produtos — selecionar XML da NF">
+              📂 XML→DANFE
+            </button>
+          </div>
         </div>
 
                 {/* Ocorrências / Status Transportador */}
