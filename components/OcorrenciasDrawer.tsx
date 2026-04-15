@@ -305,6 +305,13 @@ export default function OcorrenciasDrawer({ nf, onClose, onTranspEdited }: {
               <span style={{ fontSize: 11, color: T.text, fontWeight: 600 }}>{p.value}</span>
             </div>
           ))}
+          {/* Botão DANFE */}
+          <button
+            onClick={() => window.open(`/api/danfe/pdf?nf=${nf.nf_numero}`, '_blank')}
+            style={{ padding: '4px 10px', background: '#1D4ED8', border: 'none', color: '#fff',
+              borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: 'inherit' }}>
+            📄 DANFE
+          </button>
         </div>
 
                 {/* Ocorrências / Status Transportador */}

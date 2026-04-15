@@ -378,15 +378,9 @@ export default function TorrePage() {
     setCanhotoSaving(null)
   }
 
-  const handleDANFE = async (nf_numero: string) => {
-    // Abre link do portal SEFAZ com a chave da NF
-    const resp = await fetch(`/api/danfe?nf=${nf_numero}`)
-    const data = await resp.json()
-    if (data.portal_url) {
-      window.open(data.portal_url, '_blank')
-    } else if (data.error) {
-      alert(`DANFE não disponível: ${data.error}`)
-    }
+  const handleDANFE = (nf_numero: string) => {
+    // Gera DANFE em PDF direto no portal — sem conexão com SEFAZ
+    window.open(`/api/danfe/pdf?nf=${nf_numero}`, '_blank')
   }
   if (!user) return <LoginScreen onLogin={handleLogin} />
 
