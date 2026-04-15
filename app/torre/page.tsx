@@ -121,7 +121,9 @@ export default function TorrePage() {
 
   /* Lançamento de ocorrência inline */
   const [ocorrNF, setOcorrNF] = useState<Entrega|null>(null)
-  const [activeSection, setActiveSection] = useState<'notas'|'sem-cc'>('notas')
+  const [activeSection, setActiveSection] = useState<'notas'|'sem-cc'|'canhotos'>('notas')
+  const [canhotos, setCanhotos] = useState<Record<string,string>>({}) // nf_numero -> status
+  const [canhotoSaving, setCanhotoSaving] = useState<string|null>(null)
   const [editCCNF, setEditCCNF] = useState<string|null>(null)
   const [editCCValor, setEditCCValor] = useState('')
   const [editCCSaving, setEditCCSaving] = useState(false)
@@ -338,7 +340,47 @@ export default function TorrePage() {
     return !cc || cc === '' || cc === '-' || cc === 'Não mapeado'
   })
 
-  if (!checked) return null
+  // NFs entregues sem canhoto confirmado
+  const nfsEntregues = useMemo(() => data.filter(r => r.status === 'Entregue'), [data])
+  const nfsSemCanhoto = useMemo(() =>
+    nfsEntregues.filter(r => (canhotos[r.nf_numero] || 'pendente') !== 'ok'),
+  [nfsEntregues, canhotos])
+
+  const loadCanhotos = useCallback(async () => {
+    const nfs = nfsEntregues.map(r => r.nf_numero)
+    if (!nfs.length) return
+    const { data: rows } = await supabase
+      .from('mon_canhoto_status').select('nf_numero,status').in('nf_numero', nfs)
+    if (rows) {
+      const map: Record<string,string> = {}
+      rows.forEach((r: any) => { map[r.nf_numero] = r.status })
+      setCanhotos(map)
+    }
+  }, [nfsEntregues])
+
+  useEffect(() => { if (nfsEntregues.length) loadCanhotos() }, [nfsEntregues.length])
+
+  const saveCanhoto = async (nf_numero: string, status: string) => {
+    setCanhotoSaving(nf_numero)
+    await fetch('/api/torre/canhoto', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nf_numero, status, usuario: user?.email })
+    })
+    setCanhotos(prev => ({ ...prev, [nf_numero]: status }))
+    setCanhotoSaving(null)
+  }
+
+  const handleDANFE = async (nf_numero: string) => {
+    // Abre link do portal SEFAZ com a chave da NF
+    const resp = await fetch(`/api/danfe?nf=${nf_numero}`)
+    const data = await resp.json()
+    if (data.portal_url) {
+      window.open(data.portal_url, '_blank')
+    } else if (data.error) {
+      alert(`DANFE não disponível: ${data.error}`)
+    }
+  }
   if (!user) return <LoginScreen onLogin={handleLogin} />
 
   return (
@@ -373,6 +415,15 @@ export default function TorrePage() {
             <span>⚠️</span>
             <span style={{flex:1}}>Sem Centro de Custo</span>
             {nfsSemCC.length>0 && <span style={{fontSize:11,fontWeight:700,color:'#ef4444',background:'rgba(239,68,68,.12)',padding:'1px 6px',borderRadius:10}}>{nfsSemCC.length}</span>}
+          </button>
+          <button onClick={()=>setActiveSection('canhotos')}
+            style={{display:'flex',alignItems:'center',gap:9,width:'100%',padding:'9px 14px',border:'none',
+              background:activeSection==='canhotos'?`rgba(234,179,8,.1)`:'transparent',
+              borderLeft:`2px solid ${activeSection==='canhotos'?'#eab308':'transparent'}`,
+              color:activeSection==='canhotos'?'#eab308':T.text2,fontSize:13,fontWeight:activeSection==='canhotos'?600:400,cursor:'pointer',textAlign:'left',fontFamily:'inherit'}}>
+            <span>📎</span>
+            <span style={{flex:1}}>Canhotos Pendentes</span>
+            {nfsSemCanhoto.length>0 && <span style={{fontSize:11,fontWeight:700,color:'#eab308',background:'rgba(234,179,8,.12)',padding:'1px 6px',borderRadius:10}}>{nfsSemCanhoto.length}</span>}
           </button>
           {KPI_FU.map(k=>(
             <button key={k.id} onClick={()=>setFiltroAtivo(filtroAtivo===k.id?null:k.id)}
@@ -480,6 +531,82 @@ export default function TorrePage() {
           </div>
         </div>
 
+        {/* Seção Canhotos — NFs entregues sem canhoto */}
+        {activeSection === 'canhotos' && (
+          <div style={{background:T.surface,border:`1px solid #eab308`,borderRadius:10,overflow:'hidden',flex:1}}>
+            <div style={{padding:'12px 16px',background:'rgba(234,179,8,.06)',borderBottom:`1px solid rgba(234,179,8,.2)`,display:'flex',alignItems:'center',gap:10}}>
+              <span style={{fontSize:13,fontWeight:700,color:'#eab308'}}>📎 Canhotos Pendentes — {nfsSemCanhoto.length} NFs entregues sem canhoto confirmado</span>
+              <span style={{fontSize:12,color:T.text3}}>Cobre o transportador e atualize o status.</span>
+              <button onClick={loadCanhotos} style={{marginLeft:'auto',padding:'4px 10px',background:'none',border:`1px solid ${T.border}`,color:T.text3,borderRadius:6,cursor:'pointer',fontSize:11,fontFamily:'inherit'}}>↻ Atualizar</button>
+            </div>
+            <div style={{overflowX:'auto',overflowY:'auto',maxHeight:'calc(100vh - 320px)'}}>
+              {nfsSemCanhoto.length===0 ? (
+                <div style={{textAlign:'center',padding:48,color:T.text3}}>✓ Todos os canhotos confirmados</div>
+              ) : (
+                <table className="data-table">
+                  <thead><tr>
+                    <th style={{minWidth:80}}>NF</th>
+                    <th style={{minWidth:70}}>Filial</th>
+                    <th style={{minWidth:90}}>Entregue em</th>
+                    <th style={{minWidth:180}}>Destinatário</th>
+                    <th style={{minWidth:130}}>Transportadora</th>
+                    <th style={{minWidth:90}}>Valor</th>
+                    <th style={{minWidth:200}}>Status Canhoto</th>
+                    <th style={{minWidth:80}}>DANFE</th>
+                  </tr></thead>
+                  <tbody>
+                    {nfsSemCanhoto.map((r,i)=>{
+                      const stCanhoto = canhotos[r.nf_numero] || 'pendente'
+                      const saving = canhotoSaving === r.nf_numero
+                      return (
+                        <tr key={i}>
+                          <td><span style={{color:T.accent,fontWeight:700,fontFamily:'var(--font-mono)'}}>{r.nf_numero}</span></td>
+                          <td><span style={{fontSize:10,fontWeight:700,padding:'2px 5px',borderRadius:4,background:r.filial==='CHOCOLATE'?'#faf5ff':'rgba(148,163,184,.1)',color:r.filial==='CHOCOLATE'?'#7c3aed':T.text3}}>{r.filial}</span></td>
+                          <td style={{fontSize:11}}>{r.dt_entrega ? r.dt_entrega.slice(0,10) : '—'}</td>
+                          <td style={{maxWidth:180,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontWeight:500}}>{r.destinatario_fantasia||r.destinatario_nome||'—'}</td>
+                          <td style={{fontSize:11,maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.transportador_nome?.split(' ').slice(0,2).join(' ')||'—'}</td>
+                          <td style={{fontVariantNumeric:'tabular-nums',fontSize:12}}>R${(Number(r.valor_produtos)||0).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0})}</td>
+                          <td onClick={e=>e.stopPropagation()}>
+                            <div style={{display:'flex',gap:4}}>
+                              {(['pendente','solicitado'] as const).map(s => {
+                                const labels = {pendente:'⏳ Pendente', solicitado:'📨 Solicitado'}
+                                const colors = {pendente:'#ef4444', solicitado:'#f59e0b'}
+                                const isActive = stCanhoto === s
+                                return (
+                                  <button key={s} onClick={()=>saveCanhoto(r.nf_numero, s)} disabled={saving}
+                                    style={{fontSize:10,padding:'3px 7px',borderRadius:5,border:`1px solid ${colors[s]}40`,
+                                      background:isActive?`${colors[s]}18`:'transparent',
+                                      color:isActive?colors[s]:T.text4,cursor:'pointer',fontFamily:'inherit',fontWeight:isActive?700:400,
+                                      opacity:saving?0.5:1}}>
+                                    {labels[s]}
+                                  </button>
+                                )
+                              })}
+                              <button onClick={()=>saveCanhoto(r.nf_numero,'ok')} disabled={saving}
+                                style={{fontSize:10,padding:'3px 7px',borderRadius:5,border:`1px solid #22c55e40`,
+                                  background:'rgba(34,197,94,.12)',color:'#22c55e',cursor:'pointer',fontFamily:'inherit',fontWeight:600,
+                                  opacity:saving?0.5:1}}>
+                                {saving?'...':'✅ Confirmar'}
+                              </button>
+                            </div>
+                          </td>
+                          <td onClick={e=>e.stopPropagation()}>
+                            <button onClick={()=>handleDANFE(r.nf_numero)}
+                              style={{fontSize:10,padding:'3px 8px',borderRadius:5,border:`1px solid ${T.border}`,
+                                background:T.surface2,color:T.text2,cursor:'pointer',fontFamily:'inherit'}}>
+                              📄 PDF
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Seção Sem Centro de Custo — visível para todas as assistentes */}
         {activeSection === 'sem-cc' && (
           <div style={{background:T.surface,border:`1px solid #ef4444`,borderRadius:10,overflow:'hidden',flex:1}}>
@@ -576,6 +703,7 @@ export default function TorrePage() {
                     <Th                          label="OCORRÊNCIA"    w={160}/>
                     <Th                          label="STATUS ACTIVE" w={160}/>
                     <Th                          label="LANÇAR"        w={120}/>
+                    <Th                          label="DANFE"         w={70}/>
                   </tr>
                 </thead>
                 <tbody>
@@ -649,6 +777,14 @@ export default function TorrePage() {
                             style={{fontSize:11,padding:'3px 10px',borderRadius:6,border:'1px solid rgba(249,115,22,.3)',
                               background:'rgba(249,115,22,.08)',color:'#f97316',cursor:'pointer',fontFamily:'inherit',fontWeight:600,whiteSpace:'nowrap'}}>
                             + registrar
+                          </button>
+                        </td>
+                        <td onClick={e=>e.stopPropagation()}>
+                          <button onClick={()=>handleDANFE(r.nf_numero)}
+                            title="Abrir DANFE no portal SEFAZ"
+                            style={{fontSize:10,padding:'3px 7px',borderRadius:5,border:`1px solid ${T.border}`,
+                              background:T.surface2,color:T.text3,cursor:'pointer',fontFamily:'inherit'}}>
+                            📄
                           </button>
                         </td>
                       </tr>
