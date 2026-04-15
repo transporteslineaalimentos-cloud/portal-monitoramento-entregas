@@ -122,7 +122,7 @@ export default function TorrePage() {
   /* Lançamento de ocorrência inline */
   const [ocorrNF, setOcorrNF] = useState<Entrega|null>(null)
   const [activeSection, setActiveSection] = useState<'notas'|'sem-cc'|'canhotos'>('notas')
-  const [canhotos, setCanhotos] = useState<Record<string,string>>({}) // nf_numero -> status
+  const [canhotos, setCanhotos] = useState<Record<string,{status:string;status_revisao:string;arquivo_url?:string;arquivo_nome?:string;enviado_em?:string}>>({})
   const [canhotoSaving, setCanhotoSaving] = useState<string|null>(null)
   const [editCCNF, setEditCCNF] = useState<string|null>(null)
   const [editCCValor, setEditCCValor] = useState('')
@@ -343,17 +343,24 @@ export default function TorrePage() {
   // NFs entregues sem canhoto confirmado
   const nfsEntregues = useMemo(() => data.filter(r => r.status === 'Entregue'), [data])
   const nfsSemCanhoto = useMemo(() =>
-    nfsEntregues.filter(r => (canhotos[r.nf_numero] || 'pendente') !== 'ok'),
+    nfsEntregues.filter(r => {
+      const c = canhotos[r.nf_numero]
+      // Mostra: sem registro, aguardando upload, aguardando revisão, ou reprovado
+      if (!c) return true
+      return c.status !== 'recebido' && c.status_revisao !== 'aprovado'
+    }),
   [nfsEntregues, canhotos])
 
   const loadCanhotos = useCallback(async () => {
     const nfs = nfsEntregues.map(r => r.nf_numero)
     if (!nfs.length) return
     const { data: rows } = await supabase
-      .from('mon_canhoto_status').select('nf_numero,status').in('nf_numero', nfs)
+      .from('mon_canhoto_status')
+      .select('nf_numero,status,status_revisao,arquivo_url,arquivo_nome,enviado_em')
+      .in('nf_numero', nfs)
     if (rows) {
-      const map: Record<string,string> = {}
-      rows.forEach((r: any) => { map[r.nf_numero] = r.status })
+      const map: Record<string,any> = {}
+      rows.forEach((r: any) => { map[r.nf_numero] = r })
       setCanhotos(map)
     }
   }, [nfsEntregues])
@@ -367,7 +374,7 @@ export default function TorrePage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ nf_numero, status, usuario: user?.email })
     })
-    setCanhotos(prev => ({ ...prev, [nf_numero]: status }))
+    setCanhotos(prev => ({ ...prev, [nf_numero]: { ...(prev[nf_numero] || { status_revisao: 'aguardando_upload' }), status } }))
     setCanhotoSaving(null)
   }
 
@@ -551,13 +558,22 @@ export default function TorrePage() {
                     <th style={{minWidth:180}}>Destinatário</th>
                     <th style={{minWidth:130}}>Transportadora</th>
                     <th style={{minWidth:90}}>Valor</th>
-                    <th style={{minWidth:200}}>Status Canhoto</th>
-                    <th style={{minWidth:80}}>DANFE</th>
+                    <th style={{minWidth:160}}>Status Canhoto</th>
+                    <th style={{minWidth:200}}>Ações</th>
                   </tr></thead>
                   <tbody>
                     {nfsSemCanhoto.map((r,i)=>{
-                      const stCanhoto = canhotos[r.nf_numero] || 'pendente'
+                      const canhoto = canhotos[r.nf_numero]
+                      const revisao = canhoto?.status_revisao || 'aguardando_upload'
+                      const temArquivo = !!canhoto?.arquivo_url
                       const saving = canhotoSaving === r.nf_numero
+                      const RLABELS: Record<string,{label:string;color:string}> = {
+                        aguardando_upload:{label:'Aguardando upload',color:'#6b7280'},
+                        aguardando_revisao:{label:'📎 Aguardando revisão',color:'#f59e0b'},
+                        aprovado:{label:'✅ Aprovado',color:'#22c55e'},
+                        reprovado:{label:'❌ Reprovado',color:'#ef4444'},
+                      }
+                      const rv = RLABELS[revisao] || RLABELS.aguardando_upload
                       return (
                         <tr key={i}>
                           <td><span style={{color:T.accent,fontWeight:700,fontFamily:'var(--font-mono)'}}>{r.nf_numero}</span></td>
@@ -567,35 +583,19 @@ export default function TorrePage() {
                           <td style={{fontSize:11,maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.transportador_nome?.split(' ').slice(0,2).join(' ')||'—'}</td>
                           <td style={{fontVariantNumeric:'tabular-nums',fontSize:12}}>R${(Number(r.valor_produtos)||0).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0})}</td>
                           <td onClick={e=>e.stopPropagation()}>
-                            <div style={{display:'flex',gap:4}}>
-                              {(['pendente','solicitado'] as const).map(s => {
-                                const labels = {pendente:'⏳ Pendente', solicitado:'📨 Solicitado'}
-                                const colors = {pendente:'#ef4444', solicitado:'#f59e0b'}
-                                const isActive = stCanhoto === s
-                                return (
-                                  <button key={s} onClick={()=>saveCanhoto(r.nf_numero, s)} disabled={saving}
-                                    style={{fontSize:10,padding:'3px 7px',borderRadius:5,border:`1px solid ${colors[s]}40`,
-                                      background:isActive?`${colors[s]}18`:'transparent',
-                                      color:isActive?colors[s]:T.text4,cursor:'pointer',fontFamily:'inherit',fontWeight:isActive?700:400,
-                                      opacity:saving?0.5:1}}>
-                                    {labels[s]}
-                                  </button>
-                                )
-                              })}
-                              <button onClick={()=>saveCanhoto(r.nf_numero,'ok')} disabled={saving}
-                                style={{fontSize:10,padding:'3px 7px',borderRadius:5,border:`1px solid #22c55e40`,
-                                  background:'rgba(34,197,94,.12)',color:'#22c55e',cursor:'pointer',fontFamily:'inherit',fontWeight:600,
-                                  opacity:saving?0.5:1}}>
-                                {saving?'...':'✅ Confirmar'}
-                              </button>
-                            </div>
+                            <span style={{fontSize:11,color:rv.color,fontWeight:600}}>{rv.label}</span>
+                            {canhoto?.enviado_em && <div style={{fontSize:10,color:T.text3,marginTop:2}}>enviado {new Date(canhoto.enviado_em).toLocaleDateString('pt-BR')}</div>}
                           </td>
                           <td onClick={e=>e.stopPropagation()}>
-                            <button onClick={()=>handleDANFE(r.nf_numero)}
-                              style={{fontSize:10,padding:'3px 8px',borderRadius:5,border:`1px solid ${T.border}`,
-                                background:T.surface2,color:T.text2,cursor:'pointer',fontFamily:'inherit'}}>
-                              📄 PDF
-                            </button>
+                            <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                              {temArquivo && <button onClick={()=>window.open(canhoto.arquivo_url,'_blank')} style={{fontSize:10,padding:'3px 8px',borderRadius:5,border:`1px solid ${T.border}`,background:T.surface2,color:T.text2,cursor:'pointer',fontFamily:'inherit'}}>👁 Ver</button>}
+                              {revisao==='aguardando_revisao' && <>
+                                <button onClick={async()=>{setCanhotoSaving(r.nf_numero);await fetch('/api/canhoto/revisar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nf_numero:r.nf_numero,decisao:'aprovado',usuario:user?.email})});setCanhotos(prev=>({...prev,[r.nf_numero]:{...prev[r.nf_numero],status:'recebido',status_revisao:'aprovado'}}));setCanhotoSaving(null)}} disabled={saving} style={{fontSize:10,padding:'3px 8px',borderRadius:5,border:'1px solid #22c55e40',background:'rgba(34,197,94,.12)',color:'#22c55e',cursor:'pointer',fontFamily:'inherit',fontWeight:600,opacity:saving?0.5:1}}>✅ Aprovar</button>
+                                <button onClick={async()=>{const obs=prompt('Motivo da reprovação:')||'';setCanhotoSaving(r.nf_numero);await fetch('/api/canhoto/revisar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nf_numero:r.nf_numero,decisao:'reprovado',obs,usuario:user?.email})});setCanhotos(prev=>({...prev,[r.nf_numero]:{...prev[r.nf_numero],status_revisao:'reprovado'}}));setCanhotoSaving(null)}} disabled={saving} style={{fontSize:10,padding:'3px 8px',borderRadius:5,border:'1px solid #ef444440',background:'rgba(239,68,68,.1)',color:'#ef4444',cursor:'pointer',fontFamily:'inherit',fontWeight:600,opacity:saving?0.5:1}}>❌ Reprovar</button>
+                              </>}
+                              {revisao==='aguardando_upload' && <button onClick={()=>saveCanhoto(r.nf_numero,'solicitado')} disabled={saving} style={{fontSize:10,padding:'3px 8px',borderRadius:5,border:'1px solid #f59e0b40',background:'rgba(245,158,11,.1)',color:'#f59e0b',cursor:'pointer',fontFamily:'inherit',opacity:saving?0.5:1}}>📨 Cobrar</button>}
+                              <button onClick={()=>handleDANFE(r.nf_numero)} style={{fontSize:10,padding:'3px 8px',borderRadius:5,border:`1px solid ${T.border}`,background:T.surface2,color:T.text2,cursor:'pointer',fontFamily:'inherit'}}>📄 PDF</button>
+                            </div>
                           </td>
                         </tr>
                       )
