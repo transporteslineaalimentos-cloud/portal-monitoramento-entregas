@@ -398,7 +398,7 @@ export default function TorrePage() {
   /* ── Th helper ──────────────────────────────────────────────── */
   const Th=({field,label,w}:{field?:string;label:string;w:number})=>(
     <th onClick={()=>field&&setSortField(field)} style={{minWidth:w,cursor:field?'pointer':'default',
-      padding:'10px 12px',textAlign:'left',fontSize:10,fontWeight:700,
+      padding:'6px 10px',textAlign:'left',fontSize:10,fontWeight:700,
       color:sortField===field?D.accentBlu:D.text3,letterSpacing:'.08em',textTransform:'uppercase',
       background:D.surface,borderBottom:`1px solid ${D.border}`,whiteSpace:'nowrap',
       position:'sticky',top:0,zIndex:1,userSelect:'none',
@@ -500,18 +500,18 @@ export default function TorrePage() {
       {/* ══════════════════════════════════════════
           MAIN
       ══════════════════════════════════════════ */}
-      <main style={{marginLeft:220,flex:1,padding:'22px 24px',display:'flex',flexDirection:'column',gap:18,minWidth:0}}>
+      <main style={{marginLeft:220,flex:1,padding:'10px 16px',display:'flex',flexDirection:'column',gap:8,minWidth:0}}>
 
         {/* ── Header ──────────────────────────────────── */}
         <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:16}}>
           <div>
-            <h1 style={{margin:0,fontSize:24,fontWeight:700,color:D.text,letterSpacing:'-.03em',lineHeight:1.1}}>
+            <h1 style={{margin:0,fontSize:18,fontWeight:700,color:D.text,letterSpacing:'-.03em',lineHeight:1.1}}>
               {filtroAtivo ? KPI_FU.find(k=>k.id===filtroAtivo)?.label
                 : activeSection==='sem-cc' ? 'Sem Centro de Custo'
                 
                 : 'Minhas Notas'}
             </h1>
-            <div style={{display:'flex',alignItems:'center',gap:8,marginTop:6}}>
+            <div style={{display:'flex',alignItems:'center',gap:8,marginTop:2}}>
               <span style={{width:7,height:7,borderRadius:'50%',background:'#22c55e',boxShadow:'0 0 0 3px rgba(34,197,94,.2)',display:'inline-block',flexShrink:0}}/>
               <span style={{fontSize:12,color:D.text3}}>
                 Atualizado às {format(lastUpdate,'HH:mm:ss')}
@@ -522,14 +522,14 @@ export default function TorrePage() {
           </div>
           <div style={{display:'flex',gap:8,alignItems:'center',flexShrink:0}}>
             <button onClick={load}
-              style={{display:'flex',alignItems:'center',gap:6,padding:'9px 16px',
+              style={{display:'flex',alignItems:'center',gap:6,padding:'6px 12px',
                 background:D.surface,border:`1px solid ${D.border}`,color:D.text2,borderRadius:9,
                 cursor:'pointer',fontSize:12,fontFamily:'inherit',fontWeight:500,
                 boxShadow:D.shadow,transition:'all .15s'}}>
               <span style={{fontSize:14}}>↻</span> Atualizar
             </button>
             <button onClick={exportExcel}
-              style={{display:'flex',alignItems:'center',gap:6,padding:'9px 16px',
+              style={{display:'flex',alignItems:'center',gap:6,padding:'6px 12px',
                 background:'linear-gradient(135deg,#f97316,#ea6c0a)',border:'none',color:'#fff',borderRadius:9,
                 cursor:'pointer',fontSize:12,fontFamily:'inherit',fontWeight:600,
                 boxShadow:'0 4px 16px rgba(249,115,22,.3)',transition:'all .15s'}}>
@@ -539,13 +539,13 @@ export default function TorrePage() {
         </div>
 
         {/* ── 3 KPIs Destacados ───────────────────────── */}
-        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16}}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10}}>
 
           {/* KPI 1 — Total em Aberto */}
           <div onClick={()=>{setFiltroAtivo(null);setActiveSection('notas')}}
             style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:16,
-              padding:'24px 26px 22px',cursor:'pointer',position:'relative',overflow:'hidden',
-              boxShadow:D.shadow,transition:'all .2s',minHeight:148}}
+              padding:'12px 16px 10px',cursor:'pointer',position:'relative',overflow:'hidden',
+              boxShadow:D.shadow,transition:'all .2s'}}
             onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.borderColor=D.accentBlu;(e.currentTarget as HTMLElement).style.boxShadow=D.glow}}
             onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.borderColor=D.border;(e.currentTarget as HTMLElement).style.boxShadow=D.shadow}}>
             <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:`linear-gradient(90deg,${D.accentBlu},rgba(59,130,246,.2),transparent)`,borderRadius:'16px 16px 0 0'}}/>
@@ -554,7 +554,7 @@ export default function TorrePage() {
               <span style={{width:6,height:6,borderRadius:'50%',background:D.accentBlu,display:'inline-block',boxShadow:`0 0 6px ${D.accentBlu}`}}/>
               Total em Aberto
             </div>
-            <div style={{fontSize:56,fontWeight:900,color:D.text,lineHeight:1,fontVariantNumeric:'tabular-nums',letterSpacing:'-.04em',marginBottom:10}}>
+            <div style={{fontSize:36,fontWeight:900,color:D.text,lineHeight:1,fontVariantNumeric:'tabular-nums',letterSpacing:'-.04em',marginBottom:4}}>
               {totalAberto}
             </div>
             <div style={{fontSize:13,color:D.text2,fontWeight:600}}>{money(totalValorAberto)}</div>
@@ -567,15 +567,15 @@ export default function TorrePage() {
               <div onClick={()=>{setFiltroAtivo(active?null:'__lt');setActiveSection('notas')}}
                 style={{background:active?'rgba(239,68,68,.07)':D.surface,
                   border:`1px solid ${active?'rgba(239,68,68,.55)':D.border}`,borderRadius:16,
-                  padding:'24px 26px 22px',cursor:'pointer',position:'relative',overflow:'hidden',
+                  padding:'12px 16px 10px',cursor:'pointer',position:'relative',overflow:'hidden',
                   boxShadow:active?`0 0 0 1px rgba(239,68,68,.25), 0 12px 40px rgba(239,68,68,.2), ${D.shadow}`:D.shadow,
-                  transition:'all .2s',minHeight:148}}
+                  transition:'all .2s'}}
                 onMouseEnter={e=>{if(!active){(e.currentTarget as HTMLElement).style.borderColor='rgba(239,68,68,.45)';(e.currentTarget as HTMLElement).style.boxShadow=`0 0 0 1px rgba(239,68,68,.15), ${D.shadow}`}}}
                 onMouseLeave={e=>{if(!active){(e.currentTarget as HTMLElement).style.borderColor=D.border;(e.currentTarget as HTMLElement).style.boxShadow=D.shadow}}}>
                 <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:'linear-gradient(90deg,#ef4444,rgba(239,68,68,.3),transparent)',borderRadius:'16px 16px 0 0'}}/>
                 {ltCount>0&&<div style={{position:'absolute',inset:0,background:'radial-gradient(ellipse 80% 50% at 20% 0%, rgba(239,68,68,.1) 0%, transparent 70%)',pointerEvents:'none'}}/>}
                 <div style={{position:'absolute',bottom:-4,right:10,fontSize:72,fontWeight:900,color:'#ef4444',opacity:.05,lineHeight:1,letterSpacing:'-.04em',userSelect:'none'}}>!</div>
-                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:16}}>
+                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
                   <span style={{fontSize:10,fontWeight:800,color:'#ef4444',letterSpacing:'.12em',textTransform:'uppercase'}}>LT Vencidos</span>
                   {ltCount>0&&(
                     <span style={{fontSize:9,fontWeight:800,color:'#ef4444',background:'rgba(239,68,68,.18)',
@@ -583,7 +583,7 @@ export default function TorrePage() {
                       animation:'blink 1.8s ease-in-out infinite'}}>ALERTA</span>
                   )}
                 </div>
-                <div style={{fontSize:56,fontWeight:900,color:'#ef4444',lineHeight:1,fontVariantNumeric:'tabular-nums',letterSpacing:'-.04em',marginBottom:10,
+                <div style={{fontSize:36,fontWeight:900,color:'#ef4444',lineHeight:1,fontVariantNumeric:'tabular-nums',letterSpacing:'-.04em',marginBottom:4,
                   textShadow:ltCount>0?'0 0 28px rgba(239,68,68,.55)':'none'}}>
                   {ltCount}
                 </div>
@@ -598,29 +598,29 @@ export default function TorrePage() {
             const numColor=active?'#f97316':D.text
             const labelC=active?'#f97316':D.text3
             const bars=[0.4,0.65,0.5,0.8,0.55,0.7,ocCount>0?1:0.3]
-            const barW=22,barGap=4,barMaxH=34
+            const barW=22,barGap=4,barMaxH=18
             return (
               <div onClick={()=>{setFiltroAtivo(active?null:'NF com Ocorrência');setActiveSection('notas')}}
                 style={{background:active?'rgba(249,115,22,.06)':D.surface,
                   border:`1px solid ${active?'rgba(249,115,22,.55)':D.border}`,borderRadius:16,
-                  padding:'24px 26px 0',cursor:'pointer',position:'relative',overflow:'hidden',
+                  padding:'12px 16px 0',cursor:'pointer',position:'relative',overflow:'hidden',
                   boxShadow:active?`0 0 0 1px rgba(249,115,22,.2), 0 12px 40px rgba(249,115,22,.15), ${D.shadow}`:D.shadow,
-                  transition:'all .2s',minHeight:148,display:'flex',flexDirection:'column'}}
+                  transition:'all .2s',display:'flex',flexDirection:'column'}}
                 onMouseEnter={e=>{if(!active){(e.currentTarget as HTMLElement).style.borderColor='rgba(249,115,22,.4)';(e.currentTarget as HTMLElement).style.boxShadow=`0 0 0 1px rgba(249,115,22,.12), ${D.shadow}`}}}
                 onMouseLeave={e=>{if(!active){(e.currentTarget as HTMLElement).style.borderColor=D.border;(e.currentTarget as HTMLElement).style.boxShadow=D.shadow}}}>
                 <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:`linear-gradient(90deg,#f97316,rgba(249,115,22,.25),transparent)`,borderRadius:'16px 16px 0 0'}}/>
                 <div style={{flex:1}}>
-                  <div style={{fontSize:10,fontWeight:800,color:labelC,letterSpacing:'.12em',textTransform:'uppercase',marginBottom:16,display:'flex',alignItems:'center',gap:6}}>
+                  <div style={{fontSize:10,fontWeight:800,color:labelC,letterSpacing:'.12em',textTransform:'uppercase',marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
                     <span style={{width:6,height:6,borderRadius:'50%',background:'#f97316',display:'inline-block',boxShadow:active?'0 0 6px #f97316':'none'}}/>
                     NF com Ocorrência
                   </div>
-                  <div style={{fontSize:56,fontWeight:900,color:numColor,lineHeight:1,fontVariantNumeric:'tabular-nums',letterSpacing:'-.04em',marginBottom:10}}>
+                  <div style={{fontSize:36,fontWeight:900,color:numColor,lineHeight:1,fontVariantNumeric:'tabular-nums',letterSpacing:'-.04em',marginBottom:4}}>
                     {ocCount}
                   </div>
-                  <div style={{fontSize:13,color:active?'rgba(249,115,22,.65)':D.text2,fontWeight:600,marginBottom:12}}>{money(ocValor)}</div>
+                  <div style={{fontSize:13,color:active?'rgba(249,115,22,.65)':D.text2,fontWeight:600,marginBottom:6}}>{money(ocValor)}</div>
                 </div>
                 {/* Mini bar chart — 7 colunas */}
-                <div style={{display:'flex',alignItems:'flex-end',gap:barGap+'px',paddingBottom:14,paddingTop:4,opacity:.5,marginTop:'auto'}}>
+                <div style={{display:'flex',alignItems:'flex-end',gap:barGap+'px',paddingBottom:8,paddingTop:2,opacity:.5,marginTop:'auto'}}>
                   {bars.map((h,i)=>(
                     <div key={i} style={{width:barW+'px',height:Math.max(4,h*barMaxH)+'px',borderRadius:'3px 3px 0 0',flexShrink:0,
                       background:i===bars.length-1
@@ -634,7 +634,7 @@ export default function TorrePage() {
         </div>
 
         {/* ── Chips de Status ─────────────────────────── */}
-        <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+        <div style={{display:'flex',alignItems:'center',gap:5,flexWrap:'nowrap',overflowX:'auto',paddingBottom:2}}>
           <span style={{fontSize:9,fontWeight:700,color:D.text3,letterSpacing:'.1em',textTransform:'uppercase',marginRight:4,flexShrink:0}}>Filtrar:</span>
           {CHIPS.map(id=>{
             const k=KPI_FU.find(k=>k.id===id)!
@@ -667,8 +667,8 @@ export default function TorrePage() {
         </div>
 
         {/* ── Barra de Filtros ────────────────────────── */}
-        <div style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:12,padding:'12px 16px',
-          boxShadow:D.shadow,display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}>
+        <div style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:12,padding:'7px 12px',
+          boxShadow:D.shadow,display:'flex',gap:8,alignItems:'center',flexWrap:'nowrap'}}>
 
           {/* Busca */}
           <div style={{position:'relative',flex:'1 1 200px',minWidth:180}}>
@@ -795,23 +795,12 @@ export default function TorrePage() {
         ══════════════════════════════════════════════ */}
         {activeSection==='notas'&&(
           <div style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:14,overflow:'hidden',boxShadow:D.shadow,flex:1,display:'flex',flexDirection:'column'}}>
-            {/* Cabeçalho da tabela com contagem proeminente */}
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 18px 11px',borderBottom:`1px solid ${D.borderLo}`,flexShrink:0,background:`linear-gradient(90deg,${D.surface2},${D.surface})`}}>
-              <div style={{display:'flex',alignItems:'center',gap:12}}>
-                <span style={{fontSize:14,fontWeight:800,color:D.text,fontVariantNumeric:'tabular-nums',letterSpacing:'-.02em'}}>{filtered.length}</span>
-                <span style={{fontSize:12,color:D.text3,fontWeight:500}}>notas encontradas</span>
-                {filtroAtivo&&<span style={{fontSize:11,color:D.text3}}>· filtro ativo</span>}
-              </div>
-              <div style={{display:'flex',alignItems:'center',gap:6}}>
-                <span style={{fontSize:11,color:D.text3}}>Total:</span>
-                <span style={{fontSize:13,fontWeight:700,color:D.accent}}>{money(totalValor)}</span>
-              </div>
-            </div>
+
             {/* Scrollbar espelho */}
             <div ref={topRef} onScroll={()=>syncScroll('top')} style={{overflowX:'auto',overflowY:'hidden',height:12,borderBottom:`1px solid ${D.borderLo}`,cursor:'col-resize',flexShrink:0}}>
               <div style={{height:1,width:tableW}}/>
             </div>
-            <div ref={botRef} onScroll={()=>syncScroll('bot')} style={{overflowX:'auto',overflowY:'auto',flex:1,maxHeight:'calc(100vh - 460px)'}}>
+            <div ref={botRef} onScroll={()=>syncScroll('bot')} style={{overflowX:'auto',overflowY:'auto',flex:1,maxHeight:'calc(100vh - 310px)'}}>
               {loading?(
                 <div style={{textAlign:'center',padding:80,color:D.text3}}>
                   <div style={{fontSize:13,fontWeight:500,marginBottom:20}}>Carregando notas…</div>
@@ -862,16 +851,16 @@ export default function TorrePage() {
                           onMouseEnter={e=>{if(!isSelected)(e.currentTarget as HTMLElement).style.background='rgba(59,130,246,.06)'}}
                           onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background=isSelected?'rgba(249,115,22,.07)':evenBg}}>
 
-                          <td style={{padding:'10px 12px'}}>
+                          <td style={{padding:'5px 10px'}}>
                             <span style={{color:D.accent,fontWeight:700,fontFamily:'var(--font-mono)',fontSize:12,letterSpacing:'-.01em'}}>{r.nf_numero}</span>
                           </td>
-                          <td style={{padding:'10px 12px'}}>
+                          <td style={{padding:'5px 10px'}}>
                             <span style={{fontSize:10,fontWeight:700,padding:'2px 7px',borderRadius:5,background:r.filial==='CHOCOLATE'?'rgba(124,58,237,.15)':'rgba(148,163,184,.08)',color:r.filial==='CHOCOLATE'?'#a78bfa':D.text3}}>{r.filial==='CHOCOLATE'?'CHOCO':r.filial}</span>
                           </td>
-                          <td style={{padding:'10px 12px',fontSize:11,color:D.text3,whiteSpace:'nowrap'}}>{fmt(r.dt_emissao)}</td>
-                          <td style={{padding:'10px 12px',maxWidth:168,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontWeight:500,fontSize:12,color:D.text}}>{r.destinatario_fantasia||r.destinatario_nome||'—'}</td>
-                          <td style={{padding:'10px 12px',fontSize:11,color:D.text3,whiteSpace:'nowrap'}}>{r.cidade_destino} · {r.uf_destino}</td>
-                          <td style={{padding:'10px 12px'}} onClick={e=>e.stopPropagation()}>
+                          <td style={{padding:'5px 10px',fontSize:11,color:D.text3,whiteSpace:'nowrap'}}>{fmt(r.dt_emissao)}</td>
+                          <td style={{padding:'5px 10px',maxWidth:168,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontWeight:500,fontSize:12,color:D.text}}>{r.destinatario_fantasia||r.destinatario_nome||'—'}</td>
+                          <td style={{padding:'5px 10px',fontSize:11,color:D.text3,whiteSpace:'nowrap'}}>{r.cidade_destino} · {r.uf_destino}</td>
+                          <td style={{padding:'5px 10px'}} onClick={e=>e.stopPropagation()}>
                             {editCCNF===r.nf_numero?(
                               <div style={{display:'flex',gap:4,alignItems:'center'}}>
                                 <select value={editCCValor} onChange={e=>setEditCCValor(e.target.value)} style={{...darkInput,padding:'3px 6px',fontSize:10,borderColor:D.accent,maxWidth:110}}>
@@ -894,10 +883,10 @@ export default function TorrePage() {
                               </div>
                             )}
                           </td>
-                          <td style={{padding:'10px 12px',fontVariantNumeric:'tabular-nums',fontSize:12,fontWeight:600,color:D.text,whiteSpace:'nowrap'}}>{money(Number(r.valor_produtos)||0)}</td>
-                          <td style={{padding:'10px 12px',fontSize:11,maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:D.text2}}>{r.transportador_nome?.split(' ').slice(0,2).join(' ')||'—'}</td>
-                          <td style={{padding:'10px 12px',fontSize:11,color:D.text3,whiteSpace:'nowrap'}}>{fmt(r.dt_expedida)}</td>
-                          <td style={{padding:'10px 12px',whiteSpace:'nowrap'}}>
+                          <td style={{padding:'5px 10px',fontVariantNumeric:'tabular-nums',fontSize:12,fontWeight:600,color:D.text,whiteSpace:'nowrap'}}>{money(Number(r.valor_produtos)||0)}</td>
+                          <td style={{padding:'5px 10px',fontSize:11,maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:D.text2}}>{r.transportador_nome?.split(' ').slice(0,2).join(' ')||'—'}</td>
+                          <td style={{padding:'5px 10px',fontSize:11,color:D.text3,whiteSpace:'nowrap'}}>{fmt(r.dt_expedida)}</td>
+                          <td style={{padding:'5px 10px',whiteSpace:'nowrap'}}>
                             <div style={{display:'flex',alignItems:'center',gap:5}}>
                               <span style={{fontSize:12,fontWeight:700,color:ltVenc?D.red:hoje?D.green:D.text2,fontVariantNumeric:'tabular-nums'}}>
                                 {fmt(r.dt_previsao)||fmt(r.dt_lt_interno)}
@@ -906,8 +895,8 @@ export default function TorrePage() {
                               {hoje&&<span style={{fontSize:9,fontWeight:800,color:'#fff',background:'#16a34a',padding:'1px 5px',borderRadius:4,boxShadow:'0 0 8px rgba(22,163,74,.4)'}}>HOJE</span>}
                             </div>
                           </td>
-                          <td style={{padding:'10px 12px',fontSize:11,color:ltVenc?D.red:D.text3,whiteSpace:'nowrap'}}>{fmt(r.dt_lt_interno)}</td>
-                          <td style={{padding:'10px 12px',maxWidth:155,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                          <td style={{padding:'5px 10px',fontSize:11,color:ltVenc?D.red:D.text3,whiteSpace:'nowrap'}}>{fmt(r.dt_lt_interno)}</td>
+                          <td style={{padding:'5px 10px',maxWidth:155,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                             {r.ultima_ocorrencia?(
                               <span style={{fontSize:11,color:D.text2}}>
                                 {r.codigo_ocorrencia&&<span style={{fontWeight:700,color:D.text,marginRight:4,fontFamily:'var(--font-mono)',fontSize:10}}>{r.codigo_ocorrencia}</span>}
@@ -915,9 +904,9 @@ export default function TorrePage() {
                               </span>
                             ):<span style={{color:D.text3,fontSize:11}}>—</span>}
                           </td>
-                          <td style={{padding:'10px 12px'}}><StatusBadge status={r.status||''}/></td>
+                          <td style={{padding:'5px 10px'}}><StatusBadge status={r.status||''}/></td>
                           {/* Status Interno — apenas assistentes podem registrar */}
-                          <td style={{padding:'10px 12px'}} onClick={e=>e.stopPropagation()}>
+                          <td style={{padding:'5px 10px'}} onClick={e=>e.stopPropagation()}>
                             <button
                               onClick={()=>setFollowupNF(r)}
                               title={r.followup_obs||r.followup_status||'Registrar status interno'}
@@ -937,7 +926,7 @@ export default function TorrePage() {
                                 title={r.followup_obs}>{r.followup_obs}</div>
                             )}
                           </td>
-                          <td style={{padding:'10px 12px'}} onClick={e=>e.stopPropagation()}>
+                          <td style={{padding:'5px 10px'}} onClick={e=>e.stopPropagation()}>
                             <button
                               onClick={()=>{setOcorrNF(r);setOcorrCod('');setOcorrBusca('');setOcorrObs('');setOcorrData('');setOcorrAnexo(null);setOcorrDropOpen(false);setOcorrMsg(null)}}
                               style={{fontSize:11,padding:'5px 10px',borderRadius:7,
@@ -949,7 +938,7 @@ export default function TorrePage() {
                               + Registrar
                             </button>
                           </td>
-                          <td style={{padding:'10px 12px'}} onClick={e=>e.stopPropagation()}>
+                          <td style={{padding:'5px 10px'}} onClick={e=>e.stopPropagation()}>
                             
                           </td>
                         </tr>
