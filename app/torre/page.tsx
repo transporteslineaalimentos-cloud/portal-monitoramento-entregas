@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
+import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid } from 'recharts'
 import { supabase, type Entrega } from '@/lib/supabase'
 import { useTheme } from '@/components/ThemeProvider'
 import { getTheme } from '@/lib/theme'
@@ -334,7 +335,7 @@ export default function TorrePage() {
   const [selectedNF, setSelectedNF] = useState<Entrega|null>(null)
   const [followupNF, setFollowupNF] = useState<Entrega|null>(null)
   const [ocorrNF, setOcorrNF] = useState<Entrega|null>(null)
-  const [activeSection, setActiveSection] = useState<'notas'|'sem-cc'>('notas')
+  const [activeSection, setActiveSection] = useState<'notas'|'sem-cc'|'dashboard'>('notas')
   const [editCCNF, setEditCCNF] = useState<string|null>(null)
   const [editCCValor, setEditCCValor] = useState('')
   const [editCCSaving, setEditCCSaving] = useState(false)
@@ -560,8 +561,9 @@ export default function TorrePage() {
         <nav style={{padding:'14px 10px',flex:1,overflowY:'auto'}}>
           <div style={{fontSize:9,fontWeight:700,color:T.text3,letterSpacing:'.12em',textTransform:'uppercase',padding:'0 8px',marginBottom:6}}>Módulos</div>
           {([
-            {key:'notas',   icon:'▦', label:'Minhas Notas',         badge:null,            badgeColor:T.accentBlu},
-            {key:'sem-cc',  icon:'◉', label:'Sem Centro de Custo',  badge:nfsSemCC.length, badgeColor:'#ef4444'},
+            {key:'notas',     icon:'▦', label:'Minhas Notas',         badge:null,            badgeColor:T.accentBlu},
+            {key:'dashboard', icon:'◈', label:'Dashboard',             badge:null,            badgeColor:'#a855f7'},
+            {key:'sem-cc',    icon:'◉', label:'Sem Centro de Custo',  badge:nfsSemCC.length, badgeColor:'#ef4444'},
           ] as const).map(item=>{
             const active=activeSection===item.key&&filtroAtivo===null
             return (
@@ -1340,6 +1342,257 @@ export default function TorrePage() {
           </div>
         </>
       )}
+
+
+      {/* DASHBOARD SECTION */}
+      {activeSection==='dashboard'&&(()=>{
+        const entregues     = data.filter(r=>r.status==='Entregue')
+        const emAberto      = data.filter(r=>r.status!=='Entregue')
+        const ltVenc        = data.filter(r=>r.lt_vencido&&r.status!=='Entregue')
+        const comOcorr      = data.filter(r=>r.status==='NF com Ocorrência')
+        const hojeD         = data.filter(r=>['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao)))
+        const totalValorNFs = data.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
+        const valorAberto   = emAberto.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
+        const valorEntregue = entregues.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
+        const txEntrega     = data.length>0 ? Math.round(entregues.length/data.length*100) : 0
+
+        const statusDist = Object.entries(
+          data.reduce((acc: Record<string,number>,r)=>{ acc[r.status]=(acc[r.status]||0)+1; return acc; },{} as Record<string,number>)
+        ).sort((a,b)=>(b[1] as number)-(a[1] as number)).slice(0,7).map(([name,value])=>({name:(name as string).replace('Aguardando Retorno Cliente','Ag. Retorno').replace('Reagendamento Solicitado','Reagend. Solicit.').replace('Agend. Conforme Cliente','Ag. Conf. Cliente').replace('Pendente Agendamento','Pend. Agend.').replace('Pendente Baixa Entrega','Pend. Baixa'),value}))
+
+        const diasArr = Array.from({length:14},(_,i)=>{
+          const d=new Date(); d.setDate(d.getDate()-(13-i))
+          const key=d.toISOString().slice(0,10)
+          const label=d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})
+          const cnt=entregues.filter(r=>r.dt_entrega&&r.dt_entrega.slice(0,10)===key).length
+          return {label,cnt}
+        })
+
+        const transpRank = Object.entries(
+          emAberto.reduce((acc: Record<string,number>,r)=>{ const k=(r.transportador_nome||'Sem info').slice(0,18); acc[k]=(acc[k]||0)+1; return acc; },{} as Record<string,number>)
+        ).sort((a,b)=>(b[1] as number)-(a[1] as number)).slice(0,6).map(([name,value])=>({name: name as string,value: value as number}))
+
+        const mesesMap: Record<string,number> = {}
+        data.forEach(r=>{ if(!r.dt_emissao) return; const mk=r.dt_emissao.slice(0,7); mesesMap[mk]=(mesesMap[mk]||0)+1 })
+        const meses=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
+        const mesesArr = Object.entries(mesesMap).sort((a,b)=>a[0].localeCompare(b[0])).slice(-5).map(([k,cnt])=>{
+          const [ano,mes]=k.split('-')
+          return {label:meses[Number(mes)-1]+'/'+ano.slice(2),cnt}
+        })
+
+        const pieData=[
+          {name:'Em Aberto',value:emAberto.length,color:'#f97316'},
+          {name:'Entregues',value:entregues.length,color:'#22c55e'},
+        ]
+
+        const SC: Record<string,string> = {
+          'Entregue':'#22c55e','Agendado':'#3b82f6','Ag. Conf. Cliente':'#6366f1',
+          'Reagendada':'#eab308','Ag. Retorno':'#f59e0b','Reagend. Solicit.':'#d97706',
+          'Entrega Programada':'#06b6d4','Pend. Baixa':'#f97316',
+          'NF com Ocorrência':'#ef4444','Devolução':'#dc2626','Pend. Agend.':'#ca8a04',
+        }
+
+        const Card = ({label,value,sub,color,icon}:{label:string,value:string|number,sub:string,color:string,icon:string}) => (
+          <div style={{background:T.surface,border:'1px solid '+T.border,borderRadius:14,padding:'18px 20px',boxShadow:T.shadow,position:'relative',overflow:'hidden',minWidth:0}}>
+            <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:color,borderRadius:'14px 14px 0 0'}}/>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+              <div>
+                <div style={{fontSize:10,fontWeight:700,color:T.text3,letterSpacing:'.1em',textTransform:'uppercase',marginBottom:8}}>{label}</div>
+                <div style={{fontSize:26,fontWeight:800,color:T.text,letterSpacing:'-.03em',lineHeight:1}}>{value}</div>
+                <div style={{fontSize:11,color:T.text3,marginTop:5}}>{sub}</div>
+              </div>
+              <div style={{fontSize:24,opacity:.15}}>{icon}</div>
+            </div>
+          </div>
+        )
+
+        const ltBorderColor = ltVenc.length>0 ? 'rgba(239,68,68,.4)' : T.border
+        const ocBorderColor = comOcorr.length>0 ? 'rgba(239,68,68,.3)' : T.border
+        const txColor = txEntrega>=80 ? '#22c55e' : txEntrega>=60 ? '#f59e0b' : '#ef4444'
+
+        return (
+          <div style={{display:'flex',flexDirection:'column',gap:20,paddingBottom:32}}>
+
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:8}}>
+              <div>
+                <h1 style={{margin:0,fontSize:20,fontWeight:800,color:T.text,letterSpacing:'-.03em'}}>Dashboard</h1>
+                <div style={{fontSize:12,color:T.text3,marginTop:3}}>{user.nome} · {user.centros_custo.join(', ')} · {data.length} notas</div>
+              </div>
+              <div style={{fontSize:11,color:T.text3,background:T.surface,border:'1px solid '+T.border,borderRadius:8,padding:'6px 12px'}}>
+                Atualizado às {lastUpdate.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}
+              </div>
+            </div>
+
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(165px,1fr))',gap:12}}>
+              <Card label="Total Carteira"   value={data.length}       sub={money(totalValorNFs)}  color={T.accentBlu} icon="📦"/>
+              <Card label="Em Aberto"        value={emAberto.length}   sub={money(valorAberto)}    color="#f97316"     icon="🔄"/>
+              <Card label="Entregues"        value={entregues.length}  sub={money(valorEntregue)}  color="#22c55e"     icon="✅"/>
+              <Card label="Tx. Entrega"      value={txEntrega+'%'}     sub={entregues.length+' de '+data.length} color={txColor} icon="📊"/>
+              <Card label="LT Vencidos"      value={ltVenc.length}     sub={money(ltVenc.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0))} color={ltVenc.length>0?'#ef4444':T.green} icon="⏰"/>
+              <Card label="Entrega Hoje"     value={hojeD.length}      sub={money(hojeD.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0))} color="#06b6d4" icon="🚚"/>
+              <Card label="Com Ocorrência"   value={comOcorr.length}   sub={money(comOcorr.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0))} color={comOcorr.length>0?'#ef4444':T.green} icon="⚡"/>
+              <Card label="Pend. Agendamento" value={data.filter(r=>r.status==='Pendente Agendamento').length} sub="aguardando" color="#ca8a04" icon="📅"/>
+            </div>
+
+            <div style={{display:'grid',gridTemplateColumns:'1fr 300px',gap:16}}>
+              <div style={{background:T.surface,border:'1px solid '+T.border,borderRadius:14,padding:'20px 20px 12px',boxShadow:T.shadow}}>
+                <div style={{fontSize:12,fontWeight:700,color:T.text,marginBottom:2}}>Entregas — últimos 14 dias</div>
+                <div style={{fontSize:11,color:T.text3,marginBottom:14}}>Quantidade de NFs entregues por dia</div>
+                <ResponsiveContainer width="100%" height={175}>
+                  <AreaChart data={diasArr} margin={{top:4,right:8,bottom:0,left:-22}}>
+                    <defs>
+                      <linearGradient id="gEnt" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#22c55e" stopOpacity={0.3}/>
+                        <stop offset="100%" stopColor="#22c55e" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke={isDark?'#1e3452':'#e2e8f0'} vertical={false}/>
+                    <XAxis dataKey="label" tick={{fontSize:9,fill:T.text3}} axisLine={false} tickLine={false}/>
+                    <YAxis tick={{fontSize:9,fill:T.text3}} axisLine={false} tickLine={false} allowDecimals={false}/>
+                    <Tooltip contentStyle={{background:T.surface2,border:'1px solid '+T.border,borderRadius:8,fontSize:11,color:T.text}} formatter={(v:any)=>[v+' NFs','Entregues']}/>
+                    <Area type="monotone" dataKey="cnt" stroke="#22c55e" strokeWidth={2} fill="url(#gEnt)" dot={{r:3,fill:'#22c55e',strokeWidth:0}}/>
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div style={{background:T.surface,border:'1px solid '+T.border,borderRadius:14,padding:'20px',boxShadow:T.shadow,display:'flex',flexDirection:'column'}}>
+                <div style={{fontSize:12,fontWeight:700,color:T.text,marginBottom:2}}>Carteira por Situação</div>
+                <div style={{fontSize:11,color:T.text3,marginBottom:4}}>Em aberto vs entregues</div>
+                <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                  <ResponsiveContainer width="100%" height={140}>
+                    <PieChart>
+                      <Pie data={pieData} cx="50%" cy="50%" innerRadius={38} outerRadius={62} paddingAngle={3} dataKey="value" strokeWidth={0}>
+                        {pieData.map((e,i)=><Cell key={i} fill={e.color}/>)}
+                      </Pie>
+                      <Tooltip contentStyle={{background:T.surface2,border:'1px solid '+T.border,borderRadius:8,fontSize:11,color:T.text}}/>
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div style={{display:'flex',gap:16,justifyContent:'center'}}>
+                  {pieData.map(p=>(
+                    <div key={p.name} style={{display:'flex',alignItems:'center',gap:5}}>
+                      <div style={{width:8,height:8,borderRadius:'50%',background:p.color}}/>
+                      <span style={{fontSize:10,color:T.text3}}>{p.name}</span>
+                      <span style={{fontSize:11,fontWeight:700,color:T.text}}>{p.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:16}}>
+              <div style={{background:T.surface,border:'1px solid '+T.border,borderRadius:14,padding:'20px 20px 12px',boxShadow:T.shadow}}>
+                <div style={{fontSize:12,fontWeight:700,color:T.text,marginBottom:2}}>Top Transportadoras</div>
+                <div style={{fontSize:11,color:T.text3,marginBottom:14}}>NFs em aberto</div>
+                <ResponsiveContainer width="100%" height={175}>
+                  <BarChart data={transpRank} layout="vertical" margin={{top:0,right:12,bottom:0,left:0}}>
+                    <XAxis type="number" tick={{fontSize:9,fill:T.text3}} axisLine={false} tickLine={false}/>
+                    <YAxis type="category" dataKey="name" tick={{fontSize:9,fill:T.text3}} axisLine={false} tickLine={false} width={85}/>
+                    <Tooltip contentStyle={{background:T.surface2,border:'1px solid '+T.border,borderRadius:8,fontSize:11,color:T.text}} formatter={(v:any)=>[v+' NFs','']}/>
+                    <Bar dataKey="value" radius={[0,4,4,0]} maxBarSize={16}>
+                      {transpRank.map((_,i)=><Cell key={i} fill={['#3b82f6','#6366f1','#8b5cf6','#a855f7','#06b6d4','#0891b2'][i%6]}/>)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div style={{background:T.surface,border:'1px solid '+T.border,borderRadius:14,padding:'20px 20px 12px',boxShadow:T.shadow}}>
+                <div style={{fontSize:12,fontWeight:700,color:T.text,marginBottom:2}}>Distribuição por Status</div>
+                <div style={{fontSize:11,color:T.text3,marginBottom:14}}>Top 7 status da carteira</div>
+                <ResponsiveContainer width="100%" height={175}>
+                  <BarChart data={statusDist} layout="vertical" margin={{top:0,right:12,bottom:0,left:0}}>
+                    <XAxis type="number" tick={{fontSize:9,fill:T.text3}} axisLine={false} tickLine={false}/>
+                    <YAxis type="category" dataKey="name" tick={{fontSize:9,fill:T.text3}} axisLine={false} tickLine={false} width={95}/>
+                    <Tooltip contentStyle={{background:T.surface2,border:'1px solid '+T.border,borderRadius:8,fontSize:11,color:T.text}} formatter={(v:any)=>[v+' NFs','']}/>
+                    <Bar dataKey="value" radius={[0,4,4,0]} maxBarSize={16}>
+                      {statusDist.map((entry,i)=><Cell key={i} fill={SC[entry.name]||STATUS_COLOR[entry.name]||T.text3}/>)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div style={{background:T.surface,border:'1px solid '+T.border,borderRadius:14,padding:'20px 20px 12px',boxShadow:T.shadow}}>
+                <div style={{fontSize:12,fontWeight:700,color:T.text,marginBottom:2}}>Volume por Mês</div>
+                <div style={{fontSize:11,color:T.text3,marginBottom:14}}>Últimos meses de emissão</div>
+                <ResponsiveContainer width="100%" height={175}>
+                  <BarChart data={mesesArr} margin={{top:0,right:8,bottom:0,left:-22}}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={isDark?'#1e3452':'#e2e8f0'} vertical={false}/>
+                    <XAxis dataKey="label" tick={{fontSize:11,fill:T.text3}} axisLine={false} tickLine={false}/>
+                    <YAxis tick={{fontSize:9,fill:T.text3}} axisLine={false} tickLine={false} allowDecimals={false}/>
+                    <Tooltip contentStyle={{background:T.surface2,border:'1px solid '+T.border,borderRadius:8,fontSize:11,color:T.text}} formatter={(v:any)=>[v+' NFs','Emitidas']}/>
+                    <Bar dataKey="cnt" fill="#f97316" radius={[4,4,0,0]} maxBarSize={44}/>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+              <div style={{background:T.surface,border:'1px solid '+ltBorderColor,borderRadius:14,padding:'20px',boxShadow:T.shadow}}>
+                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
+                  <span style={{fontSize:16}}>⏰</span>
+                  <div>
+                    <div style={{fontSize:12,fontWeight:700,color:ltVenc.length>0?'#ef4444':T.text}}>LT Vencidos</div>
+                    <div style={{fontSize:10,color:T.text3}}>{ltVenc.length} NFs com lead time excedido</div>
+                  </div>
+                </div>
+                {ltVenc.length===0 ? (
+                  <div style={{textAlign:'center',padding:'16px 0',color:T.green,fontSize:13,fontWeight:600}}>✅ Nenhum LT vencido</div>
+                ) : (
+                  <div style={{display:'flex',flexDirection:'column',gap:5,maxHeight:190,overflowY:'auto'}}>
+                    {ltVenc.slice(0,8).map(r=>(
+                      <div key={r.nf_numero} style={{display:'flex',justifyContent:'space-between',alignItems:'center',
+                        padding:'7px 10px',background:isDark?'rgba(239,68,68,.06)':'rgba(239,68,68,.04)',
+                        border:'1px solid rgba(239,68,68,.15)',borderRadius:8}}>
+                        <div>
+                          <span style={{fontWeight:700,color:'#ef4444',fontSize:12}}>NF {r.nf_numero}</span>
+                          <span style={{fontSize:10,color:T.text3,marginLeft:8}}>{(r.destinatario_fantasia||r.destinatario_nome||'').slice(0,22)}</span>
+                        </div>
+                        <div style={{textAlign:'right'}}>
+                          <div style={{fontSize:11,fontWeight:600,color:T.text}}>{money(Number(r.valor_produtos)||0)}</div>
+                          <div style={{fontSize:10,color:T.text3}}>{(r.transportador_nome||'').slice(0,18)}</div>
+                        </div>
+                      </div>
+                    ))}
+                    {ltVenc.length>8&&<div style={{fontSize:11,color:T.text3,textAlign:'center',padding:4}}>+{ltVenc.length-8} mais</div>}
+                  </div>
+                )}
+              </div>
+
+              <div style={{background:T.surface,border:'1px solid '+ocBorderColor,borderRadius:14,padding:'20px',boxShadow:T.shadow}}>
+                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
+                  <span style={{fontSize:16}}>⚡</span>
+                  <div>
+                    <div style={{fontSize:12,fontWeight:700,color:comOcorr.length>0?'#ef4444':T.text}}>NFs com Ocorrência</div>
+                    <div style={{fontSize:10,color:T.text3}}>{comOcorr.length} notas pendentes de ação</div>
+                  </div>
+                </div>
+                {comOcorr.length===0 ? (
+                  <div style={{textAlign:'center',padding:'16px 0',color:T.green,fontSize:13,fontWeight:600}}>✅ Sem ocorrências pendentes</div>
+                ) : (
+                  <div style={{display:'flex',flexDirection:'column',gap:5,maxHeight:190,overflowY:'auto'}}>
+                    {comOcorr.slice(0,8).map(r=>(
+                      <div key={r.nf_numero} style={{display:'flex',justifyContent:'space-between',alignItems:'center',
+                        padding:'7px 10px',background:isDark?'rgba(239,68,68,.06)':'rgba(239,68,68,.04)',
+                        border:'1px solid rgba(239,68,68,.15)',borderRadius:8}}>
+                        <div>
+                          <span style={{fontWeight:700,color:'#ef4444',fontSize:12}}>NF {r.nf_numero}</span>
+                          <span style={{fontSize:10,color:T.text3,marginLeft:8}}>{(r.destinatario_fantasia||r.destinatario_nome||'').slice(0,22)}</span>
+                        </div>
+                        <div style={{textAlign:'right'}}>
+                          <div style={{fontSize:11,fontWeight:600,color:T.text}}>{money(Number(r.valor_produtos)||0)}</div>
+                          <div style={{fontSize:10,color:'#f59e0b'}}>{(r.ultima_ocorrencia||'').slice(0,24)}</div>
+                        </div>
+                      </div>
+                    ))}
+                    {comOcorr.length>8&&<div style={{fontSize:11,color:T.text3,textAlign:'center',padding:4}}>+{comOcorr.length-8} mais</div>}
+                  </div>
+                )}
+              </div>
+            </div>
+
+          </div>
+        )
+      })()}
 
       <style>{`
         @keyframes kfPulse { 0%,100%{opacity:.2;transform:scale(.7)} 50%{opacity:1;transform:scale(1)} }
