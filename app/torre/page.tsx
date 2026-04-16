@@ -391,12 +391,6 @@ export default function TorrePage() {
   }
 
 
-  const handleDANFE=async(nf_numero:string,chave_nfe?:string)=>{
-    try{const r=await fetch(`/api/danfe/check-xml?nf=${nf_numero}`);const d=await r.json();if(d.tem_xml){window.open(`/api/danfe/pdf?nf=${nf_numero}`,'_blank');return}}catch{}
-    if(chave_nfe&&chave_nfe.length===44){window.open('https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConsulta=resumo&tipoConteudo=7PhJ%2BgAVw2g%3D&nfe='+chave_nfe,'_blank');return}
-    try{const r=await fetch(`/api/danfe?nf=${nf_numero}`);const d=await r.json();if(d.portal_url){window.open(d.portal_url,'_blank');return}}catch{}
-    window.open(`/api/danfe/pdf?nf=${nf_numero}`,'_blank')
-  }
 
   if(!checked) return null
   if(!user) return <LoginScreen onLogin={handleLogin}/>
@@ -852,7 +846,7 @@ export default function TorrePage() {
                       <Th field="status"         label="Status"         w={168}/>
                       <Th                        label="St. Interno"    w={155}/>
                       <Th                        label="Registrar"      w={105}/>
-                      <Th                        label="DANFE"          w={60}/>
+                      
                     </tr>
                   </thead>
                   <tbody>
@@ -956,12 +950,7 @@ export default function TorrePage() {
                             </button>
                           </td>
                           <td style={{padding:'10px 12px'}} onClick={e=>e.stopPropagation()}>
-                            <button onClick={()=>handleDANFE(r.nf_numero,r.nf_chave)} title="DANFE — abre PDF (XML salvo) ou portal SEFAZ"
-                              style={{fontSize:13,padding:'5px 8px',borderRadius:7,border:`1px solid ${D.border}`,background:D.surface2,color:D.text3,cursor:'pointer',fontFamily:'inherit',transition:'all .15s'}}
-                              onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.borderColor=D.text2;(e.currentTarget as HTMLElement).style.color=D.text}}
-                              onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.borderColor=D.border;(e.currentTarget as HTMLElement).style.color=D.text3}}>
-                              📄
-                            </button>
+                            
                           </td>
                         </tr>
                       )
