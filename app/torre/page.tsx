@@ -241,9 +241,7 @@ export default function TorrePage() {
 
   const [selectedNF, setSelectedNF] = useState<Entrega|null>(null)
   const [ocorrNF, setOcorrNF] = useState<Entrega|null>(null)
-  const [activeSection, setActiveSection] = useState<'notas'|'sem-cc'|'canhotos'>('notas')
-  const [canhotos, setCanhotos] = useState<Record<string,{status:string;status_revisao:string;arquivo_url?:string;arquivo_nome?:string;enviado_em?:string}>>({})
-  const [canhotoSaving, setCanhotoSaving] = useState<string|null>(null)
+  const [activeSection, setActiveSection] = useState<'notas'|'sem-cc'>('notas')
   const [editCCNF, setEditCCNF] = useState<string|null>(null)
   const [editCCValor, setEditCCValor] = useState('')
   const [editCCSaving, setEditCCSaving] = useState(false)
@@ -352,24 +350,9 @@ export default function TorrePage() {
   const tableW = 1380
 
   const nfsSemCC = data.filter(r=>{ const cc=(r.centro_custo||'').trim(); return !cc||cc===''||cc==='-'||cc==='Não mapeado' })
-  const CANHOTO_CORTE = '2026-04-15' // só exige canhoto de entregas a partir de 15/04
-  const nfsEntregues = useMemo(()=>data.filter(r=>r.status==='Entregue' && !!r.dt_entrega && r.dt_entrega.slice(0,10)>=CANHOTO_CORTE),[data])
-  const nfsSemCanhoto = useMemo(()=>nfsEntregues.filter(r=>{ const c=canhotos[r.nf_numero]; if(!c) return true; return c.status!=='recebido'&&c.status_revisao!=='aprovado' }),[nfsEntregues,canhotos])
 
-  const loadCanhotos = useCallback(async()=>{
-    const nfs=nfsEntregues.map(r=>r.nf_numero); if(!nfs.length) return
-    const { data:rows }=await supabase.from('mon_canhoto_status').select('nf_numero,status,status_revisao,arquivo_url,arquivo_nome,enviado_em').in('nf_numero',nfs)
-    if(rows){const map:Record<string,any>={};rows.forEach((r:any)=>{map[r.nf_numero]=r});setCanhotos(map)}
-  },[nfsEntregues])
 
-  useEffect(()=>{if(nfsEntregues.length) loadCanhotos()},[nfsEntregues.length])
 
-  const saveCanhoto=async(nf_numero:string,status:string)=>{
-    setCanhotoSaving(nf_numero)
-    await fetch('/api/torre/canhoto',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({nf_numero,status,usuario:user?.email})})
-    setCanhotos(prev=>({...prev,[nf_numero]:{...(prev[nf_numero]||{status_revisao:'aguardando_upload'}),status}}))
-    setCanhotoSaving(null)
-  }
 
   const CC_OPTS=['CANAL DIRETO','CANAL INDIRETO','CANAL VERDE','CASH & CARRY','ECOMMERCE','EIC','FARMA KEY ACCOUNT','KEY ACCOUNT','NOVOS NEGÓCIOS']
 
@@ -405,16 +388,6 @@ export default function TorrePage() {
     const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`notas_${new Date().toISOString().slice(0,10)}.csv`;a.click();URL.revokeObjectURL(url)
   }
 
-  const handleDANFEXML=(nf_numero:string)=>{
-    const input=document.createElement('input');input.type='file';input.accept='.xml,application/xml,text/xml'
-    input.onchange=async(e)=>{
-      const file=(e.target as HTMLInputElement).files?.[0];if(!file) return
-      const form=new FormData();form.append('xml',file);form.append('nf_numero',nf_numero)
-      try{const resp=await fetch('/api/danfe/from-xml',{method:'POST',body:form})
-        if(resp.ok){const blob=await resp.blob();const url=URL.createObjectURL(blob);window.open(url,'_blank');setTimeout(()=>URL.revokeObjectURL(url),10000)}
-        else alert('Erro ao gerar DANFE')}catch{alert('Erro de conexão')}
-    };input.click()
-  }
 
   const handleDANFE=async(nf_numero:string,chave_nfe?:string)=>{
     try{const r=await fetch(`/api/danfe/check-xml?nf=${nf_numero}`);const d=await r.json();if(d.tem_xml){window.open(`/api/danfe/pdf?nf=${nf_numero}`,'_blank');return}}catch{}
@@ -478,7 +451,6 @@ export default function TorrePage() {
           {([
             {key:'notas',   icon:'▦', label:'Minhas Notas',         badge:null,            badgeColor:D.accentBlu},
             {key:'sem-cc',  icon:'◉', label:'Sem Centro de Custo',  badge:nfsSemCC.length, badgeColor:'#ef4444'},
-            {key:'canhotos',icon:'◎', label:'Canhotos Pendentes',   badge:nfsSemCanhoto.length, badgeColor:'#eab308'},
           ] as const).map(item=>{
             const active=activeSection===item.key&&filtroAtivo===null
             return (
@@ -540,7 +512,7 @@ export default function TorrePage() {
             <h1 style={{margin:0,fontSize:24,fontWeight:700,color:D.text,letterSpacing:'-.03em',lineHeight:1.1}}>
               {filtroAtivo ? KPI_FU.find(k=>k.id===filtroAtivo)?.label
                 : activeSection==='sem-cc' ? 'Sem Centro de Custo'
-                : activeSection==='canhotos' ? 'Canhotos Pendentes'
+                
                 : 'Minhas Notas'}
             </h1>
             <div style={{display:'flex',alignItems:'center',gap:8,marginTop:6}}>
@@ -759,76 +731,7 @@ export default function TorrePage() {
         </div>
 
         {/* ══════════════════════════════════════════════
-            SEÇÃO CANHOTOS
-        ══════════════════════════════════════════════ */}
-        {activeSection==='canhotos'&&(
-          <div style={{background:D.surface,border:`1px solid rgba(234,179,8,.3)`,borderRadius:14,overflow:'hidden',boxShadow:D.shadow,flex:1}}>
-            <div style={{padding:'14px 20px',borderBottom:`1px solid rgba(234,179,8,.2)`,display:'flex',alignItems:'center',gap:12,background:'rgba(234,179,8,.05)'}}>
-              <span style={{fontSize:20}}>📎</span>
-              <div>
-                <div style={{fontSize:13,fontWeight:700,color:'#fbbf24'}}>Canhotos Pendentes</div>
-                <div style={{fontSize:11,color:'#92400e',marginTop:1}}>{nfsSemCanhoto.length} NFs entregues a partir de 15/04 sem canhoto confirmado</div>
-              </div>
-              <button onClick={loadCanhotos} style={{marginLeft:'auto',padding:'6px 12px',background:D.surface2,border:`1px solid ${D.border}`,color:D.text2,borderRadius:8,cursor:'pointer',fontSize:11,fontFamily:'inherit'}}>↻ Atualizar</button>
-            </div>
-            <div style={{overflowX:'auto',overflowY:'auto',maxHeight:'calc(100vh - 360px)'}}>
-              {nfsSemCanhoto.length===0?(
-                <div style={{textAlign:'center',padding:60,color:D.text3}}>
-                  <div style={{fontSize:36,marginBottom:12,opacity:.4}}>✓</div>
-                  <div style={{fontSize:14,fontWeight:600,color:D.text2}}>Todos os canhotos confirmados</div>
-                </div>
-              ):(
-                <table style={{width:'100%',borderCollapse:'collapse'}}>
-                  <thead><tr>
-                    {['NF','Filial','Entregue em','Destinatário','Transportadora','Valor','Status Canhoto','Ações'].map(h=>(
-                      <th key={h} style={{padding:'10px 16px',textAlign:'left',fontSize:10,fontWeight:700,color:D.text3,letterSpacing:'.07em',textTransform:'uppercase',background:D.surface2,borderBottom:`1px solid ${D.border}`,whiteSpace:'nowrap'}}>{h}</th>
-                    ))}
-                  </tr></thead>
-                  <tbody>
-                    {nfsSemCanhoto.map((r,i)=>{
-                      const canhoto=canhotos[r.nf_numero]
-                      const revisao=canhoto?.status_revisao||'aguardando_upload'
-                      const temArquivo=!!canhoto?.arquivo_url
-                      const saving=canhotoSaving===r.nf_numero
-                      const RLABELS:Record<string,{label:string;color:string}>={aguardando_upload:{label:'Aguard. upload',color:D.text3},aguardando_revisao:{label:'Aguard. revisão',color:'#f59e0b'},aprovado:{label:'Aprovado',color:'#22c55e'},reprovado:{label:'Reprovado',color:'#ef4444'}}
-                      const rv=RLABELS[revisao]||RLABELS.aguardando_upload
-                      return (
-                        <tr key={i} style={{borderBottom:`1px solid ${D.borderLo}`,transition:'background .15s'}}
-                          onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background=D.surface2}
-                          onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background='transparent'}>
-                          <td style={{padding:'11px 16px'}}><span style={{color:D.accent,fontWeight:700,fontFamily:'var(--font-mono)',fontSize:12}}>{r.nf_numero}</span></td>
-                          <td style={{padding:'11px 16px'}}><span style={{fontSize:10,fontWeight:700,padding:'2px 7px',borderRadius:5,background:r.filial==='CHOCOLATE'?'rgba(124,58,237,.15)':'rgba(148,163,184,.1)',color:r.filial==='CHOCOLATE'?'#a78bfa':D.text3}}>{r.filial}</span></td>
-                          <td style={{padding:'11px 16px',fontSize:11,color:D.text2}}>{r.dt_entrega?r.dt_entrega.slice(0,10):'—'}</td>
-                          <td style={{padding:'11px 16px',maxWidth:180,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontWeight:500,fontSize:12}}>{r.destinatario_fantasia||r.destinatario_nome||'—'}</td>
-                          <td style={{padding:'11px 16px',fontSize:11,color:D.text2,maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.transportador_nome?.split(' ').slice(0,2).join(' ')||'—'}</td>
-                          <td style={{padding:'11px 16px',fontVariantNumeric:'tabular-nums',fontSize:12,fontWeight:600}}>R${(Number(r.valor_produtos)||0).toLocaleString('pt-BR',{minimumFractionDigits:0})}</td>
-                          <td style={{padding:'11px 16px'}} onClick={e=>e.stopPropagation()}>
-                            <span style={{fontSize:11,color:rv.color,fontWeight:600,display:'flex',alignItems:'center',gap:5}}>
-                              <span style={{width:6,height:6,borderRadius:'50%',background:rv.color,display:'inline-block',flexShrink:0}}/>
-                              {rv.label}
-                            </span>
-                            {canhoto?.enviado_em&&<div style={{fontSize:10,color:D.text3,marginTop:2}}>enviado {new Date(canhoto.enviado_em).toLocaleDateString('pt-BR')}</div>}
-                          </td>
-                          <td style={{padding:'11px 16px'}} onClick={e=>e.stopPropagation()}>
-                            <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
-                              {temArquivo&&<button onClick={()=>window.open(canhoto.arquivo_url,'_blank')} style={{fontSize:11,padding:'4px 9px',borderRadius:7,border:`1px solid ${D.border}`,background:D.surface2,color:D.text2,cursor:'pointer',fontFamily:'inherit'}}>👁 Ver</button>}
-                              {revisao==='aguardando_revisao'&&<>
-                                <button onClick={async()=>{setCanhotoSaving(r.nf_numero);await fetch('/api/canhoto/revisar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nf_numero:r.nf_numero,decisao:'aprovado',usuario:user?.email})});setCanhotos(prev=>({...prev,[r.nf_numero]:{...prev[r.nf_numero],status:'recebido',status_revisao:'aprovado'}}));setCanhotoSaving(null)}} disabled={saving} style={{fontSize:11,padding:'4px 9px',borderRadius:7,border:'1px solid rgba(34,197,94,.3)',background:'rgba(34,197,94,.1)',color:'#22c55e',cursor:'pointer',fontFamily:'inherit',fontWeight:600,opacity:saving?.5:1}}>✓ Aprovar</button>
-                                <button onClick={async()=>{const obs=prompt('Motivo:')||'';setCanhotoSaving(r.nf_numero);await fetch('/api/canhoto/revisar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nf_numero:r.nf_numero,decisao:'reprovado',obs,usuario:user?.email})});setCanhotos(prev=>({...prev,[r.nf_numero]:{...prev[r.nf_numero],status_revisao:'reprovado'}}));setCanhotoSaving(null)}} disabled={saving} style={{fontSize:11,padding:'4px 9px',borderRadius:7,border:'1px solid rgba(239,68,68,.3)',background:'rgba(239,68,68,.1)',color:'#ef4444',cursor:'pointer',fontFamily:'inherit',fontWeight:600,opacity:saving?.5:1}}>✕ Reprovar</button>
-                              </>}
-                              {revisao==='aguardando_upload'&&<button onClick={()=>saveCanhoto(r.nf_numero,'solicitado')} disabled={saving} style={{fontSize:11,padding:'4px 9px',borderRadius:7,border:'1px solid rgba(234,179,8,.3)',background:'rgba(234,179,8,.1)',color:'#eab308',cursor:'pointer',fontFamily:'inherit',opacity:saving?.5:1}}>📨 Cobrar</button>}
-                              <button onClick={()=>handleDANFE(r.nf_numero,r.nf_chave)} style={{fontSize:11,padding:'4px 9px',borderRadius:7,border:`1px solid ${D.border}`,background:D.surface2,color:D.text3,cursor:'pointer',fontFamily:'inherit'}}>📄</button>
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
-        )}
+        ══════════════════════════════════════════════ */}}
 
         {/* ══════════════════════════════════════════════
             SEÇÃO SEM CC

@@ -77,13 +77,7 @@ export default function PortalTransportador() {
   // filtros
   const [filtroStatus, setFiltroStatus] = useState('todos')
   const [filtroTexto, setFiltroTexto] = useState('')
-  const [abaAtiva, setAbaAtiva] = useState<'notas'|'canhotos'>('notas')
 
-  // canhotos
-  const [canhotosPendentes, setCanhotosPendentes] = useState<any[]>([])
-  const [canhotosLoading, setCanhotosLoading] = useState(false)
-  const [uploadingNF, setUploadingNF] = useState<string|null>(null)
-  const [uploadErro, setUploadErro] = useState<Record<string,string>>({})
 
   // ── Auth ────────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -154,36 +148,6 @@ export default function PortalTransportador() {
     setNotas([]); setEmpresa(null)
   }
 
-  const loadCanhotos = useCallback(async () => {
-    if (!empresa) return
-    setCanhotosLoading(true)
-    // NFs entregues deste transportador que precisam de canhoto
-    const cnpjList = empresa.cnpj.split(', ')
-    const { data: nfsEntregues } = await supabase
-      .from('v_transp_notas')
-      .select('nf_numero, destinatario_nome, dt_entrega, valor_produtos, transportador_cnpj')
-      .in('transportador_cnpj', cnpjList)
-      .eq('status', 'Entregue')
-      .not('dt_entrega', 'is', null)
-    if (!nfsEntregues) { setCanhotosLoading(false); return }
-    const nfNums = nfsEntregues.map((n: any) => n.nf_numero)
-    if (!nfNums.length) { setCanhotosPendentes([]); setCanhotosLoading(false); return }
-    const { data: statusRows } = await supabase
-      .from('mon_canhoto_status')
-      .select('nf_numero, status_revisao, arquivo_url, arquivo_nome, enviado_em')
-      .in('nf_numero', nfNums)
-    const statusMap: Record<string,any> = {}
-    ;(statusRows || []).forEach((r: any) => { statusMap[r.nf_numero] = r })
-    // Mostra apenas as que precisam de ação (sem upload ou reprovadas)
-    const pendentes = nfsEntregues.filter((n: any) => {
-      const s = statusMap[n.nf_numero]?.status_revisao
-      return !s || s === 'aguardando_upload' || s === 'reprovado'
-    }).map((n: any) => ({ ...n, canhoto: statusMap[n.nf_numero] || null }))
-    setCanhotosPendentes(pendentes)
-    setCanhotosLoading(false)
-  }, [empresa])
-
-  useEffect(() => { if (empresa && abaAtiva === 'canhotos') loadCanhotos() }, [empresa, abaAtiva])
 
   // ── Abrir drawer ────────────────────────────────────────────────────────────
   const openDrawer = async (nf: EntregaTransp) => {
@@ -344,90 +308,6 @@ export default function PortalTransportador() {
           </div>
         </div>
 
-        {/* Abas */}
-        <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: `1px solid ${C.border}` }}>
-          {([['notas', '📋 Minhas Notas'], ['canhotos', `📎 Canhotos Pendentes${canhotosPendentes.length ? ` (${canhotosPendentes.length})` : ''}`]] as const).map(([aba, label]) => (
-            <button key={aba} onClick={() => setAbaAtiva(aba)}
-              style={{ padding: '10px 20px', background: 'none', border: 'none', borderBottom: `2px solid ${abaAtiva === aba ? C.accent : 'transparent'}`,
-                color: abaAtiva === aba ? C.accent : C.text3, fontWeight: abaAtiva === aba ? 700 : 400, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {/* Aba Canhotos */}
-        {abaAtiva === 'canhotos' && (
-          <div>
-            <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <p style={{ margin: 0, fontSize: 13, color: C.text2 }}>
-                NFs entregues que precisam do <strong>canhoto de entrega</strong> (comprovante assinado pelo destinatário).
-                Faça o upload do PDF ou foto do canhoto para cada NF.
-              </p>
-              <button onClick={loadCanhotos} style={{ background: 'none', border: `1px solid ${C.border}`, borderRadius: 6, padding: '6px 12px', color: C.text3, fontSize: 12, cursor: 'pointer' }}>
-                ↻ Atualizar
-              </button>
-            </div>
-            {canhotosLoading ? (
-              <div style={{ textAlign: 'center', padding: 60, color: C.text3 }}>Carregando...</div>
-            ) : canhotosPendentes.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 60, color: C.green, fontSize: 15 }}>
-                ✅ Todos os canhotos foram enviados!
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {canhotosPendentes.map((nf: any) => (
-                  <div key={nf.nf_numero} style={{ background: C.surface, border: `1px solid ${nf.canhoto?.status_revisao === 'reprovado' ? C.red : C.border}`, borderRadius: 8, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 16 }}>
-                    <div style={{ minWidth: 80 }}>
-                      <div style={{ fontSize: 11, color: C.text3 }}>NF</div>
-                      <div style={{ fontSize: 16, fontWeight: 800, color: C.accent }}>{nf.nf_numero}</div>
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{nf.destinatario_nome}</div>
-                      <div style={{ fontSize: 11, color: C.text3 }}>
-                        Entregue em {nf.dt_entrega?.slice(0,10) || '—'} · R${Number(nf.valor_produtos||0).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0})}
-                      </div>
-                      {nf.canhoto?.status_revisao === 'reprovado' && (
-                        <div style={{ fontSize: 11, color: C.red, marginTop: 4 }}>❌ Canhoto reprovado — envie novamente</div>
-                      )}
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-                      <label style={{ cursor: 'pointer', background: C.accent, color: '#fff', borderRadius: 7, padding: '8px 14px', fontSize: 12, fontWeight: 600, opacity: uploadingNF === nf.nf_numero ? 0.6 : 1 }}>
-                        {uploadingNF === nf.nf_numero ? 'Enviando...' : '📎 Enviar Canhoto'}
-                        <input type="file" accept="application/pdf,image/*" style={{ display: 'none' }}
-                          disabled={uploadingNF === nf.nf_numero}
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0]
-                            if (!file) return
-                            setUploadingNF(nf.nf_numero)
-                            setUploadErro(prev => ({ ...prev, [nf.nf_numero]: '' }))
-                            const form = new FormData()
-                            form.append('file', file)
-                            form.append('nf_numero', nf.nf_numero)
-                            form.append('transp_cnpj', empresa?.cnpj.split(', ')[0] || '')
-                            const r = await fetch('/api/canhoto/upload', { method: 'POST', body: form })
-                            const d = await r.json()
-                            if (d.ok) {
-                              await loadCanhotos()
-                            } else {
-                              setUploadErro(prev => ({ ...prev, [nf.nf_numero]: d.error || 'Erro ao enviar' }))
-                            }
-                            setUploadingNF(null)
-                          }}
-                        />
-                      </label>
-                      {uploadErro[nf.nf_numero] && (
-                        <div style={{ fontSize: 11, color: C.red }}>{uploadErro[nf.nf_numero]}</div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Aba Notas */}
-        {abaAtiva === 'notas' && (<>
 
         {/* Cards resumo */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 24 }}>
