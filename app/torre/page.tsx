@@ -669,6 +669,7 @@ export default function TorrePage() {
           </div>
         </div>
 
+        {activeSection!=='dashboard'&&(<>
         {/* ── 3 KPIs Destacados ───────────────────────── */}
         <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10}}>
 
@@ -1137,214 +1138,8 @@ export default function TorrePage() {
             </div>
           </div>
         )}
-      </main>
-
-      {/* ═══════════════════════════════════════════
-          DRAWER
-      ═══════════════════════════════════════════ */}
-      <OcorrenciasDrawer nf={selectedNF} onClose={()=>setSelectedNF(null)}/>
-
-
-      {/* ═══════════════════════════════════════════
-          SELETOR DE COLUNAS
-      ═══════════════════════════════════════════ */}
-      {showColPicker&&(
-        <>
-          <div style={{position:'fixed',inset:0,zIndex:190}} onClick={()=>setShowColPicker(false)}/>
-          <div style={{position:'fixed',top:110,right:24,zIndex:200,width:340,background:T.surface,
-            border:`1px solid ${T.border}`,borderRadius:14,boxShadow:T.shadowLg,overflow:'hidden'}}>
-            <div style={{padding:'12px 16px',borderBottom:`1px solid ${T.border}`,background:T.surface2,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-              <span style={{fontSize:13,fontWeight:700,color:T.text}}>⊞ Personalizar Colunas</span>
-              <div style={{display:'flex',gap:6}}>
-                <button onClick={()=>{const all=new Set(COL_DEFS.map(c=>c.id));setVisibleCols(all);localStorage.setItem('torre_cols',JSON.stringify([...all]))}} style={{fontSize:10,padding:'3px 8px',background:T.surface,border:`1px solid ${T.border}`,color:T.text2,borderRadius:5,cursor:'pointer',fontFamily:'inherit'}}>Todas</button>
-                <button onClick={()=>{const def=new Set(COL_DEFS.filter(c=>c.defaultOn).map(c=>c.id));setVisibleCols(def);localStorage.setItem('torre_cols',JSON.stringify([...def]))}} style={{fontSize:10,padding:'3px 8px',background:T.surface,border:`1px solid ${T.border}`,color:T.text2,borderRadius:5,cursor:'pointer',fontFamily:'inherit'}}>Padrão</button>
-              </div>
-            </div>
-            <div style={{padding:'10px 14px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:4,maxHeight:380,overflowY:'auto'}}>
-              {COL_DEFS.map(col=>(
-                <label key={col.id} style={{display:'flex',alignItems:'center',gap:7,padding:'6px 8px',borderRadius:7,cursor:'pointer',background:visibleCols.has(col.id)?`rgba(59,130,246,.08)`:'transparent',border:`1px solid ${visibleCols.has(col.id)?'rgba(59,130,246,.2)':T.borderLo}`,transition:'all .12s'}}>
-                  <input type="checkbox" checked={visibleCols.has(col.id)} onChange={()=>toggleCol(col.id)} style={{accentColor:T.accentBlu,cursor:'pointer',width:13,height:13,flexShrink:0}}/>
-                  <span style={{fontSize:11,fontWeight:visibleCols.has(col.id)?600:400,color:visibleCols.has(col.id)?T.accentBlu:T.text2,lineHeight:1.2}}>{col.label}</span>
-                </label>
-              ))}
-            </div>
-            <div style={{padding:'10px 14px',borderTop:`1px solid ${T.border}`,background:T.surface2,fontSize:10,color:T.text3,textAlign:'center'}}>
-              {visibleCols.size} de {COL_DEFS.length} colunas visíveis · salvo automaticamente
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* ═══════════════════════════════════════════
-          MODAL STATUS INTERNO (Torre — assistentes)
-      ═══════════════════════════════════════════ */}
-      <FollowupModal
-        nf={followupNF}
-        onClose={()=>setFollowupNF(null)}
-        onSaved={()=>{ setFollowupNF(null); load() }}
-        readOnly={false}
-        usuarioNome={user.nome}
-      />
-
-      {/* ═══════════════════════════════════════════
-          MODAL LANÇAR OCORRÊNCIA
-      ═══════════════════════════════════════════ */}
-      {ocorrNF&&(
-        <>
-          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.72)',zIndex:200,backdropFilter:'blur(4px)'}}
-            onClick={()=>{setOcorrNF(null);setOcorrCod('');setOcorrBusca('');setOcorrData('');setOcorrAnexo(null);setOcorrDropOpen(false)}}/>
-          <div style={{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',
-            zIndex:201,width:520,background:T.surface,border:`1px solid ${T.border}`,
-            borderRadius:18,boxShadow:`${T.shadowLg}, 0 0 0 1px rgba(59,130,246,.08)`,overflow:'hidden',
-            maxHeight:'90vh',overflowY:'auto'}}>
-
-            <div style={{position:'absolute',top:0,left:0,right:0,height:2,background:`linear-gradient(90deg,${T.accent},${T.accentBlu},transparent)`}}/>
-
-            <div style={{padding:'20px 24px 16px',borderBottom:`1px solid ${T.border}`,background:T.surface2,display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
-              <div>
-                <div style={{fontWeight:700,fontSize:15,color:T.text,display:'flex',alignItems:'center',gap:8}}>
-                  <span style={{fontSize:17}}>📡</span> Registrar Ocorrência
-                </div>
-                <div style={{fontSize:12,color:T.text2,marginTop:4}}>
-                  NF <strong style={{color:T.accent,fontFamily:'var(--font-mono)'}}>{ocorrNF.nf_numero}</strong>
-                  <span style={{margin:'0 6px',color:T.border}}>·</span>
-                  <span style={{color:T.text3}}>{ocorrNF.destinatario_fantasia||ocorrNF.destinatario_nome}</span>
-                </div>
-              </div>
-              <button onClick={()=>setOcorrNF(null)}
-                style={{background:T.surface3,border:`1px solid ${T.border}`,cursor:'pointer',fontSize:15,color:T.text2,borderRadius:8,width:32,height:32,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all .15s'}}
-                onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background=T.border}
-                onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background=T.surface3}>
-                ✕
-              </button>
-            </div>
-
-            <div style={{padding:'20px 24px',display:'flex',flexDirection:'column',gap:16}}>
-
-              <div style={{position:'relative'}}>
-                <label style={{display:'block',fontSize:11,fontWeight:700,color:T.text3,marginBottom:6,letterSpacing:'.08em',textTransform:'uppercase'}}>Tipo de Ocorrência *</label>
-                {ocorrCod&&ocorrItemSelecionado?(
-                  <div style={{display:'flex',alignItems:'center',gap:10,padding:'10px 14px',background:'rgba(249,115,22,.07)',border:'1.5px solid rgba(249,115,22,.35)',borderRadius:10}}>
-                    <span style={{fontSize:12,fontWeight:700,color:T.accent,fontFamily:'var(--font-mono)',background:'rgba(249,115,22,.12)',padding:'2px 8px',borderRadius:5}}>{ocorrItemSelecionado.codigo}</span>
-                    <span style={{fontSize:13,fontWeight:500,color:T.text,flex:1}}>{ocorrItemSelecionado.label}</span>
-                    <button onClick={()=>{setOcorrCod('');setOcorrBusca('');setOcorrData('');setOcorrAnexo(null)}} style={{background:'none',border:'none',color:T.text3,cursor:'pointer',fontSize:18,padding:'0 2px',lineHeight:1}}>×</button>
-                  </div>
-                ):(
-                  <>
-                    <input type="text" value={ocorrBusca}
-                      onChange={e=>{setOcorrBusca(e.target.value);setOcorrDropOpen(true)}}
-                      onFocus={e=>{setOcorrDropOpen(true);e.target.style.borderColor=T.accentBlu;e.target.style.boxShadow=`0 0 0 3px rgba(59,130,246,.1)`}}
-                      onBlur={e=>{e.target.style.borderColor=T.border;e.target.style.boxShadow='none'}}
-                      placeholder="Digite código ou nome…" autoComplete="off"
-                      style={{...darkInput,width:'100%',padding:'10px 14px',fontSize:13,boxSizing:'border-box',transition:'border-color .2s, box-shadow .2s'}}/>
-                    {ocorrDropOpen&&(
-                      <div style={{position:'absolute',top:'100%',left:0,right:0,zIndex:50,background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,boxShadow:T.shadowLg,maxHeight:240,overflowY:'auto',marginTop:4}}>
-                        {ocorrFiltradas.length===0?(
-                          <div style={{padding:'14px 16px',fontSize:13,color:T.text3}}>Nenhuma ocorrência encontrada</div>
-                        ):ocorrFiltradas.map(o=>(
-                          <button key={o.codigo}
-                            onClick={()=>{setOcorrCod(o.codigo);setOcorrBusca('');setOcorrDropOpen(false);setOcorrData('');setOcorrMsg(null)}}
-                            style={{display:'flex',alignItems:'center',gap:10,width:'100%',padding:'10px 16px',border:'none',borderBottom:`1px solid ${T.borderLo}`,background:'transparent',cursor:'pointer',textAlign:'left',fontFamily:'inherit',transition:'background .12s'}}
-                            onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background=T.surface2}
-                            onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background='transparent'}>
-                            <span style={{fontSize:11,fontWeight:700,color:T.accent,minWidth:30,fontFamily:'var(--font-mono)'}}>{o.codigo}</span>
-                            <span style={{fontSize:13,color:T.text,flex:1}}>{o.label}</span>
-                            {o.precisaData&&<span style={{fontSize:10,color:T.accentBlu,background:'rgba(59,130,246,.12)',padding:'2px 7px',borderRadius:10}}>data</span>}
-                            {o.isEntrega&&<span style={{fontSize:10,color:T.green,background:'rgba(34,197,94,.1)',padding:'2px 7px',borderRadius:10}}>📎</span>}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-
-              {ocorrItemSelecionado?.precisaData&&(
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
-                  <div>
-                    <label style={{display:'block',fontSize:11,fontWeight:700,color:T.text3,marginBottom:6,letterSpacing:'.08em',textTransform:'uppercase'}}>{ocorrItemSelecionado.labelData?.toUpperCase()||'DATA'} <span style={{color:'#ef4444'}}>*</span></label>
-                    <input type="date" value={ocorrData} onChange={e=>setOcorrData(e.target.value)} style={{...darkInput,width:'100%',padding:'10px 12px',fontSize:13,boxSizing:'border-box',borderColor:ocorrData?T.accent:T.border}}/>
-                  </div>
-                  <div>
-                    <label style={{display:'block',fontSize:11,fontWeight:700,color:T.text3,marginBottom:6,letterSpacing:'.08em',textTransform:'uppercase'}}>Hora</label>
-                    <input type="time" value={ocorrHora} onChange={e=>setOcorrHora(e.target.value)} style={{...darkInput,width:'100%',padding:'10px 12px',fontSize:13,boxSizing:'border-box'}}/>
-                  </div>
-                </div>
-              )}
-
-              {ocorrItemSelecionado?.isEntrega&&(
-                <div>
-                  <label style={{display:'block',fontSize:11,fontWeight:700,color:T.text3,marginBottom:6,letterSpacing:'.08em',textTransform:'uppercase'}}>📎 Comprovante de Entrega (opcional)</label>
-                  {ocorrAnexo?(
-                    <div style={{display:'flex',alignItems:'center',gap:10,padding:'10px 14px',background:'rgba(34,197,94,.07)',border:'1px solid rgba(34,197,94,.25)',borderRadius:10}}>
-                      <span style={{fontSize:12,color:T.green,flex:1}}>✓ {ocorrAnexo.nome}</span>
-                      <button onClick={()=>setOcorrAnexo(null)} style={{background:'none',border:'none',color:T.text3,cursor:'pointer',fontSize:16}}>×</button>
-                    </div>
-                  ):(
-                    <label style={{display:'flex',alignItems:'center',gap:10,padding:'12px 16px',background:T.surface2,border:`1.5px dashed ${T.border}`,borderRadius:10,cursor:'pointer',transition:'border-color .15s'}}
-                      onMouseEnter={e=>(e.currentTarget as HTMLElement).style.borderColor=T.text3}
-                      onMouseLeave={e=>(e.currentTarget as HTMLElement).style.borderColor=T.border}>
-                      <span style={{fontSize:18}}>📁</span>
-                      <span style={{fontSize:13,color:T.text3}}>Selecionar imagem ou PDF</span>
-                      <input type="file" accept="image/*,.pdf" style={{display:'none'}} onChange={e=>{
-                        const file=e.target.files?.[0];if(!file) return
-                        const reader=new FileReader();reader.onload=ev=>{const b64=(ev.target?.result as string).split(',')[1];setOcorrAnexo({base64:b64,nome:file.name})};reader.readAsDataURL(file)
-                      }}/>
-                    </label>
-                  )}
-                </div>
-              )}
-
-              <div>
-                <label style={{display:'block',fontSize:11,fontWeight:700,color:T.text3,marginBottom:6,letterSpacing:'.08em',textTransform:'uppercase'}}>Observação</label>
-                <textarea value={ocorrObs} onChange={e=>setOcorrObs(e.target.value)} rows={3} placeholder="Detalhe a ocorrência…"
-                  style={{...darkInput,width:'100%',padding:'10px 14px',fontSize:13,resize:'vertical',boxSizing:'border-box',transition:'border-color .2s'}}
-                  onFocus={e=>{e.target.style.borderColor=T.accentBlu}}
-                  onBlur={e=>{e.target.style.borderColor=T.border}}/>
-              </div>
-
-              <div style={{padding:'10px 14px',background:T.surface2,border:`1px solid ${T.border}`,borderRadius:10,display:'flex',alignItems:'center',gap:10}}>
-                <div style={{width:28,height:28,borderRadius:'50%',background:'linear-gradient(135deg,#1e4a8a,#3b82f6)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:'0 0 0 2px rgba(59,130,246,.2)'}}>
-                  <span style={{color:'#fff',fontWeight:700,fontSize:11}}>{user.nome.charAt(0)}</span>
-                </div>
-                <div>
-                  <div style={{fontSize:12,fontWeight:600,color:T.text}}>{user.nome}</div>
-                  <div style={{fontSize:11,color:T.text3}}>{user.email}</div>
-                </div>
-              </div>
-
-              {ocorrMsg&&(
-                <div style={{fontSize:12,padding:'10px 14px',borderRadius:10,fontWeight:600,
-                  background:ocorrMsg.ok?'rgba(34,197,94,.08)':'rgba(239,68,68,.08)',
-                  color:ocorrMsg.ok?'#22c55e':'#ef4444',
-                  border:`1px solid ${ocorrMsg.ok?'rgba(34,197,94,.25)':'rgba(239,68,68,.25)'}`,
-                  display:'flex',alignItems:'center',gap:8}}>
-                  <span>{ocorrMsg.ok?'✓':'✕'}</span><span>{ocorrMsg.txt}</span>
-                </div>
-              )}
-
-              <div style={{display:'flex',gap:10,justifyContent:'flex-end'}}>
-                <button onClick={()=>setOcorrNF(null)} style={{padding:'10px 20px',background:'none',border:`1px solid ${T.border}`,color:T.text2,borderRadius:10,cursor:'pointer',fontSize:13,fontFamily:'inherit',fontWeight:500,transition:'all .15s'}}>
-                  Cancelar
-                </button>
-                <button onClick={enviarOcorrencia} disabled={!ocorrCod||(ocorrItemSelecionado?.precisaData&&!ocorrData)||ocorrSending}
-                  style={{padding:'10px 24px',
-                    background:ocorrCod&&(!ocorrItemSelecionado?.precisaData||ocorrData)&&!ocorrSending?'linear-gradient(135deg,#f97316,#ea6c0a)':'#1e3452',
-                    border:'none',color:ocorrCod&&(!ocorrItemSelecionado?.precisaData||ocorrData)&&!ocorrSending?'#fff':T.text3,borderRadius:10,
-                    cursor:ocorrCod&&(!ocorrItemSelecionado?.precisaData||ocorrData)&&!ocorrSending?'pointer':'default',
-                    fontSize:13,fontWeight:700,fontFamily:'inherit',
-                    boxShadow:ocorrCod&&(!ocorrItemSelecionado?.precisaData||ocorrData)?'0 4px 16px rgba(249,115,22,.35)':'none',
-                    transition:'all .2s'}}>
-                  {ocorrSending ? 'Enviando…' : '→ Enviar ao Active'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
-
-
-      {/* DASHBOARD SECTION */}
+        </>)}
+{/* DASHBOARD SECTION */}
       {activeSection==='dashboard'&&(()=>{
         const entregues     = data.filter(r=>r.status==='Entregue')
         const emAberto      = data.filter(r=>r.status!=='Entregue')
@@ -1593,6 +1388,213 @@ export default function TorrePage() {
           </div>
         )
       })()}
+      </main>
+
+      {/* ═══════════════════════════════════════════
+          DRAWER
+      ═══════════════════════════════════════════ */}
+      <OcorrenciasDrawer nf={selectedNF} onClose={()=>setSelectedNF(null)}/>
+
+
+      {/* ═══════════════════════════════════════════
+          SELETOR DE COLUNAS
+      ═══════════════════════════════════════════ */}
+      {showColPicker&&(
+        <>
+          <div style={{position:'fixed',inset:0,zIndex:190}} onClick={()=>setShowColPicker(false)}/>
+          <div style={{position:'fixed',top:110,right:24,zIndex:200,width:340,background:T.surface,
+            border:`1px solid ${T.border}`,borderRadius:14,boxShadow:T.shadowLg,overflow:'hidden'}}>
+            <div style={{padding:'12px 16px',borderBottom:`1px solid ${T.border}`,background:T.surface2,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+              <span style={{fontSize:13,fontWeight:700,color:T.text}}>⊞ Personalizar Colunas</span>
+              <div style={{display:'flex',gap:6}}>
+                <button onClick={()=>{const all=new Set(COL_DEFS.map(c=>c.id));setVisibleCols(all);localStorage.setItem('torre_cols',JSON.stringify([...all]))}} style={{fontSize:10,padding:'3px 8px',background:T.surface,border:`1px solid ${T.border}`,color:T.text2,borderRadius:5,cursor:'pointer',fontFamily:'inherit'}}>Todas</button>
+                <button onClick={()=>{const def=new Set(COL_DEFS.filter(c=>c.defaultOn).map(c=>c.id));setVisibleCols(def);localStorage.setItem('torre_cols',JSON.stringify([...def]))}} style={{fontSize:10,padding:'3px 8px',background:T.surface,border:`1px solid ${T.border}`,color:T.text2,borderRadius:5,cursor:'pointer',fontFamily:'inherit'}}>Padrão</button>
+              </div>
+            </div>
+            <div style={{padding:'10px 14px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:4,maxHeight:380,overflowY:'auto'}}>
+              {COL_DEFS.map(col=>(
+                <label key={col.id} style={{display:'flex',alignItems:'center',gap:7,padding:'6px 8px',borderRadius:7,cursor:'pointer',background:visibleCols.has(col.id)?`rgba(59,130,246,.08)`:'transparent',border:`1px solid ${visibleCols.has(col.id)?'rgba(59,130,246,.2)':T.borderLo}`,transition:'all .12s'}}>
+                  <input type="checkbox" checked={visibleCols.has(col.id)} onChange={()=>toggleCol(col.id)} style={{accentColor:T.accentBlu,cursor:'pointer',width:13,height:13,flexShrink:0}}/>
+                  <span style={{fontSize:11,fontWeight:visibleCols.has(col.id)?600:400,color:visibleCols.has(col.id)?T.accentBlu:T.text2,lineHeight:1.2}}>{col.label}</span>
+                </label>
+              ))}
+            </div>
+            <div style={{padding:'10px 14px',borderTop:`1px solid ${T.border}`,background:T.surface2,fontSize:10,color:T.text3,textAlign:'center'}}>
+              {visibleCols.size} de {COL_DEFS.length} colunas visíveis · salvo automaticamente
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ═══════════════════════════════════════════
+          MODAL STATUS INTERNO (Torre — assistentes)
+      ═══════════════════════════════════════════ */}
+      <FollowupModal
+        nf={followupNF}
+        onClose={()=>setFollowupNF(null)}
+        onSaved={()=>{ setFollowupNF(null); load() }}
+        readOnly={false}
+        usuarioNome={user.nome}
+      />
+
+      {/* ═══════════════════════════════════════════
+          MODAL LANÇAR OCORRÊNCIA
+      ═══════════════════════════════════════════ */}
+      {ocorrNF&&(
+        <>
+          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.72)',zIndex:200,backdropFilter:'blur(4px)'}}
+            onClick={()=>{setOcorrNF(null);setOcorrCod('');setOcorrBusca('');setOcorrData('');setOcorrAnexo(null);setOcorrDropOpen(false)}}/>
+          <div style={{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',
+            zIndex:201,width:520,background:T.surface,border:`1px solid ${T.border}`,
+            borderRadius:18,boxShadow:`${T.shadowLg}, 0 0 0 1px rgba(59,130,246,.08)`,overflow:'hidden',
+            maxHeight:'90vh',overflowY:'auto'}}>
+
+            <div style={{position:'absolute',top:0,left:0,right:0,height:2,background:`linear-gradient(90deg,${T.accent},${T.accentBlu},transparent)`}}/>
+
+            <div style={{padding:'20px 24px 16px',borderBottom:`1px solid ${T.border}`,background:T.surface2,display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+              <div>
+                <div style={{fontWeight:700,fontSize:15,color:T.text,display:'flex',alignItems:'center',gap:8}}>
+                  <span style={{fontSize:17}}>📡</span> Registrar Ocorrência
+                </div>
+                <div style={{fontSize:12,color:T.text2,marginTop:4}}>
+                  NF <strong style={{color:T.accent,fontFamily:'var(--font-mono)'}}>{ocorrNF.nf_numero}</strong>
+                  <span style={{margin:'0 6px',color:T.border}}>·</span>
+                  <span style={{color:T.text3}}>{ocorrNF.destinatario_fantasia||ocorrNF.destinatario_nome}</span>
+                </div>
+              </div>
+              <button onClick={()=>setOcorrNF(null)}
+                style={{background:T.surface3,border:`1px solid ${T.border}`,cursor:'pointer',fontSize:15,color:T.text2,borderRadius:8,width:32,height:32,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all .15s'}}
+                onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background=T.border}
+                onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background=T.surface3}>
+                ✕
+              </button>
+            </div>
+
+            <div style={{padding:'20px 24px',display:'flex',flexDirection:'column',gap:16}}>
+
+              <div style={{position:'relative'}}>
+                <label style={{display:'block',fontSize:11,fontWeight:700,color:T.text3,marginBottom:6,letterSpacing:'.08em',textTransform:'uppercase'}}>Tipo de Ocorrência *</label>
+                {ocorrCod&&ocorrItemSelecionado?(
+                  <div style={{display:'flex',alignItems:'center',gap:10,padding:'10px 14px',background:'rgba(249,115,22,.07)',border:'1.5px solid rgba(249,115,22,.35)',borderRadius:10}}>
+                    <span style={{fontSize:12,fontWeight:700,color:T.accent,fontFamily:'var(--font-mono)',background:'rgba(249,115,22,.12)',padding:'2px 8px',borderRadius:5}}>{ocorrItemSelecionado.codigo}</span>
+                    <span style={{fontSize:13,fontWeight:500,color:T.text,flex:1}}>{ocorrItemSelecionado.label}</span>
+                    <button onClick={()=>{setOcorrCod('');setOcorrBusca('');setOcorrData('');setOcorrAnexo(null)}} style={{background:'none',border:'none',color:T.text3,cursor:'pointer',fontSize:18,padding:'0 2px',lineHeight:1}}>×</button>
+                  </div>
+                ):(
+                  <>
+                    <input type="text" value={ocorrBusca}
+                      onChange={e=>{setOcorrBusca(e.target.value);setOcorrDropOpen(true)}}
+                      onFocus={e=>{setOcorrDropOpen(true);e.target.style.borderColor=T.accentBlu;e.target.style.boxShadow=`0 0 0 3px rgba(59,130,246,.1)`}}
+                      onBlur={e=>{e.target.style.borderColor=T.border;e.target.style.boxShadow='none'}}
+                      placeholder="Digite código ou nome…" autoComplete="off"
+                      style={{...darkInput,width:'100%',padding:'10px 14px',fontSize:13,boxSizing:'border-box',transition:'border-color .2s, box-shadow .2s'}}/>
+                    {ocorrDropOpen&&(
+                      <div style={{position:'absolute',top:'100%',left:0,right:0,zIndex:50,background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,boxShadow:T.shadowLg,maxHeight:240,overflowY:'auto',marginTop:4}}>
+                        {ocorrFiltradas.length===0?(
+                          <div style={{padding:'14px 16px',fontSize:13,color:T.text3}}>Nenhuma ocorrência encontrada</div>
+                        ):ocorrFiltradas.map(o=>(
+                          <button key={o.codigo}
+                            onClick={()=>{setOcorrCod(o.codigo);setOcorrBusca('');setOcorrDropOpen(false);setOcorrData('');setOcorrMsg(null)}}
+                            style={{display:'flex',alignItems:'center',gap:10,width:'100%',padding:'10px 16px',border:'none',borderBottom:`1px solid ${T.borderLo}`,background:'transparent',cursor:'pointer',textAlign:'left',fontFamily:'inherit',transition:'background .12s'}}
+                            onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background=T.surface2}
+                            onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background='transparent'}>
+                            <span style={{fontSize:11,fontWeight:700,color:T.accent,minWidth:30,fontFamily:'var(--font-mono)'}}>{o.codigo}</span>
+                            <span style={{fontSize:13,color:T.text,flex:1}}>{o.label}</span>
+                            {o.precisaData&&<span style={{fontSize:10,color:T.accentBlu,background:'rgba(59,130,246,.12)',padding:'2px 7px',borderRadius:10}}>data</span>}
+                            {o.isEntrega&&<span style={{fontSize:10,color:T.green,background:'rgba(34,197,94,.1)',padding:'2px 7px',borderRadius:10}}>📎</span>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {ocorrItemSelecionado?.precisaData&&(
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+                  <div>
+                    <label style={{display:'block',fontSize:11,fontWeight:700,color:T.text3,marginBottom:6,letterSpacing:'.08em',textTransform:'uppercase'}}>{ocorrItemSelecionado.labelData?.toUpperCase()||'DATA'} <span style={{color:'#ef4444'}}>*</span></label>
+                    <input type="date" value={ocorrData} onChange={e=>setOcorrData(e.target.value)} style={{...darkInput,width:'100%',padding:'10px 12px',fontSize:13,boxSizing:'border-box',borderColor:ocorrData?T.accent:T.border}}/>
+                  </div>
+                  <div>
+                    <label style={{display:'block',fontSize:11,fontWeight:700,color:T.text3,marginBottom:6,letterSpacing:'.08em',textTransform:'uppercase'}}>Hora</label>
+                    <input type="time" value={ocorrHora} onChange={e=>setOcorrHora(e.target.value)} style={{...darkInput,width:'100%',padding:'10px 12px',fontSize:13,boxSizing:'border-box'}}/>
+                  </div>
+                </div>
+              )}
+
+              {ocorrItemSelecionado?.isEntrega&&(
+                <div>
+                  <label style={{display:'block',fontSize:11,fontWeight:700,color:T.text3,marginBottom:6,letterSpacing:'.08em',textTransform:'uppercase'}}>📎 Comprovante de Entrega (opcional)</label>
+                  {ocorrAnexo?(
+                    <div style={{display:'flex',alignItems:'center',gap:10,padding:'10px 14px',background:'rgba(34,197,94,.07)',border:'1px solid rgba(34,197,94,.25)',borderRadius:10}}>
+                      <span style={{fontSize:12,color:T.green,flex:1}}>✓ {ocorrAnexo.nome}</span>
+                      <button onClick={()=>setOcorrAnexo(null)} style={{background:'none',border:'none',color:T.text3,cursor:'pointer',fontSize:16}}>×</button>
+                    </div>
+                  ):(
+                    <label style={{display:'flex',alignItems:'center',gap:10,padding:'12px 16px',background:T.surface2,border:`1.5px dashed ${T.border}`,borderRadius:10,cursor:'pointer',transition:'border-color .15s'}}
+                      onMouseEnter={e=>(e.currentTarget as HTMLElement).style.borderColor=T.text3}
+                      onMouseLeave={e=>(e.currentTarget as HTMLElement).style.borderColor=T.border}>
+                      <span style={{fontSize:18}}>📁</span>
+                      <span style={{fontSize:13,color:T.text3}}>Selecionar imagem ou PDF</span>
+                      <input type="file" accept="image/*,.pdf" style={{display:'none'}} onChange={e=>{
+                        const file=e.target.files?.[0];if(!file) return
+                        const reader=new FileReader();reader.onload=ev=>{const b64=(ev.target?.result as string).split(',')[1];setOcorrAnexo({base64:b64,nome:file.name})};reader.readAsDataURL(file)
+                      }}/>
+                    </label>
+                  )}
+                </div>
+              )}
+
+              <div>
+                <label style={{display:'block',fontSize:11,fontWeight:700,color:T.text3,marginBottom:6,letterSpacing:'.08em',textTransform:'uppercase'}}>Observação</label>
+                <textarea value={ocorrObs} onChange={e=>setOcorrObs(e.target.value)} rows={3} placeholder="Detalhe a ocorrência…"
+                  style={{...darkInput,width:'100%',padding:'10px 14px',fontSize:13,resize:'vertical',boxSizing:'border-box',transition:'border-color .2s'}}
+                  onFocus={e=>{e.target.style.borderColor=T.accentBlu}}
+                  onBlur={e=>{e.target.style.borderColor=T.border}}/>
+              </div>
+
+              <div style={{padding:'10px 14px',background:T.surface2,border:`1px solid ${T.border}`,borderRadius:10,display:'flex',alignItems:'center',gap:10}}>
+                <div style={{width:28,height:28,borderRadius:'50%',background:'linear-gradient(135deg,#1e4a8a,#3b82f6)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:'0 0 0 2px rgba(59,130,246,.2)'}}>
+                  <span style={{color:'#fff',fontWeight:700,fontSize:11}}>{user.nome.charAt(0)}</span>
+                </div>
+                <div>
+                  <div style={{fontSize:12,fontWeight:600,color:T.text}}>{user.nome}</div>
+                  <div style={{fontSize:11,color:T.text3}}>{user.email}</div>
+                </div>
+              </div>
+
+              {ocorrMsg&&(
+                <div style={{fontSize:12,padding:'10px 14px',borderRadius:10,fontWeight:600,
+                  background:ocorrMsg.ok?'rgba(34,197,94,.08)':'rgba(239,68,68,.08)',
+                  color:ocorrMsg.ok?'#22c55e':'#ef4444',
+                  border:`1px solid ${ocorrMsg.ok?'rgba(34,197,94,.25)':'rgba(239,68,68,.25)'}`,
+                  display:'flex',alignItems:'center',gap:8}}>
+                  <span>{ocorrMsg.ok?'✓':'✕'}</span><span>{ocorrMsg.txt}</span>
+                </div>
+              )}
+
+              <div style={{display:'flex',gap:10,justifyContent:'flex-end'}}>
+                <button onClick={()=>setOcorrNF(null)} style={{padding:'10px 20px',background:'none',border:`1px solid ${T.border}`,color:T.text2,borderRadius:10,cursor:'pointer',fontSize:13,fontFamily:'inherit',fontWeight:500,transition:'all .15s'}}>
+                  Cancelar
+                </button>
+                <button onClick={enviarOcorrencia} disabled={!ocorrCod||(ocorrItemSelecionado?.precisaData&&!ocorrData)||ocorrSending}
+                  style={{padding:'10px 24px',
+                    background:ocorrCod&&(!ocorrItemSelecionado?.precisaData||ocorrData)&&!ocorrSending?'linear-gradient(135deg,#f97316,#ea6c0a)':'#1e3452',
+                    border:'none',color:ocorrCod&&(!ocorrItemSelecionado?.precisaData||ocorrData)&&!ocorrSending?'#fff':T.text3,borderRadius:10,
+                    cursor:ocorrCod&&(!ocorrItemSelecionado?.precisaData||ocorrData)&&!ocorrSending?'pointer':'default',
+                    fontSize:13,fontWeight:700,fontFamily:'inherit',
+                    boxShadow:ocorrCod&&(!ocorrItemSelecionado?.precisaData||ocorrData)?'0 4px 16px rgba(249,115,22,.35)':'none',
+                    transition:'all .2s'}}>
+                  {ocorrSending ? 'Enviando…' : '→ Enviar ao Active'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+
 
       <style>{`
         @keyframes kfPulse { 0%,100%{opacity:.2;transform:scale(.7)} 50%{opacity:1;transform:scale(1)} }
