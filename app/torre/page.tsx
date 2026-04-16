@@ -281,10 +281,13 @@ export default function TorrePage() {
       all=all.concat(rows as Entrega[]); if(rows.length<PAGE) break; from+=PAGE
     }
     const meusCCs = user.centros_custo.map(c=>c.toLowerCase().trim())
+    const meuNome = (user.nome||'').toLowerCase().trim()
     setData(all.filter(r=>{
       const ccNota=(r.centro_custo||'').toLowerCase().trim()
-      if(!ccNota) return false
-      return meusCCs.some(cc=>cc===ccNota)
+      const assistenteNota=(r.assistente||'').toLowerCase().trim()
+      const matchCC = ccNota ? meusCCs.some(cc=>cc===ccNota) : false
+      const matchAssistente = !!meuNome && assistenteNota===meuNome
+      return matchCC || matchAssistente
     }))
     setLastUpdate(new Date())
     setLoading(false)
@@ -412,7 +415,12 @@ export default function TorrePage() {
     };input.click()
   }
 
-  const handleDANFE=(nf_numero:string)=>window.open(`/api/danfe/pdf?nf=${nf_numero}`,'_blank')
+  const handleDANFE=async(nf_numero:string,chave_nfe?:string)=>{
+    try{const r=await fetch(`/api/danfe/check-xml?nf=${nf_numero}`);const d=await r.json();if(d.tem_xml){window.open(`/api/danfe/pdf?nf=${nf_numero}`,'_blank');return}}catch{}
+    if(chave_nfe&&chave_nfe.length===44){window.open('https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConsulta=resumo&tipoConteudo=7PhJ%2BgAVw2g%3D&nfe='+chave_nfe,'_blank');return}
+    try{const r=await fetch(`/api/danfe?nf=${nf_numero}`);const d=await r.json();if(d.portal_url){window.open(d.portal_url,'_blank');return}}catch{}
+    window.open(`/api/danfe/pdf?nf=${nf_numero}`,'_blank')
+  }
 
   if(!checked) return null
   if(!user) return <LoginScreen onLogin={handleLogin}/>
@@ -808,7 +816,7 @@ export default function TorrePage() {
                                 <button onClick={async()=>{const obs=prompt('Motivo:')||'';setCanhotoSaving(r.nf_numero);await fetch('/api/canhoto/revisar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nf_numero:r.nf_numero,decisao:'reprovado',obs,usuario:user?.email})});setCanhotos(prev=>({...prev,[r.nf_numero]:{...prev[r.nf_numero],status_revisao:'reprovado'}}));setCanhotoSaving(null)}} disabled={saving} style={{fontSize:11,padding:'4px 9px',borderRadius:7,border:'1px solid rgba(239,68,68,.3)',background:'rgba(239,68,68,.1)',color:'#ef4444',cursor:'pointer',fontFamily:'inherit',fontWeight:600,opacity:saving?.5:1}}>✕ Reprovar</button>
                               </>}
                               {revisao==='aguardando_upload'&&<button onClick={()=>saveCanhoto(r.nf_numero,'solicitado')} disabled={saving} style={{fontSize:11,padding:'4px 9px',borderRadius:7,border:'1px solid rgba(234,179,8,.3)',background:'rgba(234,179,8,.1)',color:'#eab308',cursor:'pointer',fontFamily:'inherit',opacity:saving?.5:1}}>📨 Cobrar</button>}
-                              <button onClick={()=>handleDANFE(r.nf_numero)} style={{fontSize:11,padding:'4px 9px',borderRadius:7,border:`1px solid ${D.border}`,background:D.surface2,color:D.text3,cursor:'pointer',fontFamily:'inherit'}}>📄</button>
+                              <button onClick={()=>handleDANFE(r.nf_numero,r.nf_chave)} style={{fontSize:11,padding:'4px 9px',borderRadius:7,border:`1px solid ${D.border}`,background:D.surface2,color:D.text3,cursor:'pointer',fontFamily:'inherit'}}>📄</button>
                             </div>
                           </td>
                         </tr>
@@ -1020,7 +1028,7 @@ export default function TorrePage() {
                             </button>
                           </td>
                           <td style={{padding:'10px 12px'}} onClick={e=>e.stopPropagation()}>
-                            <button onClick={()=>handleDANFEXML(r.nf_numero)} title="DANFE — upload XML"
+                            <button onClick={()=>handleDANFE(r.nf_numero,r.nf_chave)} title="DANFE — abre PDF (XML salvo) ou portal SEFAZ"
                               style={{fontSize:13,padding:'5px 8px',borderRadius:7,border:`1px solid ${D.border}`,background:D.surface2,color:D.text3,cursor:'pointer',fontFamily:'inherit',transition:'all .15s'}}
                               onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.borderColor=D.text2;(e.currentTarget as HTMLElement).style.color=D.text}}
                               onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.borderColor=D.border;(e.currentTarget as HTMLElement).style.color=D.text3}}>
