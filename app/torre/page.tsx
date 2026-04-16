@@ -57,6 +57,27 @@ const D = {
   glow:      '0 0 0 1px rgba(59,130,246,.15), 0 4px 24px rgba(4,8,15,.8)',
 }
 
+/* ── Design Tokens (Light — Premium) ─────────────────────────── */
+const L = {
+  bg:        '#f1f5f9',   // slate-100
+  surface:   '#ffffff',   // cards: branco puro
+  surface2:  '#f8fafc',   // slate-50 rows alternados
+  surface3:  '#f1f5f9',   // slate-100 borders suaves
+  border:    '#e2e8f0',   // slate-200
+  borderLo:  '#f1f5f9',   // slate-100
+  text:      '#0f172a',   // slate-900
+  text2:     '#475569',   // slate-600
+  text3:     '#94a3b8',   // slate-400
+  accent:    '#ea6c0a',   // laranja Linea
+  accentBlu: '#2563eb',   // blue-600
+  red:       '#dc2626',   // red-600
+  redGlow:   'rgba(220,38,38,0.06)',
+  green:     '#16a34a',   // green-700
+  shadow:    '0 1px 6px rgba(0,0,0,.07), 0 0 0 1px rgba(0,0,0,.04)',
+  shadowLg:  '0 4px 24px rgba(0,0,0,.10)',
+  glow:      '0 0 0 1px rgba(37,99,235,.2), 0 4px 12px rgba(0,0,0,.06)',
+}
+
 /* ── SVG Logo — Caixa Facetada 3D ────────────────────────────────── */
 function LogoIcon({ size = 36 }: { size?: number }) {
   return (
@@ -222,6 +243,20 @@ export default function TorrePage() {
   const [data, setData] = useState<Entrega[]>([])
   const [loading, setLoading] = useState(false)
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date())
+
+  // ── Tema ──────────────────────────────────────────────────────────────
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('torre_theme') !== 'light'
+    }
+    return true
+  })
+  const T = isDark ? D : L
+  const toggleTheme = () => {
+    const next = !isDark
+    setIsDark(next)
+    localStorage.setItem('torre_theme', next ? 'dark' : 'light')
+  }
 
   const getFirstDay = () => { const d=new Date(); return new Date(d.getFullYear(),d.getMonth(),1).toISOString().split('T')[0] }
   const getToday = () => new Date().toISOString().split('T')[0]
@@ -399,8 +434,8 @@ export default function TorrePage() {
   const Th=({field,label,w}:{field?:string;label:string;w:number})=>(
     <th onClick={()=>field&&setSortField(field)} style={{minWidth:w,cursor:field?'pointer':'default',
       padding:'6px 10px',textAlign:'left',fontSize:10,fontWeight:700,
-      color:sortField===field?D.accentBlu:D.text3,letterSpacing:'.08em',textTransform:'uppercase',
-      background:D.surface,borderBottom:`1px solid ${D.border}`,whiteSpace:'nowrap',
+      color:sortField===field?T.accentBlu:T.text3,letterSpacing:'.08em',textTransform:'uppercase',
+      background:isDark?T.surface:'#f8fafc',borderBottom:`1px solid ${T.border}`,whiteSpace:'nowrap',
       position:'sticky',top:0,zIndex:1,userSelect:'none',
       transition:'color .15s'}}>
       {label}{field&&sortField===field&&<span style={{marginLeft:3,opacity:.6}}>↑</span>}
@@ -408,7 +443,7 @@ export default function TorrePage() {
   )
 
   /* ── Estilo para inputs escuros ─────────────────────────────── */
-  const darkInput:React.CSSProperties={background:D.surface2,border:`1px solid ${D.border}`,borderRadius:8,color:D.text,outline:'none',fontFamily:'inherit'}
+  const darkInput:React.CSSProperties={background:T.surface2,border:`1px solid ${T.border}`,borderRadius:8,color:T.text,outline:'none',fontFamily:'inherit'}
 
   /* ── KPIs: exatamente 3 ─────────────────────────────────────── */
   const ltCount=kpiCount('__lt')
@@ -420,32 +455,32 @@ export default function TorrePage() {
   const CHIPS: KpiId[] = ['hoje','Pendente Agendamento','Aguardando Retorno Cliente','Reagendamento Solicitado','Agendado','Reagendada','Agend. Conforme Cliente','Pendente Baixa Entrega','NF com Ocorrência','__lt','Entregue']
 
   return (
-    <div style={{display:'flex',minHeight:'100vh',background:D.bg,fontFamily:'system-ui,-apple-system,sans-serif',color:D.text,
-      backgroundImage:'radial-gradient(ellipse 100% 50% at 50% -10%, #0c1e3a 0%, transparent 60%)'}}>
+    <div style={{display:'flex',minHeight:'100vh',background:T.bg,fontFamily:'system-ui,-apple-system,sans-serif',color:T.text,
+      backgroundImage:isDark?'radial-gradient(ellipse 100% 50% at 50% -10%, #0c1e3a 0%, transparent 60%)':'none'}}>
 
       {/* ══════════════════════════════════════════
           SIDEBAR — só Navegação + perfil
       ══════════════════════════════════════════ */}
-      <aside style={{width:220,background:D.surface,borderRight:`1px solid ${D.border}`,
+      <aside style={{width:220,background:T.surface,borderRight:`1px solid ${T.border}`,
         display:'flex',flexDirection:'column',position:'fixed',top:0,left:0,bottom:0,zIndex:50,
-        boxShadow:'4px 0 24px rgba(0,0,0,.4)'}}>
+        boxShadow:isDark?'4px 0 24px rgba(0,0,0,.4)':'1px 0 0 0 #e2e8f0'}}>
 
         {/* Logo */}
-        <div style={{padding:'20px 18px 16px',borderBottom:`1px solid ${D.border}`}}>
+        <div style={{padding:'20px 18px 16px',borderBottom:`1px solid ${T.border}`}}>
           <div style={{display:'flex',alignItems:'center',gap:10}}>
             <LogoIcon size={36}/>
             <div>
-              <div style={{fontSize:13,fontWeight:700,color:D.text,letterSpacing:'-.02em',lineHeight:1.2}}>Torre de Controle</div>
-              <div style={{fontSize:10,color:D.text3,letterSpacing:'.04em',marginTop:2}}>Linea Alimentos</div>
+              <div style={{fontSize:13,fontWeight:700,color:T.text,letterSpacing:'-.02em',lineHeight:1.2}}>Torre de Controle</div>
+              <div style={{fontSize:10,color:T.text3,letterSpacing:'.04em',marginTop:2}}>Linea Alimentos</div>
             </div>
           </div>
         </div>
 
         {/* Navegação */}
         <nav style={{padding:'14px 10px',flex:1,overflowY:'auto'}}>
-          <div style={{fontSize:9,fontWeight:700,color:D.text3,letterSpacing:'.12em',textTransform:'uppercase',padding:'0 8px',marginBottom:6}}>Módulos</div>
+          <div style={{fontSize:9,fontWeight:700,color:T.text3,letterSpacing:'.12em',textTransform:'uppercase',padding:'0 8px',marginBottom:6}}>Módulos</div>
           {([
-            {key:'notas',   icon:'▦', label:'Minhas Notas',         badge:null,            badgeColor:D.accentBlu},
+            {key:'notas',   icon:'▦', label:'Minhas Notas',         badge:null,            badgeColor:T.accentBlu},
             {key:'sem-cc',  icon:'◉', label:'Sem Centro de Custo',  badge:nfsSemCC.length, badgeColor:'#ef4444'},
           ] as const).map(item=>{
             const active=activeSection===item.key&&filtroAtivo===null
@@ -455,10 +490,10 @@ export default function TorrePage() {
                 style={{display:'flex',alignItems:'center',gap:9,width:'100%',padding:'9px 10px',border:'none',
                   background:active?`rgba(59,130,246,.12)`:'transparent',
                   borderRadius:8,cursor:'pointer',textAlign:'left',fontFamily:'inherit',
-                  color:active?D.accentBlu:D.text2,fontSize:12.5,fontWeight:active?600:400,
+                  color:active?T.accentBlu:T.text2,fontSize:12.5,fontWeight:active?600:400,
                   transition:'all .15s',marginBottom:2,
-                  boxShadow:active?`inset 2px 0 0 ${D.accentBlu}`:'none'}}>
-                <span style={{fontSize:14,color:active?D.accentBlu:D.text3,width:18,textAlign:'center',flexShrink:0}}>{item.icon}</span>
+                  boxShadow:active?`inset 2px 0 0 ${T.accentBlu}`:'none'}}>
+                <span style={{fontSize:14,color:active?T.accentBlu:T.text3,width:18,textAlign:'center',flexShrink:0}}>{item.icon}</span>
                 <span style={{flex:1}}>{item.label}</span>
                 {item.badge!=null&&item.badge>0&&(
                   <span style={{fontSize:10,fontWeight:700,color:item.badgeColor,
@@ -474,8 +509,22 @@ export default function TorrePage() {
           })}
         </nav>
 
+        {/* Toggle de Tema */}
+        <div style={{padding:'8px 14px',borderTop:`1px solid ${T.border}`}}>
+          <button onClick={toggleTheme}
+            style={{width:'100%',padding:'8px 10px',background:isDark?'rgba(59,130,246,.08)':'rgba(37,99,235,.06)',
+              border:`1px solid ${isDark?'rgba(59,130,246,.2)':'rgba(37,99,235,.15)'}`,
+              borderRadius:9,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'space-between',
+              fontFamily:'inherit',transition:'all .2s'}}>
+            <span style={{fontSize:11,fontWeight:600,color:T.text2,letterSpacing:'.02em'}}>
+              {isDark ? '🌙 Modo Escuro' : '☀️ Modo Claro'}
+            </span>
+            <span style={{fontSize:15,lineHeight:1}}>{isDark ? '☀️' : '🌙'}</span>
+          </button>
+        </div>
+
         {/* Perfil + Logout */}
-        <div style={{borderTop:`1px solid ${D.border}`,padding:'14px 14px 16px'}}>
+        <div style={{borderTop:`1px solid ${T.border}`,padding:'14px 14px 16px'}}>
           <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
             <div style={{width:32,height:32,borderRadius:'50%',flexShrink:0,
               background:`linear-gradient(135deg, #1e4a8a, #3b82f6)`,
@@ -484,13 +533,13 @@ export default function TorrePage() {
               <span style={{color:'#fff',fontWeight:700,fontSize:13}}>{user.nome.charAt(0).toUpperCase()}</span>
             </div>
             <div style={{minWidth:0}}>
-              <div style={{fontSize:12,fontWeight:600,color:D.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{user.nome}</div>
-              <div style={{fontSize:10,color:D.text3,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{user.centros_custo.join(', ')}</div>
+              <div style={{fontSize:12,fontWeight:600,color:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{user.nome}</div>
+              <div style={{fontSize:10,color:T.text3,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{user.centros_custo.join(', ')}</div>
             </div>
           </div>
           <button onClick={handleLogout}
-            style={{width:'100%',padding:'8px',background:'transparent',border:`1px solid ${D.border}`,
-              color:D.text3,borderRadius:8,cursor:'pointer',fontSize:11,fontFamily:'inherit',
+            style={{width:'100%',padding:'8px',background:'transparent',border:`1px solid ${T.border}`,
+              color:T.text3,borderRadius:8,cursor:'pointer',fontSize:11,fontFamily:'inherit',
               fontWeight:500,transition:'all .15s',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
             Sair da conta
           </button>
@@ -505,7 +554,7 @@ export default function TorrePage() {
         {/* ── Header ──────────────────────────────────── */}
         <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:16}}>
           <div>
-            <h1 style={{margin:0,fontSize:18,fontWeight:700,color:D.text,letterSpacing:'-.03em',lineHeight:1.1}}>
+            <h1 style={{margin:0,fontSize:18,fontWeight:700,color:T.text,letterSpacing:'-.03em',lineHeight:1.1}}>
               {filtroAtivo ? KPI_FU.find(k=>k.id===filtroAtivo)?.label
                 : activeSection==='sem-cc' ? 'Sem Centro de Custo'
                 
@@ -513,19 +562,19 @@ export default function TorrePage() {
             </h1>
             <div style={{display:'flex',alignItems:'center',gap:8,marginTop:2}}>
               <span style={{width:7,height:7,borderRadius:'50%',background:'#22c55e',boxShadow:'0 0 0 3px rgba(34,197,94,.2)',display:'inline-block',flexShrink:0}}/>
-              <span style={{fontSize:12,color:D.text3}}>
+              <span style={{fontSize:12,color:T.text3}}>
                 Atualizado às {format(lastUpdate,'HH:mm:ss')}
-                <span style={{margin:'0 6px',color:D.border}}>·</span>
-                <span style={{color:D.text2,fontWeight:500}}>{data.length} notas monitoradas</span>
+                <span style={{margin:'0 6px',color:T.border}}>·</span>
+                <span style={{color:T.text2,fontWeight:500}}>{data.length} notas monitoradas</span>
               </span>
             </div>
           </div>
           <div style={{display:'flex',gap:8,alignItems:'center',flexShrink:0}}>
             <button onClick={load}
               style={{display:'flex',alignItems:'center',gap:6,padding:'6px 12px',
-                background:D.surface,border:`1px solid ${D.border}`,color:D.text2,borderRadius:9,
+                background:T.surface,border:`1px solid ${T.border}`,color:T.text2,borderRadius:9,
                 cursor:'pointer',fontSize:12,fontFamily:'inherit',fontWeight:500,
-                boxShadow:D.shadow,transition:'all .15s'}}>
+                boxShadow:T.shadow,transition:'all .15s'}}>
               <span style={{fontSize:14}}>↻</span> Atualizar
             </button>
             <button onClick={exportExcel}
@@ -543,21 +592,21 @@ export default function TorrePage() {
 
           {/* KPI 1 — Total em Aberto */}
           <div onClick={()=>{setFiltroAtivo(null);setActiveSection('notas')}}
-            style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:16,
+            style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:16,
               padding:'12px 16px 10px',cursor:'pointer',position:'relative',overflow:'hidden',
-              boxShadow:D.shadow,transition:'all .2s'}}
-            onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.borderColor=D.accentBlu;(e.currentTarget as HTMLElement).style.boxShadow=D.glow}}
-            onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.borderColor=D.border;(e.currentTarget as HTMLElement).style.boxShadow=D.shadow}}>
-            <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:`linear-gradient(90deg,${D.accentBlu},rgba(59,130,246,.2),transparent)`,borderRadius:'16px 16px 0 0'}}/>
-            <div style={{position:'absolute',bottom:-4,right:10,fontSize:72,fontWeight:900,color:D.accentBlu,opacity:.04,lineHeight:1,letterSpacing:'-.04em',userSelect:'none'}}>∑</div>
-            <div style={{fontSize:10,fontWeight:800,color:D.text3,letterSpacing:'.12em',textTransform:'uppercase',marginBottom:16,display:'flex',alignItems:'center',gap:6}}>
-              <span style={{width:6,height:6,borderRadius:'50%',background:D.accentBlu,display:'inline-block',boxShadow:`0 0 6px ${D.accentBlu}`}}/>
+              boxShadow:T.shadow,transition:'all .2s'}}
+            onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.borderColor=T.accentBlu;(e.currentTarget as HTMLElement).style.boxShadow=T.glow}}
+            onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.borderColor=T.border;(e.currentTarget as HTMLElement).style.boxShadow=T.shadow}}>
+            <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:isDark?`linear-gradient(90deg,${T.accentBlu},rgba(59,130,246,.2),transparent)`:`linear-gradient(90deg,${T.accentBlu},rgba(37,99,235,.15),transparent)`,borderRadius:'16px 16px 0 0'}}/>
+            <div style={{position:'absolute',bottom:-4,right:10,fontSize:72,fontWeight:900,color:T.accentBlu,opacity:.04,lineHeight:1,letterSpacing:'-.04em',userSelect:'none'}}>∑</div>
+            <div style={{fontSize:10,fontWeight:800,color:T.text3,letterSpacing:'.12em',textTransform:'uppercase',marginBottom:16,display:'flex',alignItems:'center',gap:6}}>
+              <span style={{width:6,height:6,borderRadius:'50%',background:T.accentBlu,display:'inline-block',boxShadow:`0 0 6px ${T.accentBlu}`}}/>
               Total em Aberto
             </div>
-            <div style={{fontSize:36,fontWeight:900,color:D.text,lineHeight:1,fontVariantNumeric:'tabular-nums',letterSpacing:'-.04em',marginBottom:4}}>
+            <div style={{fontSize:36,fontWeight:900,color:T.text,lineHeight:1,fontVariantNumeric:'tabular-nums',letterSpacing:'-.04em',marginBottom:4}}>
               {totalAberto}
             </div>
-            <div style={{fontSize:13,color:D.text2,fontWeight:600}}>{money(totalValorAberto)}</div>
+            <div style={{fontSize:13,color:T.text2,fontWeight:600}}>{money(totalValorAberto)}</div>
           </div>
 
           {/* KPI 2 — LT Vencidos (URGÊNCIA MÁXIMA) */}
@@ -565,15 +614,15 @@ export default function TorrePage() {
             const active=filtroAtivo==='__lt'
             return (
               <div onClick={()=>{setFiltroAtivo(active?null:'__lt');setActiveSection('notas')}}
-                style={{background:active?'rgba(239,68,68,.07)':D.surface,
-                  border:`1px solid ${active?'rgba(239,68,68,.55)':D.border}`,borderRadius:16,
+                style={{background:active?(isDark?'rgba(239,68,68,.07)':'rgba(220,38,38,.04)'):T.surface,
+                  border:`1px solid ${active?(isDark?'rgba(239,68,68,.55)':'rgba(220,38,38,.35)'):T.border}`,borderRadius:16,
                   padding:'12px 16px 10px',cursor:'pointer',position:'relative',overflow:'hidden',
-                  boxShadow:active?`0 0 0 1px rgba(239,68,68,.25), 0 12px 40px rgba(239,68,68,.2), ${D.shadow}`:D.shadow,
+                  boxShadow:active?(isDark?`0 0 0 1px rgba(239,68,68,.25), 0 12px 40px rgba(239,68,68,.2), ${T.shadow}`:`0 0 0 1px rgba(220,38,38,.15), 0 4px 16px rgba(220,38,38,.08), ${T.shadow}`):T.shadow,
                   transition:'all .2s'}}
-                onMouseEnter={e=>{if(!active){(e.currentTarget as HTMLElement).style.borderColor='rgba(239,68,68,.45)';(e.currentTarget as HTMLElement).style.boxShadow=`0 0 0 1px rgba(239,68,68,.15), ${D.shadow}`}}}
-                onMouseLeave={e=>{if(!active){(e.currentTarget as HTMLElement).style.borderColor=D.border;(e.currentTarget as HTMLElement).style.boxShadow=D.shadow}}}>
+                onMouseEnter={e=>{if(!active){(e.currentTarget as HTMLElement).style.borderColor=isDark?'rgba(239,68,68,.45)':'rgba(220,38,38,.3)';(e.currentTarget as HTMLElement).style.boxShadow=`0 0 0 1px rgba(239,68,68,.15), ${T.shadow}`}}}
+                onMouseLeave={e=>{if(!active){(e.currentTarget as HTMLElement).style.borderColor=T.border;(e.currentTarget as HTMLElement).style.boxShadow=T.shadow}}}>
                 <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:'linear-gradient(90deg,#ef4444,rgba(239,68,68,.3),transparent)',borderRadius:'16px 16px 0 0'}}/>
-                {ltCount>0&&<div style={{position:'absolute',inset:0,background:'radial-gradient(ellipse 80% 50% at 20% 0%, rgba(239,68,68,.1) 0%, transparent 70%)',pointerEvents:'none'}}/>}
+                {ltCount>0&&<div style={{position:'absolute',inset:0,background:isDark?'radial-gradient(ellipse 80% 50% at 20% 0%, rgba(239,68,68,.1) 0%, transparent 70%)':'none',pointerEvents:'none'}}/>}
                 <div style={{position:'absolute',bottom:-4,right:10,fontSize:72,fontWeight:900,color:'#ef4444',opacity:.05,lineHeight:1,letterSpacing:'-.04em',userSelect:'none'}}>!</div>
                 <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
                   <span style={{fontSize:10,fontWeight:800,color:'#ef4444',letterSpacing:'.12em',textTransform:'uppercase'}}>LT Vencidos</span>
@@ -584,7 +633,7 @@ export default function TorrePage() {
                   )}
                 </div>
                 <div style={{fontSize:36,fontWeight:900,color:'#ef4444',lineHeight:1,fontVariantNumeric:'tabular-nums',letterSpacing:'-.04em',marginBottom:4,
-                  textShadow:ltCount>0?'0 0 28px rgba(239,68,68,.55)':'none'}}>
+                  textShadow:isDark&&ltCount>0?'0 0 28px rgba(239,68,68,.55)':'none'}}>
                   {ltCount}
                 </div>
                 <div style={{fontSize:13,color:'rgba(239,68,68,.6)',fontWeight:600}}>{money(ltValor)}</div>
@@ -595,19 +644,19 @@ export default function TorrePage() {
           {/* KPI 3 — NF c/ Ocorrência + mini bar chart */}
           {(()=>{
             const active=filtroAtivo==='NF com Ocorrência'
-            const numColor=active?'#f97316':D.text
-            const labelC=active?'#f97316':D.text3
+            const numColor=active?'#f97316':T.text
+            const labelC=active?'#f97316':T.text3
             const bars=[0.4,0.65,0.5,0.8,0.55,0.7,ocCount>0?1:0.3]
             const barW=22,barGap=4,barMaxH=18
             return (
               <div onClick={()=>{setFiltroAtivo(active?null:'NF com Ocorrência');setActiveSection('notas')}}
-                style={{background:active?'rgba(249,115,22,.06)':D.surface,
-                  border:`1px solid ${active?'rgba(249,115,22,.55)':D.border}`,borderRadius:16,
+                style={{background:active?(isDark?'rgba(249,115,22,.06)':'rgba(234,108,10,.04)'):T.surface,
+                  border:`1px solid ${active?(isDark?'rgba(249,115,22,.55)':'rgba(234,108,10,.4)'):T.border}`,borderRadius:16,
                   padding:'12px 16px 0',cursor:'pointer',position:'relative',overflow:'hidden',
-                  boxShadow:active?`0 0 0 1px rgba(249,115,22,.2), 0 12px 40px rgba(249,115,22,.15), ${D.shadow}`:D.shadow,
+                  boxShadow:active?(isDark?`0 0 0 1px rgba(249,115,22,.2), 0 12px 40px rgba(249,115,22,.15), ${T.shadow}`:`0 0 0 1px rgba(234,108,10,.15), 0 4px 12px rgba(234,108,10,.08), ${T.shadow}`):T.shadow,
                   transition:'all .2s',display:'flex',flexDirection:'column'}}
-                onMouseEnter={e=>{if(!active){(e.currentTarget as HTMLElement).style.borderColor='rgba(249,115,22,.4)';(e.currentTarget as HTMLElement).style.boxShadow=`0 0 0 1px rgba(249,115,22,.12), ${D.shadow}`}}}
-                onMouseLeave={e=>{if(!active){(e.currentTarget as HTMLElement).style.borderColor=D.border;(e.currentTarget as HTMLElement).style.boxShadow=D.shadow}}}>
+                onMouseEnter={e=>{if(!active){(e.currentTarget as HTMLElement).style.borderColor='rgba(249,115,22,.4)';(e.currentTarget as HTMLElement).style.boxShadow=`0 0 0 1px rgba(249,115,22,.12), ${T.shadow}`}}}
+                onMouseLeave={e=>{if(!active){(e.currentTarget as HTMLElement).style.borderColor=T.border;(e.currentTarget as HTMLElement).style.boxShadow=T.shadow}}}>
                 <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:`linear-gradient(90deg,#f97316,rgba(249,115,22,.25),transparent)`,borderRadius:'16px 16px 0 0'}}/>
                 <div style={{flex:1}}>
                   <div style={{fontSize:10,fontWeight:800,color:labelC,letterSpacing:'.12em',textTransform:'uppercase',marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
@@ -617,7 +666,7 @@ export default function TorrePage() {
                   <div style={{fontSize:36,fontWeight:900,color:numColor,lineHeight:1,fontVariantNumeric:'tabular-nums',letterSpacing:'-.04em',marginBottom:4}}>
                     {ocCount}
                   </div>
-                  <div style={{fontSize:13,color:active?'rgba(249,115,22,.65)':D.text2,fontWeight:600,marginBottom:6}}>{money(ocValor)}</div>
+                  <div style={{fontSize:13,color:active?'rgba(249,115,22,.65)':T.text2,fontWeight:600,marginBottom:6}}>{money(ocValor)}</div>
                 </div>
                 {/* Mini bar chart — 7 colunas */}
                 <div style={{display:'flex',alignItems:'flex-end',gap:barGap+'px',paddingBottom:8,paddingTop:2,opacity:.5,marginTop:'auto'}}>
@@ -635,7 +684,7 @@ export default function TorrePage() {
 
         {/* ── Chips de Status ─────────────────────────── */}
         <div style={{display:'flex',alignItems:'center',gap:5,flexWrap:'nowrap',overflowX:'auto',paddingBottom:2}}>
-          <span style={{fontSize:9,fontWeight:700,color:D.text3,letterSpacing:'.1em',textTransform:'uppercase',marginRight:4,flexShrink:0}}>Filtrar:</span>
+          <span style={{fontSize:9,fontWeight:700,color:T.text3,letterSpacing:'.1em',textTransform:'uppercase',marginRight:4,flexShrink:0}}>Filtrar:</span>
           {CHIPS.map(id=>{
             const k=KPI_FU.find(k=>k.id===id)!
             const cnt=kpiCount(id)
@@ -645,13 +694,13 @@ export default function TorrePage() {
                 style={{display:'inline-flex',alignItems:'center',gap:5,padding:'5px 11px',borderRadius:20,
                   cursor:'pointer',fontFamily:'inherit',fontSize:11,fontWeight:active?700:500,
                   transition:'all .15s',
-                  background:active?k.color:D.surface2,
-                  border:`1px solid ${active?k.color:D.border}`,
-                  color:active?'#fff':D.text2,
+                  background:active?k.color:T.surface2,
+                  border:`1px solid ${active?k.color:T.border}`,
+                  color:active?'#fff':T.text2,
                   boxShadow:active?`0 2px 12px ${k.color}44`:'none'}}>
                 {cnt>0&&<span style={{fontSize:10,fontWeight:700,
-                  background:active?'rgba(255,255,255,.2)':D.surface3,
-                  color:active?'#fff':D.text3,
+                  background:active?'rgba(255,255,255,.2)':T.surface3,
+                  color:active?'#fff':T.text3,
                   borderRadius:10,padding:'0 5px',minWidth:16,textAlign:'center'}}>{cnt}</span>}
                 {k.label}
               </button>
@@ -659,24 +708,24 @@ export default function TorrePage() {
           })}
           {filtroAtivo&&(
             <button onClick={()=>setFiltroAtivo(null)}
-              style={{padding:'5px 10px',borderRadius:20,border:`1px dashed ${D.border}`,background:'transparent',
-                color:D.text3,cursor:'pointer',fontSize:11,fontFamily:'inherit',display:'flex',alignItems:'center',gap:4}}>
+              style={{padding:'5px 10px',borderRadius:20,border:`1px dashed ${T.border}`,background:'transparent',
+                color:T.text3,cursor:'pointer',fontSize:11,fontFamily:'inherit',display:'flex',alignItems:'center',gap:4}}>
               ✕ Limpar
             </button>
           )}
         </div>
 
         {/* ── Barra de Filtros ────────────────────────── */}
-        <div style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:12,padding:'7px 12px',
-          boxShadow:D.shadow,display:'flex',gap:8,alignItems:'center',flexWrap:'nowrap'}}>
+        <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,padding:'7px 12px',
+          boxShadow:T.shadow,display:'flex',gap:8,alignItems:'center',flexWrap:'nowrap'}}>
 
           {/* Busca */}
           <div style={{position:'relative',flex:'1 1 200px',minWidth:180}}>
-            <span style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',color:D.text3,fontSize:14,pointerEvents:'none'}}>⌕</span>
+            <span style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',color:T.text3,fontSize:14,pointerEvents:'none'}}>⌕</span>
             <input value={filtroNF} onChange={e=>setFiltroNF(e.target.value)} placeholder="Buscar NF, cliente…"
               style={{...darkInput,width:'100%',paddingLeft:32,paddingRight:12,paddingTop:8,paddingBottom:8,fontSize:12,boxSizing:'border-box'}}
-              onFocus={e=>{e.target.style.borderColor=D.accentBlu;e.target.style.boxShadow=`0 0 0 3px rgba(59,130,246,.1)`}}
-              onBlur={e=>{e.target.style.borderColor=D.border;e.target.style.boxShadow='none'}}/>
+              onFocus={e=>{e.target.style.borderColor=T.accentBlu;e.target.style.boxShadow=`0 0 0 3px rgba(59,130,246,.1)`}}
+              onBlur={e=>{e.target.style.borderColor=T.border;e.target.style.boxShadow='none'}}/>
           </div>
 
           {/* Transportadora */}
@@ -687,17 +736,17 @@ export default function TorrePage() {
           </select>
 
           {/* Intervalo de datas */}
-          <div style={{display:'flex',alignItems:'center',gap:6,background:D.surface2,border:`1px solid ${D.border}`,borderRadius:8,padding:'5px 10px',flexShrink:0}}>
-            <span style={{fontSize:11,color:D.text3}}>De</span>
+          <div style={{display:'flex',alignItems:'center',gap:6,background:T.surface2,border:`1px solid ${T.border}`,borderRadius:8,padding:'5px 10px',flexShrink:0}}>
+            <span style={{fontSize:11,color:T.text3}}>De</span>
             <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)}
-              style={{padding:'3px 4px',background:'transparent',border:'none',color:D.text,fontSize:12,outline:'none',cursor:'pointer',fontFamily:'inherit'}}/>
-            <span style={{fontSize:11,color:D.text3}}>até</span>
+              style={{padding:'3px 4px',background:'transparent',border:'none',color:T.text,fontSize:12,outline:'none',cursor:'pointer',fontFamily:'inherit'}}/>
+            <span style={{fontSize:11,color:T.text3}}>até</span>
             <input type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)}
-              style={{padding:'3px 4px',background:'transparent',border:'none',color:D.text,fontSize:12,outline:'none',cursor:'pointer',fontFamily:'inherit'}}/>
+              style={{padding:'3px 4px',background:'transparent',border:'none',color:T.text,fontSize:12,outline:'none',cursor:'pointer',fontFamily:'inherit'}}/>
           </div>
 
           <button onClick={()=>{setDateFrom(getToday());setDateTo(getToday())}}
-            style={{padding:'8px 12px',background:D.surface2,border:`1px solid ${D.border}`,color:D.text2,borderRadius:8,cursor:'pointer',fontSize:11,fontFamily:'inherit',fontWeight:500,whiteSpace:'nowrap',flexShrink:0,transition:'all .15s'}}>
+            style={{padding:'8px 12px',background:T.surface2,border:`1px solid ${T.border}`,color:T.text2,borderRadius:8,cursor:'pointer',fontSize:11,fontFamily:'inherit',fontWeight:500,whiteSpace:'nowrap',flexShrink:0,transition:'all .15s'}}>
             Hoje
           </button>
 
@@ -709,8 +758,8 @@ export default function TorrePage() {
               return (
                 <button key={f} onClick={()=>setSortField(fld)}
                   style={{padding:'5px 10px',borderRadius:7,fontSize:11,fontWeight:active?600:400,cursor:'pointer',fontFamily:'inherit',
-                    background:active?D.accentBlu:D.surface2,border:`1px solid ${active?D.accentBlu:D.border}`,
-                    color:active?'#fff':D.text3,transition:'all .15s',
+                    background:active?T.accentBlu:T.surface2,border:`1px solid ${active?T.accentBlu:T.border}`,
+                    color:active?'#fff':T.text3,transition:'all .15s',
                     boxShadow:active?`0 2px 8px rgba(59,130,246,.3)`:'none'}}>
                   {f}{active&&' ↑'}
                 </button>
@@ -719,10 +768,10 @@ export default function TorrePage() {
           </div>
 
           {/* Contagem */}
-          <div style={{fontSize:12,color:D.text2,fontWeight:600,fontVariantNumeric:'tabular-nums',whiteSpace:'nowrap',flexShrink:0,borderLeft:`1px solid ${D.border}`,paddingLeft:12,marginLeft:4}}>
-            <span style={{color:D.text3,fontWeight:400}}>{filtered.length} notas</span>
+          <div style={{fontSize:12,color:T.text2,fontWeight:600,fontVariantNumeric:'tabular-nums',whiteSpace:'nowrap',flexShrink:0,borderLeft:`1px solid ${T.border}`,paddingLeft:12,marginLeft:4}}>
+            <span style={{color:T.text3,fontWeight:400}}>{filtered.length} notas</span>
             {' · '}
-            <span style={{color:D.accent,fontWeight:700}}>{money(totalValor)}</span>
+            <span style={{color:T.accent,fontWeight:700}}>{money(totalValor)}</span>
           </div>
         </div>
 
@@ -733,7 +782,7 @@ export default function TorrePage() {
             SEÇÃO SEM CC
         ══════════════════════════════════════════════ */}
         {activeSection==='sem-cc'&&(
-          <div style={{background:D.surface,border:`1px solid rgba(239,68,68,.3)`,borderRadius:14,overflow:'hidden',boxShadow:D.shadow,flex:1}}>
+          <div style={{background:T.surface,border:`1px solid rgba(239,68,68,.3)`,borderRadius:14,overflow:'hidden',boxShadow:T.shadow,flex:1}}>
             <div style={{padding:'14px 20px',borderBottom:`1px solid rgba(239,68,68,.2)`,display:'flex',alignItems:'center',gap:12,background:'rgba(239,68,68,.05)'}}>
               <span style={{fontSize:20}}>⚠️</span>
               <div>
@@ -743,41 +792,41 @@ export default function TorrePage() {
             </div>
             <div style={{overflowX:'auto',overflowY:'auto',maxHeight:'calc(100vh - 360px)'}}>
               {nfsSemCC.length===0?(
-                <div style={{textAlign:'center',padding:60,color:D.text3}}>
+                <div style={{textAlign:'center',padding:60,color:T.text3}}>
                   <div style={{fontSize:36,marginBottom:12,opacity:.4}}>✓</div>
-                  <div style={{fontSize:14,fontWeight:600,color:D.text2}}>Nenhuma nota sem centro de custo</div>
+                  <div style={{fontSize:14,fontWeight:600,color:T.text2}}>Nenhuma nota sem centro de custo</div>
                 </div>
               ):(
                 <table style={{width:'100%',borderCollapse:'collapse'}}>
                   <thead><tr>
                     {['NF','Filial','Emissão','Destinatário','Cidade/UF','Valor','Transportadora','Centro de Custo','Status'].map(h=>(
-                      <th key={h} style={{padding:'10px 16px',textAlign:'left',fontSize:10,fontWeight:700,color:D.text3,letterSpacing:'.07em',textTransform:'uppercase',background:D.surface2,borderBottom:`1px solid ${D.border}`,whiteSpace:'nowrap'}}>{h}</th>
+                      <th key={h} style={{padding:'10px 16px',textAlign:'left',fontSize:10,fontWeight:700,color:T.text3,letterSpacing:'.07em',textTransform:'uppercase',background:T.surface2,borderBottom:`1px solid ${T.border}`,whiteSpace:'nowrap'}}>{h}</th>
                     ))}
                   </tr></thead>
                   <tbody>
                     {nfsSemCC.map((r,i)=>(
-                      <tr key={i} style={{borderBottom:`1px solid ${D.borderLo}`,transition:'background .15s'}}
-                        onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background=D.surface2}
+                      <tr key={i} style={{borderBottom:`1px solid ${T.borderLo}`,transition:'background .15s'}}
+                        onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background=T.surface2}
                         onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background='transparent'}>
-                        <td style={{padding:'11px 16px'}}><span style={{color:D.accent,fontWeight:700,fontFamily:'var(--font-mono)',fontSize:12}}>{r.nf_numero}</span></td>
-                        <td style={{padding:'11px 16px'}}><span style={{fontSize:10,fontWeight:700,padding:'2px 7px',borderRadius:5,background:r.filial==='CHOCOLATE'?'rgba(124,58,237,.15)':'rgba(148,163,184,.1)',color:r.filial==='CHOCOLATE'?'#a78bfa':D.text3}}>{r.filial}</span></td>
-                        <td style={{padding:'11px 16px',fontSize:11,color:D.text2}}>{r.dt_emissao?r.dt_emissao.slice(0,10):'—'}</td>
+                        <td style={{padding:'11px 16px'}}><span style={{color:T.accent,fontWeight:700,fontFamily:'var(--font-mono)',fontSize:12}}>{r.nf_numero}</span></td>
+                        <td style={{padding:'11px 16px'}}><span style={{fontSize:10,fontWeight:700,padding:'2px 7px',borderRadius:5,background:r.filial==='CHOCOLATE'?'rgba(124,58,237,.15)':'rgba(148,163,184,.1)',color:r.filial==='CHOCOLATE'?'#a78bfa':T.text3}}>{r.filial}</span></td>
+                        <td style={{padding:'11px 16px',fontSize:11,color:T.text2}}>{r.dt_emissao?r.dt_emissao.slice(0,10):'—'}</td>
                         <td style={{padding:'11px 16px',maxWidth:180,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontWeight:500,fontSize:12}}>{r.destinatario_fantasia||r.destinatario_nome||'—'}</td>
-                        <td style={{padding:'11px 16px',fontSize:11,color:D.text2,whiteSpace:'nowrap'}}>{r.cidade_destino} · {r.uf_destino}</td>
+                        <td style={{padding:'11px 16px',fontSize:11,color:T.text2,whiteSpace:'nowrap'}}>{r.cidade_destino} · {r.uf_destino}</td>
                         <td style={{padding:'11px 16px',fontVariantNumeric:'tabular-nums',fontSize:12,fontWeight:600}}>R${(Number(r.valor_produtos)||0).toLocaleString('pt-BR',{minimumFractionDigits:0})}</td>
-                        <td style={{padding:'11px 16px',fontSize:11,color:D.text2,maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.transportador_nome?.split(' ').slice(0,2).join(' ')||'—'}</td>
+                        <td style={{padding:'11px 16px',fontSize:11,color:T.text2,maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.transportador_nome?.split(' ').slice(0,2).join(' ')||'—'}</td>
                         <td style={{padding:'11px 16px'}}>
                           {editCCNF===r.nf_numero?(
                             <div style={{display:'flex',gap:5,alignItems:'center'}}>
-                              <select value={editCCValor} onChange={e=>setEditCCValor(e.target.value)} style={{...darkInput,padding:'5px 8px',fontSize:11,flex:1,borderColor:D.accent}}>
+                              <select value={editCCValor} onChange={e=>setEditCCValor(e.target.value)} style={{...darkInput,padding:'5px 8px',fontSize:11,flex:1,borderColor:T.accent}}>
                                 <option value=''>Selecionar CC…</option>
                                 {CC_OPTS.map(cc=><option key={cc} value={cc}>{cc}</option>)}
                               </select>
-                              <button onClick={()=>saveCC(r.nf_numero,editCCValor)} disabled={!editCCValor||editCCSaving} style={{padding:'5px 9px',background:editCCValor&&!editCCSaving?D.accent:'#334155',border:'none',color:'#fff',borderRadius:7,cursor:'pointer',fontSize:11,fontFamily:'inherit',fontWeight:600}}>{editCCSaving?'…':'✓'}</button>
-                              <button onClick={()=>{setEditCCNF(null);setEditCCValor('')}} style={{padding:'5px 8px',background:'none',border:`1px solid ${D.border}`,color:D.text3,borderRadius:7,cursor:'pointer',fontSize:11}}>✕</button>
+                              <button onClick={()=>saveCC(r.nf_numero,editCCValor)} disabled={!editCCValor||editCCSaving} style={{padding:'5px 9px',background:editCCValor&&!editCCSaving?T.accent:'#334155',border:'none',color:'#fff',borderRadius:7,cursor:'pointer',fontSize:11,fontFamily:'inherit',fontWeight:600}}>{editCCSaving?'…':'✓'}</button>
+                              <button onClick={()=>{setEditCCNF(null);setEditCCValor('')}} style={{padding:'5px 8px',background:'none',border:`1px solid ${T.border}`,color:T.text3,borderRadius:7,cursor:'pointer',fontSize:11}}>✕</button>
                             </div>
                           ):(
-                            <button onClick={()=>{setEditCCNF(r.nf_numero);setEditCCValor('')}} style={{padding:'5px 12px',background:'rgba(249,115,22,.08)',border:'1px solid rgba(249,115,22,.25)',color:D.accent,borderRadius:7,cursor:'pointer',fontSize:11,fontFamily:'inherit',fontWeight:600}}>+ Definir CC</button>
+                            <button onClick={()=>{setEditCCNF(r.nf_numero);setEditCCValor('')}} style={{padding:'5px 12px',background:'rgba(249,115,22,.08)',border:'1px solid rgba(249,115,22,.25)',color:T.accent,borderRadius:7,cursor:'pointer',fontSize:11,fontFamily:'inherit',fontWeight:600}}>+ Definir CC</button>
                           )}
                         </td>
                         <td style={{padding:'11px 16px'}}><StatusBadge status={r.status||''}/></td>
@@ -794,26 +843,26 @@ export default function TorrePage() {
             TABELA PRINCIPAL DE NOTAS
         ══════════════════════════════════════════════ */}
         {activeSection==='notas'&&(
-          <div style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:14,overflow:'hidden',boxShadow:D.shadow,flex:1,display:'flex',flexDirection:'column'}}>
+          <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:14,overflow:'hidden',boxShadow:T.shadow,flex:1,display:'flex',flexDirection:'column'}}>
 
             {/* Scrollbar espelho */}
-            <div ref={topRef} onScroll={()=>syncScroll('top')} style={{overflowX:'auto',overflowY:'hidden',height:12,borderBottom:`1px solid ${D.borderLo}`,cursor:'col-resize',flexShrink:0}}>
+            <div ref={topRef} onScroll={()=>syncScroll('top')} style={{overflowX:'auto',overflowY:'hidden',height:12,borderBottom:`1px solid ${T.borderLo}`,cursor:'col-resize',flexShrink:0}}>
               <div style={{height:1,width:tableW}}/>
             </div>
             <div ref={botRef} onScroll={()=>syncScroll('bot')} style={{overflowX:'auto',overflowY:'auto',flex:1,maxHeight:'calc(100vh - 310px)'}}>
               {loading?(
-                <div style={{textAlign:'center',padding:80,color:D.text3}}>
+                <div style={{textAlign:'center',padding:80,color:T.text3}}>
                   <div style={{fontSize:13,fontWeight:500,marginBottom:20}}>Carregando notas…</div>
                   <div style={{display:'flex',gap:8,justifyContent:'center'}}>
                     {[0,1,2].map(i=>(
-                      <div key={i} style={{width:8,height:8,borderRadius:'50%',background:D.accentBlu,opacity:.3,animation:`kfPulse 1.4s ease-in-out ${i*.2}s infinite`}}/>
+                      <div key={i} style={{width:8,height:8,borderRadius:'50%',background:T.accentBlu,opacity:.3,animation:`kfPulse 1.4s ease-in-out ${i*.2}s infinite`}}/>
                     ))}
                   </div>
                 </div>
               ):filtered.length===0?(
-                <div style={{textAlign:'center',padding:80,color:D.text3}}>
+                <div style={{textAlign:'center',padding:80,color:T.text3}}>
                   <div style={{fontSize:44,marginBottom:16,opacity:.2}}>◈</div>
-                  <div style={{fontSize:14,fontWeight:600,color:D.text2,marginBottom:6}}>Nenhuma nota encontrada</div>
+                  <div style={{fontSize:14,fontWeight:600,color:T.text2,marginBottom:6}}>Nenhuma nota encontrada</div>
                   <div style={{fontSize:12}}>Ajuste os filtros para ver resultados</div>
                 </div>
               ):(
@@ -843,66 +892,66 @@ export default function TorrePage() {
                       const ltVenc=r.lt_vencido&&r.status!=='Entregue'
                       const hoje=['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao))
                       const isSelected=ocorrNF?.nf_numero===r.nf_numero
-                      const evenBg=i%2===0?D.surface:D.surface2
+                      const evenBg=i%2===0?T.surface:T.surface2
                       return (
                         <tr key={i} onClick={()=>setSelectedNF(r)}
-                          style={{cursor:'pointer',borderBottom:`1px solid ${D.borderLo}`,
+                          style={{cursor:'pointer',borderBottom:`1px solid ${T.borderLo}`,
                             background:isSelected?'rgba(249,115,22,.07)':evenBg,transition:'background .12s'}}
-                          onMouseEnter={e=>{if(!isSelected)(e.currentTarget as HTMLElement).style.background='rgba(59,130,246,.06)'}}
+                          onMouseEnter={e=>{if(!isSelected)(e.currentTarget as HTMLElement).style.background=isDark?'rgba(59,130,246,.06)':'rgba(37,99,235,.04)'}}
                           onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background=isSelected?'rgba(249,115,22,.07)':evenBg}}>
 
                           <td style={{padding:'5px 10px'}}>
-                            <span style={{color:D.accent,fontWeight:700,fontFamily:'var(--font-mono)',fontSize:12,letterSpacing:'-.01em'}}>{r.nf_numero}</span>
+                            <span style={{color:T.accent,fontWeight:700,fontFamily:'var(--font-mono)',fontSize:12,letterSpacing:'-.01em'}}>{r.nf_numero}</span>
                           </td>
                           <td style={{padding:'5px 10px'}}>
-                            <span style={{fontSize:10,fontWeight:700,padding:'2px 7px',borderRadius:5,background:r.filial==='CHOCOLATE'?'rgba(124,58,237,.15)':'rgba(148,163,184,.08)',color:r.filial==='CHOCOLATE'?'#a78bfa':D.text3}}>{r.filial==='CHOCOLATE'?'CHOCO':r.filial}</span>
+                            <span style={{fontSize:10,fontWeight:700,padding:'2px 7px',borderRadius:5,background:r.filial==='CHOCOLATE'?'rgba(124,58,237,.15)':'rgba(148,163,184,.08)',color:r.filial==='CHOCOLATE'?'#a78bfa':T.text3}}>{r.filial==='CHOCOLATE'?'CHOCO':r.filial}</span>
                           </td>
-                          <td style={{padding:'5px 10px',fontSize:11,color:D.text3,whiteSpace:'nowrap'}}>{fmt(r.dt_emissao)}</td>
-                          <td style={{padding:'5px 10px',maxWidth:168,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontWeight:500,fontSize:12,color:D.text}}>{r.destinatario_fantasia||r.destinatario_nome||'—'}</td>
-                          <td style={{padding:'5px 10px',fontSize:11,color:D.text3,whiteSpace:'nowrap'}}>{r.cidade_destino} · {r.uf_destino}</td>
+                          <td style={{padding:'5px 10px',fontSize:11,color:T.text3,whiteSpace:'nowrap'}}>{fmt(r.dt_emissao)}</td>
+                          <td style={{padding:'5px 10px',maxWidth:168,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontWeight:500,fontSize:12,color:T.text}}>{r.destinatario_fantasia||r.destinatario_nome||'—'}</td>
+                          <td style={{padding:'5px 10px',fontSize:11,color:T.text3,whiteSpace:'nowrap'}}>{r.cidade_destino} · {r.uf_destino}</td>
                           <td style={{padding:'5px 10px'}} onClick={e=>e.stopPropagation()}>
                             {editCCNF===r.nf_numero?(
                               <div style={{display:'flex',gap:4,alignItems:'center'}}>
-                                <select value={editCCValor} onChange={e=>setEditCCValor(e.target.value)} style={{...darkInput,padding:'3px 6px',fontSize:10,borderColor:D.accent,maxWidth:110}}>
+                                <select value={editCCValor} onChange={e=>setEditCCValor(e.target.value)} style={{...darkInput,padding:'3px 6px',fontSize:10,borderColor:T.accent,maxWidth:110}}>
                                   <option value=''>CC…</option>
                                   {CC_OPTS.map(cc=><option key={cc} value={cc}>{cc}</option>)}
                                 </select>
-                                <button onClick={()=>saveCC(r.nf_numero,editCCValor)} disabled={!editCCValor||editCCSaving} style={{padding:'3px 7px',background:editCCValor&&!editCCSaving?D.accent:'#334155',border:'none',color:'#fff',borderRadius:5,cursor:'pointer',fontSize:11,fontFamily:'inherit'}}>{editCCSaving?'…':'✓'}</button>
-                                <button onClick={()=>{setEditCCNF(null);setEditCCValor('')}} style={{padding:'3px 6px',background:'none',border:`1px solid ${D.border}`,color:D.text3,borderRadius:5,cursor:'pointer',fontSize:11}}>✕</button>
+                                <button onClick={()=>saveCC(r.nf_numero,editCCValor)} disabled={!editCCValor||editCCSaving} style={{padding:'3px 7px',background:editCCValor&&!editCCSaving?T.accent:'#334155',border:'none',color:'#fff',borderRadius:5,cursor:'pointer',fontSize:11,fontFamily:'inherit'}}>{editCCSaving?'…':'✓'}</button>
+                                <button onClick={()=>{setEditCCNF(null);setEditCCValor('')}} style={{padding:'3px 6px',background:'none',border:`1px solid ${T.border}`,color:T.text3,borderRadius:5,cursor:'pointer',fontSize:11}}>✕</button>
                               </div>
                             ):(
                               <div style={{display:'flex',alignItems:'center',gap:4}}>
                                 <span style={{fontSize:10,fontWeight:600,padding:'2px 7px',borderRadius:4,
                                   background:r.centro_custo&&r.centro_custo!=='Não mapeado'?'rgba(249,115,22,.1)':'rgba(239,68,68,.08)',
-                                  color:r.centro_custo&&r.centro_custo!=='Não mapeado'?D.accent:'#ef4444',
+                                  color:r.centro_custo&&r.centro_custo!=='Não mapeado'?T.accent:'#ef4444',
                                   border:`1px solid ${r.centro_custo&&r.centro_custo!=='Não mapeado'?'rgba(249,115,22,.2)':'rgba(239,68,68,.2)'}`,
                                   whiteSpace:'nowrap',maxWidth:100,overflow:'hidden',textOverflow:'ellipsis'}}>
                                   {r.centro_custo||'Sem CC'}
                                 </span>
-                                <button onClick={()=>{setEditCCNF(r.nf_numero);setEditCCValor(r.centro_custo||'')}} style={{padding:'2px 5px',background:'none',border:`1px solid ${D.border}`,color:D.text3,borderRadius:4,cursor:'pointer',fontSize:10,opacity:.5,transition:'opacity .12s'}} onMouseEnter={e=>(e.currentTarget as HTMLElement).style.opacity='1'} onMouseLeave={e=>(e.currentTarget as HTMLElement).style.opacity='.5'}>✏</button>
+                                <button onClick={()=>{setEditCCNF(r.nf_numero);setEditCCValor(r.centro_custo||'')}} style={{padding:'2px 5px',background:'none',border:`1px solid ${T.border}`,color:T.text3,borderRadius:4,cursor:'pointer',fontSize:10,opacity:.5,transition:'opacity .12s'}} onMouseEnter={e=>(e.currentTarget as HTMLElement).style.opacity='1'} onMouseLeave={e=>(e.currentTarget as HTMLElement).style.opacity='.5'}>✏</button>
                               </div>
                             )}
                           </td>
-                          <td style={{padding:'5px 10px',fontVariantNumeric:'tabular-nums',fontSize:12,fontWeight:600,color:D.text,whiteSpace:'nowrap'}}>{money(Number(r.valor_produtos)||0)}</td>
-                          <td style={{padding:'5px 10px',fontSize:11,maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:D.text2}}>{r.transportador_nome?.split(' ').slice(0,2).join(' ')||'—'}</td>
-                          <td style={{padding:'5px 10px',fontSize:11,color:D.text3,whiteSpace:'nowrap'}}>{fmt(r.dt_expedida)}</td>
+                          <td style={{padding:'5px 10px',fontVariantNumeric:'tabular-nums',fontSize:12,fontWeight:600,color:T.text,whiteSpace:'nowrap'}}>{money(Number(r.valor_produtos)||0)}</td>
+                          <td style={{padding:'5px 10px',fontSize:11,maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:T.text2}}>{r.transportador_nome?.split(' ').slice(0,2).join(' ')||'—'}</td>
+                          <td style={{padding:'5px 10px',fontSize:11,color:T.text3,whiteSpace:'nowrap'}}>{fmt(r.dt_expedida)}</td>
                           <td style={{padding:'5px 10px',whiteSpace:'nowrap'}}>
                             <div style={{display:'flex',alignItems:'center',gap:5}}>
-                              <span style={{fontSize:12,fontWeight:700,color:ltVenc?D.red:hoje?D.green:D.text2,fontVariantNumeric:'tabular-nums'}}>
+                              <span style={{fontSize:12,fontWeight:700,color:ltVenc?T.red:hoje?T.green:T.text2,fontVariantNumeric:'tabular-nums'}}>
                                 {fmt(r.dt_previsao)||fmt(r.dt_lt_interno)}
                               </span>
                               {ltVenc&&<span style={{fontSize:9,fontWeight:800,color:'#fff',background:'#ef4444',padding:'1px 5px',borderRadius:4,letterSpacing:'.05em',boxShadow:'0 0 8px rgba(239,68,68,.5)'}}>VENC</span>}
                               {hoje&&<span style={{fontSize:9,fontWeight:800,color:'#fff',background:'#16a34a',padding:'1px 5px',borderRadius:4,boxShadow:'0 0 8px rgba(22,163,74,.4)'}}>HOJE</span>}
                             </div>
                           </td>
-                          <td style={{padding:'5px 10px',fontSize:11,color:ltVenc?D.red:D.text3,whiteSpace:'nowrap'}}>{fmt(r.dt_lt_interno)}</td>
+                          <td style={{padding:'5px 10px',fontSize:11,color:ltVenc?T.red:T.text3,whiteSpace:'nowrap'}}>{fmt(r.dt_lt_interno)}</td>
                           <td style={{padding:'5px 10px',maxWidth:155,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                             {r.ultima_ocorrencia?(
-                              <span style={{fontSize:11,color:D.text2}}>
-                                {r.codigo_ocorrencia&&<span style={{fontWeight:700,color:D.text,marginRight:4,fontFamily:'var(--font-mono)',fontSize:10}}>{r.codigo_ocorrencia}</span>}
+                              <span style={{fontSize:11,color:T.text2}}>
+                                {r.codigo_ocorrencia&&<span style={{fontWeight:700,color:T.text,marginRight:4,fontFamily:'var(--font-mono)',fontSize:10}}>{r.codigo_ocorrencia}</span>}
                                 {r.ultima_ocorrencia}
                               </span>
-                            ):<span style={{color:D.text3,fontSize:11}}>—</span>}
+                            ):<span style={{color:T.text3,fontSize:11}}>—</span>}
                           </td>
                           <td style={{padding:'5px 10px'}}><StatusBadge status={r.status||''}/></td>
                           {/* Status Interno — apenas assistentes podem registrar */}
@@ -912,17 +961,17 @@ export default function TorrePage() {
                               title={r.followup_obs||r.followup_status||'Registrar status interno'}
                               style={{fontSize:11,padding:'4px 10px',borderRadius:7,
                                 background:r.followup_status?'rgba(99,102,241,.1)':'transparent',
-                                border:`1px solid ${r.followup_status?'rgba(99,102,241,.3)':D.border}`,
-                                color:r.followup_status?'#818cf8':D.text3,
+                                border:`1px solid ${r.followup_status?'rgba(99,102,241,.3)':T.border}`,
+                                color:r.followup_status?'#818cf8':T.text3,
                                 cursor:'pointer',fontFamily:'inherit',fontWeight:r.followup_status?600:400,
                                 maxWidth:148,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
                                 display:'block',textAlign:'left',transition:'all .15s'}}
-                              onMouseEnter={e=>{if(!r.followup_status)(e.currentTarget as HTMLElement).style.borderColor=D.text3}}
-                              onMouseLeave={e=>{if(!r.followup_status)(e.currentTarget as HTMLElement).style.borderColor=D.border}}>
+                              onMouseEnter={e=>{if(!r.followup_status)(e.currentTarget as HTMLElement).style.borderColor=T.text3}}
+                              onMouseLeave={e=>{if(!r.followup_status)(e.currentTarget as HTMLElement).style.borderColor=T.border}}>
                               {r.followup_status ? `📋 ${r.followup_status}` : '+ status'}
                             </button>
                             {r.followup_obs && (
-                              <div style={{fontSize:10,color:D.text3,marginTop:2,maxWidth:148,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}
+                              <div style={{fontSize:10,color:T.text3,marginTop:2,maxWidth:148,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}
                                 title={r.followup_obs}>{r.followup_obs}</div>
                             )}
                           </td>
@@ -931,7 +980,7 @@ export default function TorrePage() {
                               onClick={()=>{setOcorrNF(r);setOcorrCod('');setOcorrBusca('');setOcorrObs('');setOcorrData('');setOcorrAnexo(null);setOcorrDropOpen(false);setOcorrMsg(null)}}
                               style={{fontSize:11,padding:'5px 10px',borderRadius:7,
                                 border:'1px solid rgba(249,115,22,.25)',background:'rgba(249,115,22,.06)',
-                                color:D.accent,cursor:'pointer',fontFamily:'inherit',fontWeight:600,whiteSpace:'nowrap',
+                                color:T.accent,cursor:'pointer',fontFamily:'inherit',fontWeight:600,whiteSpace:'nowrap',
                                 transition:'all .15s'}}
                               onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.background='rgba(249,115,22,.14)';(e.currentTarget as HTMLElement).style.boxShadow='0 0 8px rgba(249,115,22,.2)'}}
                               onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background='rgba(249,115,22,.06)';(e.currentTarget as HTMLElement).style.boxShadow='none'}}>
@@ -976,27 +1025,27 @@ export default function TorrePage() {
           <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.72)',zIndex:200,backdropFilter:'blur(4px)'}}
             onClick={()=>{setOcorrNF(null);setOcorrCod('');setOcorrBusca('');setOcorrData('');setOcorrAnexo(null);setOcorrDropOpen(false)}}/>
           <div style={{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',
-            zIndex:201,width:520,background:D.surface,border:`1px solid ${D.border}`,
-            borderRadius:18,boxShadow:`${D.shadowLg}, 0 0 0 1px rgba(59,130,246,.08)`,overflow:'hidden',
+            zIndex:201,width:520,background:T.surface,border:`1px solid ${T.border}`,
+            borderRadius:18,boxShadow:`${T.shadowLg}, 0 0 0 1px rgba(59,130,246,.08)`,overflow:'hidden',
             maxHeight:'90vh',overflowY:'auto'}}>
 
-            <div style={{position:'absolute',top:0,left:0,right:0,height:2,background:`linear-gradient(90deg,${D.accent},${D.accentBlu},transparent)`}}/>
+            <div style={{position:'absolute',top:0,left:0,right:0,height:2,background:`linear-gradient(90deg,${T.accent},${T.accentBlu},transparent)`}}/>
 
-            <div style={{padding:'20px 24px 16px',borderBottom:`1px solid ${D.border}`,background:D.surface2,display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+            <div style={{padding:'20px 24px 16px',borderBottom:`1px solid ${T.border}`,background:T.surface2,display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
               <div>
-                <div style={{fontWeight:700,fontSize:15,color:D.text,display:'flex',alignItems:'center',gap:8}}>
+                <div style={{fontWeight:700,fontSize:15,color:T.text,display:'flex',alignItems:'center',gap:8}}>
                   <span style={{fontSize:17}}>📡</span> Registrar Ocorrência
                 </div>
-                <div style={{fontSize:12,color:D.text2,marginTop:4}}>
-                  NF <strong style={{color:D.accent,fontFamily:'var(--font-mono)'}}>{ocorrNF.nf_numero}</strong>
-                  <span style={{margin:'0 6px',color:D.border}}>·</span>
-                  <span style={{color:D.text3}}>{ocorrNF.destinatario_fantasia||ocorrNF.destinatario_nome}</span>
+                <div style={{fontSize:12,color:T.text2,marginTop:4}}>
+                  NF <strong style={{color:T.accent,fontFamily:'var(--font-mono)'}}>{ocorrNF.nf_numero}</strong>
+                  <span style={{margin:'0 6px',color:T.border}}>·</span>
+                  <span style={{color:T.text3}}>{ocorrNF.destinatario_fantasia||ocorrNF.destinatario_nome}</span>
                 </div>
               </div>
               <button onClick={()=>setOcorrNF(null)}
-                style={{background:D.surface3,border:`1px solid ${D.border}`,cursor:'pointer',fontSize:15,color:D.text2,borderRadius:8,width:32,height:32,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all .15s'}}
-                onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background=D.border}
-                onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background=D.surface3}>
+                style={{background:T.surface3,border:`1px solid ${T.border}`,cursor:'pointer',fontSize:15,color:T.text2,borderRadius:8,width:32,height:32,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all .15s'}}
+                onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background=T.border}
+                onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background=T.surface3}>
                 ✕
               </button>
             </div>
@@ -1004,35 +1053,35 @@ export default function TorrePage() {
             <div style={{padding:'20px 24px',display:'flex',flexDirection:'column',gap:16}}>
 
               <div style={{position:'relative'}}>
-                <label style={{display:'block',fontSize:11,fontWeight:700,color:D.text3,marginBottom:6,letterSpacing:'.08em',textTransform:'uppercase'}}>Tipo de Ocorrência *</label>
+                <label style={{display:'block',fontSize:11,fontWeight:700,color:T.text3,marginBottom:6,letterSpacing:'.08em',textTransform:'uppercase'}}>Tipo de Ocorrência *</label>
                 {ocorrCod&&ocorrItemSelecionado?(
                   <div style={{display:'flex',alignItems:'center',gap:10,padding:'10px 14px',background:'rgba(249,115,22,.07)',border:'1.5px solid rgba(249,115,22,.35)',borderRadius:10}}>
-                    <span style={{fontSize:12,fontWeight:700,color:D.accent,fontFamily:'var(--font-mono)',background:'rgba(249,115,22,.12)',padding:'2px 8px',borderRadius:5}}>{ocorrItemSelecionado.codigo}</span>
-                    <span style={{fontSize:13,fontWeight:500,color:D.text,flex:1}}>{ocorrItemSelecionado.label}</span>
-                    <button onClick={()=>{setOcorrCod('');setOcorrBusca('');setOcorrData('');setOcorrAnexo(null)}} style={{background:'none',border:'none',color:D.text3,cursor:'pointer',fontSize:18,padding:'0 2px',lineHeight:1}}>×</button>
+                    <span style={{fontSize:12,fontWeight:700,color:T.accent,fontFamily:'var(--font-mono)',background:'rgba(249,115,22,.12)',padding:'2px 8px',borderRadius:5}}>{ocorrItemSelecionado.codigo}</span>
+                    <span style={{fontSize:13,fontWeight:500,color:T.text,flex:1}}>{ocorrItemSelecionado.label}</span>
+                    <button onClick={()=>{setOcorrCod('');setOcorrBusca('');setOcorrData('');setOcorrAnexo(null)}} style={{background:'none',border:'none',color:T.text3,cursor:'pointer',fontSize:18,padding:'0 2px',lineHeight:1}}>×</button>
                   </div>
                 ):(
                   <>
                     <input type="text" value={ocorrBusca}
                       onChange={e=>{setOcorrBusca(e.target.value);setOcorrDropOpen(true)}}
-                      onFocus={e=>{setOcorrDropOpen(true);e.target.style.borderColor=D.accentBlu;e.target.style.boxShadow=`0 0 0 3px rgba(59,130,246,.1)`}}
-                      onBlur={e=>{e.target.style.borderColor=D.border;e.target.style.boxShadow='none'}}
+                      onFocus={e=>{setOcorrDropOpen(true);e.target.style.borderColor=T.accentBlu;e.target.style.boxShadow=`0 0 0 3px rgba(59,130,246,.1)`}}
+                      onBlur={e=>{e.target.style.borderColor=T.border;e.target.style.boxShadow='none'}}
                       placeholder="Digite código ou nome…" autoComplete="off"
                       style={{...darkInput,width:'100%',padding:'10px 14px',fontSize:13,boxSizing:'border-box',transition:'border-color .2s, box-shadow .2s'}}/>
                     {ocorrDropOpen&&(
-                      <div style={{position:'absolute',top:'100%',left:0,right:0,zIndex:50,background:D.surface,border:`1px solid ${D.border}`,borderRadius:12,boxShadow:D.shadowLg,maxHeight:240,overflowY:'auto',marginTop:4}}>
+                      <div style={{position:'absolute',top:'100%',left:0,right:0,zIndex:50,background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,boxShadow:T.shadowLg,maxHeight:240,overflowY:'auto',marginTop:4}}>
                         {ocorrFiltradas.length===0?(
-                          <div style={{padding:'14px 16px',fontSize:13,color:D.text3}}>Nenhuma ocorrência encontrada</div>
+                          <div style={{padding:'14px 16px',fontSize:13,color:T.text3}}>Nenhuma ocorrência encontrada</div>
                         ):ocorrFiltradas.map(o=>(
                           <button key={o.codigo}
                             onClick={()=>{setOcorrCod(o.codigo);setOcorrBusca('');setOcorrDropOpen(false);setOcorrData('');setOcorrMsg(null)}}
-                            style={{display:'flex',alignItems:'center',gap:10,width:'100%',padding:'10px 16px',border:'none',borderBottom:`1px solid ${D.borderLo}`,background:'transparent',cursor:'pointer',textAlign:'left',fontFamily:'inherit',transition:'background .12s'}}
-                            onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background=D.surface2}
+                            style={{display:'flex',alignItems:'center',gap:10,width:'100%',padding:'10px 16px',border:'none',borderBottom:`1px solid ${T.borderLo}`,background:'transparent',cursor:'pointer',textAlign:'left',fontFamily:'inherit',transition:'background .12s'}}
+                            onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background=T.surface2}
                             onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background='transparent'}>
-                            <span style={{fontSize:11,fontWeight:700,color:D.accent,minWidth:30,fontFamily:'var(--font-mono)'}}>{o.codigo}</span>
-                            <span style={{fontSize:13,color:D.text,flex:1}}>{o.label}</span>
-                            {o.precisaData&&<span style={{fontSize:10,color:D.accentBlu,background:'rgba(59,130,246,.12)',padding:'2px 7px',borderRadius:10}}>data</span>}
-                            {o.isEntrega&&<span style={{fontSize:10,color:D.green,background:'rgba(34,197,94,.1)',padding:'2px 7px',borderRadius:10}}>📎</span>}
+                            <span style={{fontSize:11,fontWeight:700,color:T.accent,minWidth:30,fontFamily:'var(--font-mono)'}}>{o.codigo}</span>
+                            <span style={{fontSize:13,color:T.text,flex:1}}>{o.label}</span>
+                            {o.precisaData&&<span style={{fontSize:10,color:T.accentBlu,background:'rgba(59,130,246,.12)',padding:'2px 7px',borderRadius:10}}>data</span>}
+                            {o.isEntrega&&<span style={{fontSize:10,color:T.green,background:'rgba(34,197,94,.1)',padding:'2px 7px',borderRadius:10}}>📎</span>}
                           </button>
                         ))}
                       </div>
@@ -1044,11 +1093,11 @@ export default function TorrePage() {
               {ocorrItemSelecionado?.precisaData&&(
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
                   <div>
-                    <label style={{display:'block',fontSize:11,fontWeight:700,color:D.text3,marginBottom:6,letterSpacing:'.08em',textTransform:'uppercase'}}>{ocorrItemSelecionado.labelData?.toUpperCase()||'DATA'} <span style={{color:'#ef4444'}}>*</span></label>
-                    <input type="date" value={ocorrData} onChange={e=>setOcorrData(e.target.value)} style={{...darkInput,width:'100%',padding:'10px 12px',fontSize:13,boxSizing:'border-box',borderColor:ocorrData?D.accent:D.border}}/>
+                    <label style={{display:'block',fontSize:11,fontWeight:700,color:T.text3,marginBottom:6,letterSpacing:'.08em',textTransform:'uppercase'}}>{ocorrItemSelecionado.labelData?.toUpperCase()||'DATA'} <span style={{color:'#ef4444'}}>*</span></label>
+                    <input type="date" value={ocorrData} onChange={e=>setOcorrData(e.target.value)} style={{...darkInput,width:'100%',padding:'10px 12px',fontSize:13,boxSizing:'border-box',borderColor:ocorrData?T.accent:T.border}}/>
                   </div>
                   <div>
-                    <label style={{display:'block',fontSize:11,fontWeight:700,color:D.text3,marginBottom:6,letterSpacing:'.08em',textTransform:'uppercase'}}>Hora</label>
+                    <label style={{display:'block',fontSize:11,fontWeight:700,color:T.text3,marginBottom:6,letterSpacing:'.08em',textTransform:'uppercase'}}>Hora</label>
                     <input type="time" value={ocorrHora} onChange={e=>setOcorrHora(e.target.value)} style={{...darkInput,width:'100%',padding:'10px 12px',fontSize:13,boxSizing:'border-box'}}/>
                   </div>
                 </div>
@@ -1056,18 +1105,18 @@ export default function TorrePage() {
 
               {ocorrItemSelecionado?.isEntrega&&(
                 <div>
-                  <label style={{display:'block',fontSize:11,fontWeight:700,color:D.text3,marginBottom:6,letterSpacing:'.08em',textTransform:'uppercase'}}>📎 Comprovante de Entrega (opcional)</label>
+                  <label style={{display:'block',fontSize:11,fontWeight:700,color:T.text3,marginBottom:6,letterSpacing:'.08em',textTransform:'uppercase'}}>📎 Comprovante de Entrega (opcional)</label>
                   {ocorrAnexo?(
                     <div style={{display:'flex',alignItems:'center',gap:10,padding:'10px 14px',background:'rgba(34,197,94,.07)',border:'1px solid rgba(34,197,94,.25)',borderRadius:10}}>
-                      <span style={{fontSize:12,color:D.green,flex:1}}>✓ {ocorrAnexo.nome}</span>
-                      <button onClick={()=>setOcorrAnexo(null)} style={{background:'none',border:'none',color:D.text3,cursor:'pointer',fontSize:16}}>×</button>
+                      <span style={{fontSize:12,color:T.green,flex:1}}>✓ {ocorrAnexo.nome}</span>
+                      <button onClick={()=>setOcorrAnexo(null)} style={{background:'none',border:'none',color:T.text3,cursor:'pointer',fontSize:16}}>×</button>
                     </div>
                   ):(
-                    <label style={{display:'flex',alignItems:'center',gap:10,padding:'12px 16px',background:D.surface2,border:`1.5px dashed ${D.border}`,borderRadius:10,cursor:'pointer',transition:'border-color .15s'}}
-                      onMouseEnter={e=>(e.currentTarget as HTMLElement).style.borderColor=D.text3}
-                      onMouseLeave={e=>(e.currentTarget as HTMLElement).style.borderColor=D.border}>
+                    <label style={{display:'flex',alignItems:'center',gap:10,padding:'12px 16px',background:T.surface2,border:`1.5px dashed ${T.border}`,borderRadius:10,cursor:'pointer',transition:'border-color .15s'}}
+                      onMouseEnter={e=>(e.currentTarget as HTMLElement).style.borderColor=T.text3}
+                      onMouseLeave={e=>(e.currentTarget as HTMLElement).style.borderColor=T.border}>
                       <span style={{fontSize:18}}>📁</span>
-                      <span style={{fontSize:13,color:D.text3}}>Selecionar imagem ou PDF</span>
+                      <span style={{fontSize:13,color:T.text3}}>Selecionar imagem ou PDF</span>
                       <input type="file" accept="image/*,.pdf" style={{display:'none'}} onChange={e=>{
                         const file=e.target.files?.[0];if(!file) return
                         const reader=new FileReader();reader.onload=ev=>{const b64=(ev.target?.result as string).split(',')[1];setOcorrAnexo({base64:b64,nome:file.name})};reader.readAsDataURL(file)
@@ -1078,20 +1127,20 @@ export default function TorrePage() {
               )}
 
               <div>
-                <label style={{display:'block',fontSize:11,fontWeight:700,color:D.text3,marginBottom:6,letterSpacing:'.08em',textTransform:'uppercase'}}>Observação</label>
+                <label style={{display:'block',fontSize:11,fontWeight:700,color:T.text3,marginBottom:6,letterSpacing:'.08em',textTransform:'uppercase'}}>Observação</label>
                 <textarea value={ocorrObs} onChange={e=>setOcorrObs(e.target.value)} rows={3} placeholder="Detalhe a ocorrência…"
                   style={{...darkInput,width:'100%',padding:'10px 14px',fontSize:13,resize:'vertical',boxSizing:'border-box',transition:'border-color .2s'}}
-                  onFocus={e=>{e.target.style.borderColor=D.accentBlu}}
-                  onBlur={e=>{e.target.style.borderColor=D.border}}/>
+                  onFocus={e=>{e.target.style.borderColor=T.accentBlu}}
+                  onBlur={e=>{e.target.style.borderColor=T.border}}/>
               </div>
 
-              <div style={{padding:'10px 14px',background:D.surface2,border:`1px solid ${D.border}`,borderRadius:10,display:'flex',alignItems:'center',gap:10}}>
+              <div style={{padding:'10px 14px',background:T.surface2,border:`1px solid ${T.border}`,borderRadius:10,display:'flex',alignItems:'center',gap:10}}>
                 <div style={{width:28,height:28,borderRadius:'50%',background:'linear-gradient(135deg,#1e4a8a,#3b82f6)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:'0 0 0 2px rgba(59,130,246,.2)'}}>
                   <span style={{color:'#fff',fontWeight:700,fontSize:11}}>{user.nome.charAt(0)}</span>
                 </div>
                 <div>
-                  <div style={{fontSize:12,fontWeight:600,color:D.text}}>{user.nome}</div>
-                  <div style={{fontSize:11,color:D.text3}}>{user.email}</div>
+                  <div style={{fontSize:12,fontWeight:600,color:T.text}}>{user.nome}</div>
+                  <div style={{fontSize:11,color:T.text3}}>{user.email}</div>
                 </div>
               </div>
 
@@ -1106,13 +1155,13 @@ export default function TorrePage() {
               )}
 
               <div style={{display:'flex',gap:10,justifyContent:'flex-end'}}>
-                <button onClick={()=>setOcorrNF(null)} style={{padding:'10px 20px',background:'none',border:`1px solid ${D.border}`,color:D.text2,borderRadius:10,cursor:'pointer',fontSize:13,fontFamily:'inherit',fontWeight:500,transition:'all .15s'}}>
+                <button onClick={()=>setOcorrNF(null)} style={{padding:'10px 20px',background:'none',border:`1px solid ${T.border}`,color:T.text2,borderRadius:10,cursor:'pointer',fontSize:13,fontFamily:'inherit',fontWeight:500,transition:'all .15s'}}>
                   Cancelar
                 </button>
                 <button onClick={enviarOcorrencia} disabled={!ocorrCod||(ocorrItemSelecionado?.precisaData&&!ocorrData)||ocorrSending}
                   style={{padding:'10px 24px',
                     background:ocorrCod&&(!ocorrItemSelecionado?.precisaData||ocorrData)&&!ocorrSending?'linear-gradient(135deg,#f97316,#ea6c0a)':'#1e3452',
-                    border:'none',color:ocorrCod&&(!ocorrItemSelecionado?.precisaData||ocorrData)&&!ocorrSending?'#fff':D.text3,borderRadius:10,
+                    border:'none',color:ocorrCod&&(!ocorrItemSelecionado?.precisaData||ocorrData)&&!ocorrSending?'#fff':T.text3,borderRadius:10,
                     cursor:ocorrCod&&(!ocorrItemSelecionado?.precisaData||ocorrData)&&!ocorrSending?'pointer':'default',
                     fontSize:13,fontWeight:700,fontFamily:'inherit',
                     boxShadow:ocorrCod&&(!ocorrItemSelecionado?.precisaData||ocorrData)?'0 4px 16px rgba(249,115,22,.35)':'none',
@@ -1129,10 +1178,10 @@ export default function TorrePage() {
         @keyframes kfPulse { 0%,100%{opacity:.2;transform:scale(.7)} 50%{opacity:1;transform:scale(1)} }
         @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.5} }
         ::-webkit-scrollbar { width:5px; height:5px; }
-        ::-webkit-scrollbar-track { background:${D.bg}; }
-        ::-webkit-scrollbar-thumb { background:${D.surface3}; border-radius:4px; }
-        ::-webkit-scrollbar-thumb:hover { background:${D.border}; }
-        * { scrollbar-width:thin; scrollbar-color:${D.surface3} ${D.bg}; }
+        ::-webkit-scrollbar-track { background:${T.bg}; }
+        ::-webkit-scrollbar-thumb { background:${T.surface3}; border-radius:4px; }
+        ::-webkit-scrollbar-thumb:hover { background:${T.border}; }
+        * { scrollbar-width:thin; scrollbar-color:${T.surface3} ${T.bg}; }
       `}</style>
     </div>
   )
