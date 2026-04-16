@@ -352,7 +352,8 @@ export default function TorrePage() {
   const tableW = 1380
 
   const nfsSemCC = data.filter(r=>{ const cc=(r.centro_custo||'').trim(); return !cc||cc===''||cc==='-'||cc==='Não mapeado' })
-  const nfsEntregues = useMemo(()=>data.filter(r=>r.status==='Entregue'),[data])
+  const CANHOTO_CORTE = '2026-04-15' // só exige canhoto de entregas a partir de 15/04
+  const nfsEntregues = useMemo(()=>data.filter(r=>r.status==='Entregue' && !!r.dt_entrega && r.dt_entrega.slice(0,10)>=CANHOTO_CORTE),[data])
   const nfsSemCanhoto = useMemo(()=>nfsEntregues.filter(r=>{ const c=canhotos[r.nf_numero]; if(!c) return true; return c.status!=='recebido'&&c.status_revisao!=='aprovado' }),[nfsEntregues,canhotos])
 
   const loadCanhotos = useCallback(async()=>{
@@ -766,7 +767,7 @@ export default function TorrePage() {
               <span style={{fontSize:20}}>📎</span>
               <div>
                 <div style={{fontSize:13,fontWeight:700,color:'#fbbf24'}}>Canhotos Pendentes</div>
-                <div style={{fontSize:11,color:'#92400e',marginTop:1}}>{nfsSemCanhoto.length} NFs entregues sem canhoto confirmado</div>
+                <div style={{fontSize:11,color:'#92400e',marginTop:1}}>{nfsSemCanhoto.length} NFs entregues a partir de 15/04 sem canhoto confirmado</div>
               </div>
               <button onClick={loadCanhotos} style={{marginLeft:'auto',padding:'6px 12px',background:D.surface2,border:`1px solid ${D.border}`,color:D.text2,borderRadius:8,cursor:'pointer',fontSize:11,fontFamily:'inherit'}}>↻ Atualizar</button>
             </div>
