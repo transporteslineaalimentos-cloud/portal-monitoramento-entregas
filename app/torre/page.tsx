@@ -997,11 +997,6 @@ export default function TorrePage() {
                             <span style={{color:T.accent,fontWeight:700,fontFamily:'var(--font-mono)',fontSize:12,letterSpacing:'-.01em'}}>{r.nf_numero}</span>
                           </td>}
                           {show('emissao')&&<td style={{padding:'5px 10px',fontSize:11,color:T.text3,whiteSpace:'nowrap'}}>{fmt(r.dt_emissao)}</td>}
-                          {show('cnpj')&&<td style={{padding:'5px 10px',fontSize:10,color:T.text3,fontFamily:'var(--font-mono)',whiteSpace:'nowrap'}}>{r.destinatario_cnpj||'—'}</td>}
-                          {show('razao')&&<td style={{padding:'5px 10px',maxWidth:170,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontWeight:500,fontSize:12,color:T.text}}>{r.destinatario_fantasia||r.destinatario_nome||'—'}</td>}
-                          {show('cidade')&&<td style={{padding:'5px 10px',fontSize:11,color:T.text3,whiteSpace:'nowrap'}}>{r.cidade_destino||'—'}</td>}
-                          {show('uf')&&<td style={{padding:'5px 10px',fontSize:11,color:T.text3,whiteSpace:'nowrap'}}>{r.uf_destino||'—'}</td>}
-                          {show('pedido')&&<td style={{padding:'5px 10px',fontSize:11,color:T.text2,fontFamily:'var(--font-mono)',whiteSpace:'nowrap'}}>{r.pedido||'—'}</td>}
                           {show('regional')&&<td style={{padding:'5px 10px'}} onClick={e=>e.stopPropagation()}>
                             {editCCNF===r.nf_numero?(
                               <div style={{display:'flex',gap:4,alignItems:'center'}}>
@@ -1018,13 +1013,18 @@ export default function TorrePage() {
                                   background:r.centro_custo&&r.centro_custo!=='Não mapeado'?'rgba(249,115,22,.1)':'rgba(239,68,68,.08)',
                                   color:r.centro_custo&&r.centro_custo!=='Não mapeado'?T.accent:'#ef4444',
                                   border:`1px solid ${r.centro_custo&&r.centro_custo!=='Não mapeado'?'rgba(249,115,22,.2)':'rgba(239,68,68,.2)'}`,
-                                  whiteSpace:'nowrap',maxWidth:100,overflow:'hidden',textOverflow:'ellipsis'}}>
+                                  whiteSpace:'nowrap',maxWidth:110,overflow:'hidden',textOverflow:'ellipsis'}}>
                                   {r.centro_custo||'Sem CC'}
                                 </span>
                                 <button onClick={()=>{setEditCCNF(r.nf_numero);setEditCCValor(r.centro_custo||'')}} style={{padding:'2px 5px',background:'none',border:`1px solid ${T.border}`,color:T.text3,borderRadius:4,cursor:'pointer',fontSize:10,opacity:.5,transition:'opacity .12s'}} onMouseEnter={e=>(e.currentTarget as HTMLElement).style.opacity='1'} onMouseLeave={e=>(e.currentTarget as HTMLElement).style.opacity='.5'}>✏</button>
                               </div>
                             )}
                           </td>}
+                          {show('cnpj')&&<td style={{padding:'5px 10px',fontSize:10,color:T.text3,fontFamily:'var(--font-mono)',whiteSpace:'nowrap'}}>{r.destinatario_cnpj||'—'}</td>}
+                          {show('razao')&&<td style={{padding:'5px 10px',maxWidth:170,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontWeight:500,fontSize:12,color:T.text}}>{r.destinatario_fantasia||r.destinatario_nome||'—'}</td>}
+                          {show('cidade')&&<td style={{padding:'5px 10px',fontSize:11,color:T.text3,whiteSpace:'nowrap'}}>{r.cidade_destino||'—'}</td>}
+                          {show('uf')&&<td style={{padding:'5px 10px',fontSize:11,color:T.text3,whiteSpace:'nowrap'}}>{r.uf_destino||'—'}</td>}
+                          {show('pedido')&&<td style={{padding:'5px 10px',fontSize:11,color:T.text2,fontFamily:'var(--font-mono)',whiteSpace:'nowrap'}}>{r.pedido||'—'}</td>}
                           {show('valor')&&<td style={{padding:'5px 10px',fontVariantNumeric:'tabular-nums',fontSize:12,fontWeight:600,color:T.text,whiteSpace:'nowrap'}}>{money(Number(r.valor_produtos)||0)}</td>}
                           {show('volumes')&&<td style={{padding:'5px 10px',fontSize:11,color:T.text2,textAlign:'center'}}>{r.volumes||'—'}</td>}
                           {show('loja')&&<td style={{padding:'5px 10px'}} onClick={e=>e.stopPropagation()}>
@@ -1041,22 +1041,6 @@ export default function TorrePage() {
                               </div>
                             )}
                           </td>}
-                          {show('transp')&&<td style={{padding:'5px 10px',fontSize:11,maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:T.text2}}>{r.transportador_nome?.split(' ').slice(0,2).join(' ')||'—'}</td>}
-                          {show('expedida')&&<td style={{padding:'5px 10px',fontSize:11,color:T.text3,whiteSpace:'nowrap'}}>{fmt(r.dt_expedida)}</td>}
-                          {show('voucher')&&<td style={{padding:'5px 10px'}} onClick={e=>e.stopPropagation()}>
-                            {editManual?.nf===r.nf_numero&&editManual.field==='voucher'?(
-                              <div style={{display:'flex',gap:3}}>
-                                <input autoFocus value={editManual.val} onChange={e=>setEditManual({...editManual,val:e.target.value})} onKeyDown={e=>{if(e.key==='Enter')saveManualField(r.nf_numero,'voucher',editManual.val);if(e.key==='Escape')setEditManual(null)}} style={{...darkInput,padding:'3px 6px',fontSize:11,width:72}} placeholder="voucher…"/>
-                                <button onClick={()=>saveManualField(r.nf_numero,'voucher',editManual.val)} disabled={savingManual} style={{padding:'2px 6px',background:T.accentBlu,border:'none',color:'#fff',borderRadius:4,cursor:'pointer',fontSize:10}}>{savingManual?'…':'✓'}</button>
-                                <button onClick={()=>setEditManual(null)} style={{padding:'2px 5px',background:'none',border:`1px solid ${T.border}`,color:T.text3,borderRadius:4,cursor:'pointer',fontSize:10}}>✕</button>
-                              </div>
-                            ):(
-                              <div style={{display:'flex',alignItems:'center',gap:3}} onClick={()=>setEditManual({nf:r.nf_numero,field:'voucher',val:manualData[r.nf_numero]?.voucher||''})}>
-                                <span style={{fontSize:11,color:manualData[r.nf_numero]?.voucher?T.text:T.text3,cursor:'pointer'}}>{manualData[r.nf_numero]?.voucher||<span style={{opacity:.4}}>+ voucher</span>}</span>
-                                {manualData[r.nf_numero]?.voucher&&<span style={{opacity:.3,fontSize:10,cursor:'pointer'}}>✏</span>}
-                              </div>
-                            )}
-                          </td>}
                           {show('agendada')&&<td style={{padding:'5px 10px',whiteSpace:'nowrap'}}>
                             <div style={{display:'flex',alignItems:'center',gap:5}}>
                               <span style={{fontSize:12,fontWeight:700,color:ltVenc?T.red:hoje?T.green:T.text2,fontVariantNumeric:'tabular-nums'}}>
@@ -1066,17 +1050,7 @@ export default function TorrePage() {
                               {hoje&&<span style={{fontSize:9,fontWeight:800,color:'#fff',background:'#16a34a',padding:'1px 5px',borderRadius:4,boxShadow:'0 0 8px rgba(22,163,74,.4)'}}>HOJE</span>}
                             </div>
                           </td>}
-                          {show('previsao')&&<td style={{padding:'5px 10px',fontSize:11,color:T.text3,whiteSpace:'nowrap'}}>{fmt(r.dt_lt_interno)||'—'}</td>}
-                          {show('lt_interno')&&<td style={{padding:'5px 10px',fontSize:11,color:ltVenc?T.red:T.text3,whiteSpace:'nowrap'}}>{r.lt_dias!=null?`${r.lt_dias}d`:'—'}</td>}
-                          {show('ocorrencia')&&<td style={{padding:'5px 10px',maxWidth:155,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-                            {r.ultima_ocorrencia?(
-                              <span style={{fontSize:11,color:T.text2}}>
-                                {r.codigo_ocorrencia&&<span style={{fontWeight:700,color:T.text,marginRight:4,fontFamily:'var(--font-mono)',fontSize:10}}>{r.codigo_ocorrencia}</span>}
-                                {r.ultima_ocorrencia}
-                              </span>
-                            ):<span style={{color:T.text3,fontSize:11}}>—</span>}
-                          </td>}
-                          {show('status')&&<td style={{padding:'5px 10px'}}><StatusBadge status={r.status||''}/></td>}
+                          {show('transp')&&<td style={{padding:'5px 10px',fontSize:11,maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:T.text2}}>{r.transportador_nome?.split(' ').slice(0,2).join(' ')||'—'}</td>}
                           {show('st_interno')&&<td style={{padding:'5px 10px'}} onClick={e=>e.stopPropagation()}>
                             <button
                               onClick={()=>setFollowupNF(r)}
@@ -1097,6 +1071,32 @@ export default function TorrePage() {
                                 title={r.followup_obs}>{r.followup_obs}</div>
                             )}
                           </td>}
+                          {show('voucher')&&<td style={{padding:'5px 10px'}} onClick={e=>e.stopPropagation()}>
+                            {editManual?.nf===r.nf_numero&&editManual.field==='voucher'?(
+                              <div style={{display:'flex',gap:3}}>
+                                <input autoFocus value={editManual.val} onChange={e=>setEditManual({...editManual,val:e.target.value})} onKeyDown={e=>{if(e.key==='Enter')saveManualField(r.nf_numero,'voucher',editManual.val);if(e.key==='Escape')setEditManual(null)}} style={{...darkInput,padding:'3px 6px',fontSize:11,width:72}} placeholder="voucher…"/>
+                                <button onClick={()=>saveManualField(r.nf_numero,'voucher',editManual.val)} disabled={savingManual} style={{padding:'2px 6px',background:T.accentBlu,border:'none',color:'#fff',borderRadius:4,cursor:'pointer',fontSize:10}}>{savingManual?'…':'✓'}</button>
+                                <button onClick={()=>setEditManual(null)} style={{padding:'2px 5px',background:'none',border:`1px solid ${T.border}`,color:T.text3,borderRadius:4,cursor:'pointer',fontSize:10}}>✕</button>
+                              </div>
+                            ):(
+                              <div style={{display:'flex',alignItems:'center',gap:3}} onClick={()=>setEditManual({nf:r.nf_numero,field:'voucher',val:manualData[r.nf_numero]?.voucher||''})}>
+                                <span style={{fontSize:11,color:manualData[r.nf_numero]?.voucher?T.text:T.text3,cursor:'pointer'}}>{manualData[r.nf_numero]?.voucher||<span style={{opacity:.4}}>+ voucher</span>}</span>
+                                {manualData[r.nf_numero]?.voucher&&<span style={{opacity:.3,fontSize:10,cursor:'pointer'}}>✏</span>}
+                              </div>
+                            )}
+                          </td>}
+                          {show('expedida')&&<td style={{padding:'5px 10px',fontSize:11,color:T.text3,whiteSpace:'nowrap'}}>{fmt(r.dt_expedida)}</td>}
+                          {show('previsao')&&<td style={{padding:'5px 10px',fontSize:11,color:T.text3,whiteSpace:'nowrap'}}>{fmt(r.dt_lt_interno)||'—'}</td>}
+                          {show('lt_interno')&&<td style={{padding:'5px 10px',fontSize:11,color:ltVenc?T.red:T.text3,whiteSpace:'nowrap'}}>{r.lt_dias!=null?`${r.lt_dias}d`:'—'}</td>}
+                          {show('ocorrencia')&&<td style={{padding:'5px 10px',maxWidth:155,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                            {r.ultima_ocorrencia?(
+                              <span style={{fontSize:11,color:T.text2}}>
+                                {r.codigo_ocorrencia&&<span style={{fontWeight:700,color:T.text,marginRight:4,fontFamily:'var(--font-mono)',fontSize:10}}>{r.codigo_ocorrencia}</span>}
+                                {r.ultima_ocorrencia}
+                              </span>
+                            ):<span style={{color:T.text3,fontSize:11}}>—</span>}
+                          </td>}
+                          {show('status')&&<td style={{padding:'5px 10px'}}><StatusBadge status={r.status||''}/></td>}
                           {show('registrar')&&<td style={{padding:'5px 10px'}} onClick={e=>e.stopPropagation()}>
                             <button
                               onClick={()=>{setOcorrNF(r);setOcorrCod('');setOcorrBusca('');setOcorrObs('');setOcorrData('');setOcorrAnexo(null);setOcorrDropOpen(false);setOcorrMsg(null)}}
