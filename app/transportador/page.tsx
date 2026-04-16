@@ -369,7 +369,7 @@ export default function PortalTransportador() {
             </table>
           </div>
         )}
-        </>)}
+
       </div>
 
       {/* Drawer */}
