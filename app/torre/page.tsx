@@ -78,6 +78,34 @@ const L = {
   glow:      '0 0 0 1px rgba(37,99,235,.2), 0 4px 12px rgba(0,0,0,.06)',
 }
 
+
+/* ── Definição de Colunas ──────────────────────────────────────── */
+type ColDef = { id: string; label: string; w: number; defaultOn: boolean; field?: string }
+const COL_DEFS: ColDef[] = [
+  { id:'nf',         label:'NF',               w:80,  defaultOn:true,  field:'nf_numero'      },
+  { id:'emissao',    label:'Emissão',           w:85,  defaultOn:true,  field:'dt_emissao'     },
+  { id:'regional',   label:'Regional',          w:120, defaultOn:true                          },
+  { id:'cnpj',       label:'CNPJ Cliente',      w:130, defaultOn:false                         },
+  { id:'razao',      label:'Razão Social',      w:170, defaultOn:true                          },
+  { id:'cidade',     label:'Cidade',            w:100, defaultOn:true                          },
+  { id:'uf',         label:'UF',                w:45,  defaultOn:true                          },
+  { id:'pedido',     label:'Pedido Cliente',    w:105, defaultOn:true                          },
+  { id:'valor',      label:'Valor NF',          w:90,  defaultOn:true,  field:'valor_produtos' },
+  { id:'volumes',    label:'Volumes',           w:65,  defaultOn:false                         },
+  { id:'loja',       label:'Loja',              w:100, defaultOn:false                         },
+  { id:'agendada',   label:'Data Agendada',     w:105, defaultOn:true,  field:'dt_previsao'    },
+  { id:'transp',     label:'Transportador',     w:130, defaultOn:true                          },
+  { id:'st_interno', label:'Status Interno',    w:155, defaultOn:true                          },
+  { id:'voucher',    label:'Voucher',           w:100, defaultOn:false                         },
+  { id:'expedida',   label:'Expedida',          w:85,  defaultOn:true                          },
+  { id:'previsao',   label:'Previsão Interna',  w:95,  defaultOn:false                         },
+  { id:'lt_interno', label:'LT Interno',        w:90,  defaultOn:false                         },
+  { id:'ocorrencia', label:'Ocorrência',        w:160, defaultOn:true                          },
+  { id:'status',     label:'Status',            w:170, defaultOn:true,  field:'status'         },
+  { id:'registrar',  label:'Registrar',         w:110, defaultOn:true                          },
+  { id:'protocolo',  label:'Protocolo',         w:110, defaultOn:false                         },
+]
+
 /* ── SVG Logo — Caixa Facetada 3D ────────────────────────────────── */
 function LogoIcon({ size = 36 }: { size?: number }) {
   return (
@@ -260,6 +288,32 @@ export default function TorrePage() {
     localStorage.setItem('torre_theme', next ? 'dark' : 'light')
   }
 
+  // ── Colunas visíveis ────────────────────────────────────────────
+  const [visibleCols, setVisibleCols] = useState<Set<string>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('torre_cols')
+      if (saved) { try { return new Set(JSON.parse(saved)) } catch {} }
+    }
+    return new Set(COL_DEFS.filter(c => c.defaultOn).map(c => c.id))
+  })
+  const [showColPicker, setShowColPicker] = useState(false)
+  const show = (id: string) => visibleCols.has(id)
+
+  const toggleCol = (id: string) => {
+    setVisibleCols(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      localStorage.setItem('torre_cols', JSON.stringify([...next]))
+      return next
+    })
+  }
+
+  // ── Dados manuais (loja, voucher, protocolo) ────────────────────
+  type ManualRec = { loja?: string; voucher?: string; protocolo?: string }
+  const [manualData, setManualData] = useState<Record<string, ManualRec>>({})
+  const [editManual, setEditManual] = useState<{nf:string;field:string;val:string}|null>(null)
+  const [savingManual, setSavingManual] = useState(false)
+
   const getFirstDay = () => { const d=new Date(); return new Date(d.getFullYear(),d.getMonth(),1).toISOString().split('T')[0] }
   const getToday = () => new Date().toISOString().split('T')[0]
 
@@ -330,7 +384,27 @@ export default function TorrePage() {
     setLoading(false)
   }, [user])
 
-  useEffect(() => { load() }, [load])
+  const loadManualData = async () => {
+    const { data } = await supabase.from('torre_nf_manual').select('nf_numero,loja,voucher,protocolo')
+    if (data) {
+      const map: Record<string, ManualRec> = {}
+      data.forEach((r: any) => { map[r.nf_numero] = { loja: r.loja||'', voucher: r.voucher||'', protocolo: r.protocolo||'' } })
+      setManualData(map)
+    }
+  }
+
+  const saveManualField = async (nf: string, field: string, val: string) => {
+    setSavingManual(true)
+    await supabase.from('torre_nf_manual').upsert(
+      { nf_numero: nf, [field]: val, editado_por: user?.email || '' },
+      { onConflict: 'nf_numero' }
+    )
+    setManualData(prev => ({ ...prev, [nf]: { ...prev[nf], [field]: val } }))
+    setEditManual(null)
+    setSavingManual(false)
+  }
+
+  useEffect(() => { load(); loadManualData() }, [load])
 
   useEffect(() => {
     if (!user) return
@@ -386,7 +460,7 @@ export default function TorrePage() {
   const totalValorAberto = baseParaKpi.filter(r=>r.status!=='Entregue').reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
   const totalValor = filtered.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
   const trOpts = useMemo(()=>[...new Set(data.map(r=>r.transportador_nome).filter(Boolean))].sort(),[data])
-  const tableW = 1380
+  const tableW = COL_DEFS.filter(col => visibleCols.has(col.id)).reduce((s,col)=>s+col.w,0)
 
   const nfsSemCC = data.filter(r=>{ const cc=(r.centro_custo||'').trim(); return !cc||cc===''||cc==='-'||cc==='Não mapeado' })
 
@@ -770,6 +844,16 @@ export default function TorrePage() {
             })}
           </div>
 
+          {/* Botão colunas */}
+          <button onClick={()=>setShowColPicker(p=>!p)}
+            style={{padding:'6px 12px',borderRadius:8,border:`1px solid ${showColPicker?T.accentBlu:T.border}`,
+              background:showColPicker?`rgba(59,130,246,.1)`:T.surface2,
+              color:showColPicker?T.accentBlu:T.text2,cursor:'pointer',fontSize:12,fontFamily:'inherit',
+              fontWeight:showColPicker?600:400,display:'flex',alignItems:'center',gap:5,flexShrink:0,whiteSpace:'nowrap',
+              transition:'all .15s'}}>
+            <span style={{fontSize:13}}>⊞</span> Colunas ({visibleCols.size})
+          </button>
+
           {/* Contagem */}
           <div style={{fontSize:12,color:T.text2,fontWeight:600,fontVariantNumeric:'tabular-nums',whiteSpace:'nowrap',flexShrink:0,borderLeft:`1px solid ${T.border}`,paddingLeft:12,marginLeft:4}}>
             <span style={{color:T.text3,fontWeight:400}}>{filtered.length} notas</span>
@@ -872,23 +956,28 @@ export default function TorrePage() {
                 <table style={{width:'100%',minWidth:tableW,borderCollapse:'collapse'}}>
                   <thead>
                     <tr>
-                      <Th field="nf_numero"     label="NF"             w={75}/>
-                      <Th                        label="Pedido"         w={95}/>
-                      <Th                        label="Filial"         w={72}/>
-                      <Th field="dt_emissao"     label="Emissão"        w={82}/>
-                      <Th                        label="Destinatário"   w={168}/>
-                      <Th                        label="Cidade · UF"    w={128}/>
-                      <Th                        label="C. Custo"       w={148}/>
-                      <Th field="valor_produtos" label="Valor"          w={86}/>
-                      <Th                        label="Transportadora" w={130}/>
-                      <Th                        label="Expedida"       w={80}/>
-                      <Th field="dt_previsao"    label="Previsão"       w={90}/>
-                      <Th                        label="LT Interno"     w={90}/>
-                      <Th                        label="Ocorrência"     w={155}/>
-                      <Th field="status"         label="Status"         w={168}/>
-                      <Th                        label="St. Interno"    w={155}/>
-                      <Th                        label="Registrar"      w={105}/>
-                      
+                      {show('nf')        &&<Th field="nf_numero"     label="NF"              w={80}/>}
+                      {show('emissao')   &&<Th field="dt_emissao"    label="Emissão"          w={85}/>}
+                      {show('regional')  &&<Th                       label="Regional"         w={120}/>}
+                      {show('cnpj')      &&<Th                       label="CNPJ Cliente"     w={130}/>}
+                      {show('razao')     &&<Th                       label="Razão Social"     w={170}/>}
+                      {show('cidade')    &&<Th                       label="Cidade"           w={100}/>}
+                      {show('uf')        &&<Th                       label="UF"               w={45}/>}
+                      {show('pedido')    &&<Th                       label="Pedido Cliente"   w={105}/>}
+                      {show('valor')     &&<Th field="valor_produtos" label="Valor NF"        w={90}/>}
+                      {show('volumes')   &&<Th                       label="Volumes"          w={65}/>}
+                      {show('loja')      &&<Th                       label="Loja"             w={100}/>}
+                      {show('agendada')  &&<Th field="dt_previsao"   label="Data Agendada"   w={105}/>}
+                      {show('transp')    &&<Th                       label="Transportador"   w={130}/>}
+                      {show('st_interno')&&<Th                       label="Status Interno"  w={155}/>}
+                      {show('voucher')   &&<Th                       label="Voucher"          w={100}/>}
+                      {show('expedida')  &&<Th                       label="Expedida"         w={85}/>}
+                      {show('previsao')  &&<Th                       label="Previsão Interna" w={95}/>}
+                      {show('lt_interno')&&<Th                       label="LT Interno"       w={90}/>}
+                      {show('ocorrencia')&&<Th                       label="Ocorrência"       w={160}/>}
+                      {show('status')    &&<Th field="status"        label="Status"           w={170}/>}
+                      {show('registrar') &&<Th                       label="Registrar"        w={110}/>}
+                      {show('protocolo') &&<Th                       label="Protocolo"        w={110}/>}
                     </tr>
                   </thead>
                   <tbody>
@@ -904,19 +993,16 @@ export default function TorrePage() {
                           onMouseEnter={e=>{if(!isSelected)(e.currentTarget as HTMLElement).style.background=isDark?'rgba(59,130,246,.06)':'rgba(37,99,235,.04)'}}
                           onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background=isSelected?'rgba(249,115,22,.07)':evenBg}}>
 
-                          <td style={{padding:'5px 10px'}}>
+                          {show('nf')&&<td style={{padding:'5px 10px'}}>
                             <span style={{color:T.accent,fontWeight:700,fontFamily:'var(--font-mono)',fontSize:12,letterSpacing:'-.01em'}}>{r.nf_numero}</span>
-                          </td>
-                          <td style={{padding:'5px 10px',fontSize:11,color:T.text2,fontFamily:'var(--font-mono)',whiteSpace:'nowrap'}}>
-                            {r.pedido||'—'}
-                          </td>
-                          <td style={{padding:'5px 10px'}}>
-                            <span style={{fontSize:10,fontWeight:700,padding:'2px 7px',borderRadius:5,background:r.filial==='CHOCOLATE'?'rgba(124,58,237,.15)':'rgba(148,163,184,.08)',color:r.filial==='CHOCOLATE'?'#a78bfa':T.text3}}>{r.filial==='CHOCOLATE'?'CHOCO':r.filial}</span>
-                          </td>
-                          <td style={{padding:'5px 10px',fontSize:11,color:T.text3,whiteSpace:'nowrap'}}>{fmt(r.dt_emissao)}</td>
-                          <td style={{padding:'5px 10px',maxWidth:168,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontWeight:500,fontSize:12,color:T.text}}>{r.destinatario_fantasia||r.destinatario_nome||'—'}</td>
-                          <td style={{padding:'5px 10px',fontSize:11,color:T.text3,whiteSpace:'nowrap'}}>{r.cidade_destino} · {r.uf_destino}</td>
-                          <td style={{padding:'5px 10px'}} onClick={e=>e.stopPropagation()}>
+                          </td>}
+                          {show('emissao')&&<td style={{padding:'5px 10px',fontSize:11,color:T.text3,whiteSpace:'nowrap'}}>{fmt(r.dt_emissao)}</td>}
+                          {show('cnpj')&&<td style={{padding:'5px 10px',fontSize:10,color:T.text3,fontFamily:'var(--font-mono)',whiteSpace:'nowrap'}}>{r.destinatario_cnpj||'—'}</td>}
+                          {show('razao')&&<td style={{padding:'5px 10px',maxWidth:170,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontWeight:500,fontSize:12,color:T.text}}>{r.destinatario_fantasia||r.destinatario_nome||'—'}</td>}
+                          {show('cidade')&&<td style={{padding:'5px 10px',fontSize:11,color:T.text3,whiteSpace:'nowrap'}}>{r.cidade_destino||'—'}</td>}
+                          {show('uf')&&<td style={{padding:'5px 10px',fontSize:11,color:T.text3,whiteSpace:'nowrap'}}>{r.uf_destino||'—'}</td>}
+                          {show('pedido')&&<td style={{padding:'5px 10px',fontSize:11,color:T.text2,fontFamily:'var(--font-mono)',whiteSpace:'nowrap'}}>{r.pedido||'—'}</td>}
+                          {show('regional')&&<td style={{padding:'5px 10px'}} onClick={e=>e.stopPropagation()}>
                             {editCCNF===r.nf_numero?(
                               <div style={{display:'flex',gap:4,alignItems:'center'}}>
                                 <select value={editCCValor} onChange={e=>setEditCCValor(e.target.value)} style={{...darkInput,padding:'3px 6px',fontSize:10,borderColor:T.accent,maxWidth:110}}>
@@ -938,31 +1024,60 @@ export default function TorrePage() {
                                 <button onClick={()=>{setEditCCNF(r.nf_numero);setEditCCValor(r.centro_custo||'')}} style={{padding:'2px 5px',background:'none',border:`1px solid ${T.border}`,color:T.text3,borderRadius:4,cursor:'pointer',fontSize:10,opacity:.5,transition:'opacity .12s'}} onMouseEnter={e=>(e.currentTarget as HTMLElement).style.opacity='1'} onMouseLeave={e=>(e.currentTarget as HTMLElement).style.opacity='.5'}>✏</button>
                               </div>
                             )}
-                          </td>
-                          <td style={{padding:'5px 10px',fontVariantNumeric:'tabular-nums',fontSize:12,fontWeight:600,color:T.text,whiteSpace:'nowrap'}}>{money(Number(r.valor_produtos)||0)}</td>
-                          <td style={{padding:'5px 10px',fontSize:11,maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:T.text2}}>{r.transportador_nome?.split(' ').slice(0,2).join(' ')||'—'}</td>
-                          <td style={{padding:'5px 10px',fontSize:11,color:T.text3,whiteSpace:'nowrap'}}>{fmt(r.dt_expedida)}</td>
-                          <td style={{padding:'5px 10px',whiteSpace:'nowrap'}}>
+                          </td>}
+                          {show('valor')&&<td style={{padding:'5px 10px',fontVariantNumeric:'tabular-nums',fontSize:12,fontWeight:600,color:T.text,whiteSpace:'nowrap'}}>{money(Number(r.valor_produtos)||0)}</td>}
+                          {show('volumes')&&<td style={{padding:'5px 10px',fontSize:11,color:T.text2,textAlign:'center'}}>{r.volumes||'—'}</td>}
+                          {show('loja')&&<td style={{padding:'5px 10px'}} onClick={e=>e.stopPropagation()}>
+                            {editManual?.nf===r.nf_numero&&editManual.field==='loja'?(
+                              <div style={{display:'flex',gap:3}}>
+                                <input autoFocus value={editManual.val} onChange={e=>setEditManual({...editManual,val:e.target.value})} onKeyDown={e=>{if(e.key==='Enter')saveManualField(r.nf_numero,'loja',editManual.val);if(e.key==='Escape')setEditManual(null)}} style={{...darkInput,padding:'3px 6px',fontSize:11,width:72}} placeholder="loja…"/>
+                                <button onClick={()=>saveManualField(r.nf_numero,'loja',editManual.val)} disabled={savingManual} style={{padding:'2px 6px',background:T.accentBlu,border:'none',color:'#fff',borderRadius:4,cursor:'pointer',fontSize:10}}>{savingManual?'…':'✓'}</button>
+                                <button onClick={()=>setEditManual(null)} style={{padding:'2px 5px',background:'none',border:`1px solid ${T.border}`,color:T.text3,borderRadius:4,cursor:'pointer',fontSize:10}}>✕</button>
+                              </div>
+                            ):(
+                              <div style={{display:'flex',alignItems:'center',gap:3}} onClick={()=>setEditManual({nf:r.nf_numero,field:'loja',val:manualData[r.nf_numero]?.loja||''})}>
+                                <span style={{fontSize:11,color:manualData[r.nf_numero]?.loja?T.text:T.text3,cursor:'pointer'}}>{manualData[r.nf_numero]?.loja||<span style={{opacity:.4}}>+ loja</span>}</span>
+                                {manualData[r.nf_numero]?.loja&&<span style={{opacity:.3,fontSize:10,cursor:'pointer'}}>✏</span>}
+                              </div>
+                            )}
+                          </td>}
+                          {show('transp')&&<td style={{padding:'5px 10px',fontSize:11,maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:T.text2}}>{r.transportador_nome?.split(' ').slice(0,2).join(' ')||'—'}</td>}
+                          {show('expedida')&&<td style={{padding:'5px 10px',fontSize:11,color:T.text3,whiteSpace:'nowrap'}}>{fmt(r.dt_expedida)}</td>}
+                          {show('voucher')&&<td style={{padding:'5px 10px'}} onClick={e=>e.stopPropagation()}>
+                            {editManual?.nf===r.nf_numero&&editManual.field==='voucher'?(
+                              <div style={{display:'flex',gap:3}}>
+                                <input autoFocus value={editManual.val} onChange={e=>setEditManual({...editManual,val:e.target.value})} onKeyDown={e=>{if(e.key==='Enter')saveManualField(r.nf_numero,'voucher',editManual.val);if(e.key==='Escape')setEditManual(null)}} style={{...darkInput,padding:'3px 6px',fontSize:11,width:72}} placeholder="voucher…"/>
+                                <button onClick={()=>saveManualField(r.nf_numero,'voucher',editManual.val)} disabled={savingManual} style={{padding:'2px 6px',background:T.accentBlu,border:'none',color:'#fff',borderRadius:4,cursor:'pointer',fontSize:10}}>{savingManual?'…':'✓'}</button>
+                                <button onClick={()=>setEditManual(null)} style={{padding:'2px 5px',background:'none',border:`1px solid ${T.border}`,color:T.text3,borderRadius:4,cursor:'pointer',fontSize:10}}>✕</button>
+                              </div>
+                            ):(
+                              <div style={{display:'flex',alignItems:'center',gap:3}} onClick={()=>setEditManual({nf:r.nf_numero,field:'voucher',val:manualData[r.nf_numero]?.voucher||''})}>
+                                <span style={{fontSize:11,color:manualData[r.nf_numero]?.voucher?T.text:T.text3,cursor:'pointer'}}>{manualData[r.nf_numero]?.voucher||<span style={{opacity:.4}}>+ voucher</span>}</span>
+                                {manualData[r.nf_numero]?.voucher&&<span style={{opacity:.3,fontSize:10,cursor:'pointer'}}>✏</span>}
+                              </div>
+                            )}
+                          </td>}
+                          {show('agendada')&&<td style={{padding:'5px 10px',whiteSpace:'nowrap'}}>
                             <div style={{display:'flex',alignItems:'center',gap:5}}>
                               <span style={{fontSize:12,fontWeight:700,color:ltVenc?T.red:hoje?T.green:T.text2,fontVariantNumeric:'tabular-nums'}}>
-                                {fmt(r.dt_previsao)||fmt(r.dt_lt_interno)}
+                                {fmt(r.dt_previsao)||'—'}
                               </span>
                               {ltVenc&&<span style={{fontSize:9,fontWeight:800,color:'#fff',background:'#ef4444',padding:'1px 5px',borderRadius:4,letterSpacing:'.05em',boxShadow:'0 0 8px rgba(239,68,68,.5)'}}>VENC</span>}
                               {hoje&&<span style={{fontSize:9,fontWeight:800,color:'#fff',background:'#16a34a',padding:'1px 5px',borderRadius:4,boxShadow:'0 0 8px rgba(22,163,74,.4)'}}>HOJE</span>}
                             </div>
-                          </td>
-                          <td style={{padding:'5px 10px',fontSize:11,color:ltVenc?T.red:T.text3,whiteSpace:'nowrap'}}>{fmt(r.dt_lt_interno)}</td>
-                          <td style={{padding:'5px 10px',maxWidth:155,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                          </td>}
+                          {show('previsao')&&<td style={{padding:'5px 10px',fontSize:11,color:T.text3,whiteSpace:'nowrap'}}>{fmt(r.dt_lt_interno)||'—'}</td>}
+                          {show('lt_interno')&&<td style={{padding:'5px 10px',fontSize:11,color:ltVenc?T.red:T.text3,whiteSpace:'nowrap'}}>{r.lt_dias!=null?`${r.lt_dias}d`:'—'}</td>}
+                          {show('ocorrencia')&&<td style={{padding:'5px 10px',maxWidth:155,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                             {r.ultima_ocorrencia?(
                               <span style={{fontSize:11,color:T.text2}}>
                                 {r.codigo_ocorrencia&&<span style={{fontWeight:700,color:T.text,marginRight:4,fontFamily:'var(--font-mono)',fontSize:10}}>{r.codigo_ocorrencia}</span>}
                                 {r.ultima_ocorrencia}
                               </span>
                             ):<span style={{color:T.text3,fontSize:11}}>—</span>}
-                          </td>
-                          <td style={{padding:'5px 10px'}}><StatusBadge status={r.status||''}/></td>
-                          {/* Status Interno — apenas assistentes podem registrar */}
-                          <td style={{padding:'5px 10px'}} onClick={e=>e.stopPropagation()}>
+                          </td>}
+                          {show('status')&&<td style={{padding:'5px 10px'}}><StatusBadge status={r.status||''}/></td>}
+                          {show('st_interno')&&<td style={{padding:'5px 10px'}} onClick={e=>e.stopPropagation()}>
                             <button
                               onClick={()=>setFollowupNF(r)}
                               title={r.followup_obs||r.followup_status||'Registrar status interno'}
@@ -981,8 +1096,8 @@ export default function TorrePage() {
                               <div style={{fontSize:10,color:T.text3,marginTop:2,maxWidth:148,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}
                                 title={r.followup_obs}>{r.followup_obs}</div>
                             )}
-                          </td>
-                          <td style={{padding:'5px 10px'}} onClick={e=>e.stopPropagation()}>
+                          </td>}
+                          {show('registrar')&&<td style={{padding:'5px 10px'}} onClick={e=>e.stopPropagation()}>
                             <button
                               onClick={()=>{setOcorrNF(r);setOcorrCod('');setOcorrBusca('');setOcorrObs('');setOcorrData('');setOcorrAnexo(null);setOcorrDropOpen(false);setOcorrMsg(null)}}
                               style={{fontSize:11,padding:'5px 10px',borderRadius:7,
@@ -993,10 +1108,21 @@ export default function TorrePage() {
                               onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background='rgba(249,115,22,.06)';(e.currentTarget as HTMLElement).style.boxShadow='none'}}>
                               + Registrar
                             </button>
-                          </td>
-                          <td style={{padding:'5px 10px'}} onClick={e=>e.stopPropagation()}>
-                            
-                          </td>
+                          </td>}
+                          {show('protocolo')&&<td style={{padding:'5px 10px'}} onClick={e=>e.stopPropagation()}>
+                            {editManual?.nf===r.nf_numero&&editManual.field==='protocolo'?(
+                              <div style={{display:'flex',gap:3}}>
+                                <input autoFocus value={editManual.val} onChange={e=>setEditManual({...editManual,val:e.target.value})} onKeyDown={e=>{if(e.key==='Enter')saveManualField(r.nf_numero,'protocolo',editManual.val);if(e.key==='Escape')setEditManual(null)}} style={{...darkInput,padding:'3px 6px',fontSize:11,width:80}} placeholder="protocolo…"/>
+                                <button onClick={()=>saveManualField(r.nf_numero,'protocolo',editManual.val)} disabled={savingManual} style={{padding:'2px 6px',background:T.accentBlu,border:'none',color:'#fff',borderRadius:4,cursor:'pointer',fontSize:10}}>{savingManual?'…':'✓'}</button>
+                                <button onClick={()=>setEditManual(null)} style={{padding:'2px 5px',background:'none',border:`1px solid ${T.border}`,color:T.text3,borderRadius:4,cursor:'pointer',fontSize:10}}>✕</button>
+                              </div>
+                            ):(
+                              <div style={{display:'flex',alignItems:'center',gap:3}} onClick={()=>setEditManual({nf:r.nf_numero,field:'protocolo',val:manualData[r.nf_numero]?.protocolo||''})}>
+                                <span style={{fontSize:11,color:manualData[r.nf_numero]?.protocolo?T.text:T.text3,cursor:'pointer'}}>{manualData[r.nf_numero]?.protocolo||<span style={{opacity:.4}}>+ protocolo</span>}</span>
+                                {manualData[r.nf_numero]?.protocolo&&<span style={{opacity:.3,fontSize:10,cursor:'pointer'}}>✏</span>}
+                              </div>
+                            )}
+                          </td>}
                         </tr>
                       )
                     })}
@@ -1012,6 +1138,37 @@ export default function TorrePage() {
           DRAWER
       ═══════════════════════════════════════════ */}
       <OcorrenciasDrawer nf={selectedNF} onClose={()=>setSelectedNF(null)}/>
+
+
+      {/* ═══════════════════════════════════════════
+          SELETOR DE COLUNAS
+      ═══════════════════════════════════════════ */}
+      {showColPicker&&(
+        <>
+          <div style={{position:'fixed',inset:0,zIndex:190}} onClick={()=>setShowColPicker(false)}/>
+          <div style={{position:'fixed',top:110,right:24,zIndex:200,width:340,background:T.surface,
+            border:`1px solid ${T.border}`,borderRadius:14,boxShadow:T.shadowLg,overflow:'hidden'}}>
+            <div style={{padding:'12px 16px',borderBottom:`1px solid ${T.border}`,background:T.surface2,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+              <span style={{fontSize:13,fontWeight:700,color:T.text}}>⊞ Personalizar Colunas</span>
+              <div style={{display:'flex',gap:6}}>
+                <button onClick={()=>{const all=new Set(COL_DEFS.map(c=>c.id));setVisibleCols(all);localStorage.setItem('torre_cols',JSON.stringify([...all]))}} style={{fontSize:10,padding:'3px 8px',background:T.surface,border:`1px solid ${T.border}`,color:T.text2,borderRadius:5,cursor:'pointer',fontFamily:'inherit'}}>Todas</button>
+                <button onClick={()=>{const def=new Set(COL_DEFS.filter(c=>c.defaultOn).map(c=>c.id));setVisibleCols(def);localStorage.setItem('torre_cols',JSON.stringify([...def]))}} style={{fontSize:10,padding:'3px 8px',background:T.surface,border:`1px solid ${T.border}`,color:T.text2,borderRadius:5,cursor:'pointer',fontFamily:'inherit'}}>Padrão</button>
+              </div>
+            </div>
+            <div style={{padding:'10px 14px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:4,maxHeight:380,overflowY:'auto'}}>
+              {COL_DEFS.map(col=>(
+                <label key={col.id} style={{display:'flex',alignItems:'center',gap:7,padding:'6px 8px',borderRadius:7,cursor:'pointer',background:visibleCols.has(col.id)?`rgba(59,130,246,.08)`:'transparent',border:`1px solid ${visibleCols.has(col.id)?'rgba(59,130,246,.2)':T.borderLo}`,transition:'all .12s'}}>
+                  <input type="checkbox" checked={visibleCols.has(col.id)} onChange={()=>toggleCol(col.id)} style={{accentColor:T.accentBlu,cursor:'pointer',width:13,height:13,flexShrink:0}}/>
+                  <span style={{fontSize:11,fontWeight:visibleCols.has(col.id)?600:400,color:visibleCols.has(col.id)?T.accentBlu:T.text2,lineHeight:1.2}}>{col.label}</span>
+                </label>
+              ))}
+            </div>
+            <div style={{padding:'10px 14px',borderTop:`1px solid ${T.border}`,background:T.surface2,fontSize:10,color:T.text3,textAlign:'center'}}>
+              {visibleCols.size} de {COL_DEFS.length} colunas visíveis · salvo automaticamente
+            </div>
+          </div>
+        </>
+      )}
 
       {/* ═══════════════════════════════════════════
           MODAL STATUS INTERNO (Torre — assistentes)
