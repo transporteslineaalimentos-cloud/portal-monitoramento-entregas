@@ -97,14 +97,33 @@ function LogoIcon({ size = 36 }: { size?: number }) {
   )
 }
 
-/* ── Status Badge ────────────────────────────────────────────────── */
+/* ── Status Badge — ícone + fundo distinto por categoria ────────── */
+const STATUS_ICON: Record<string,string> = {
+  'Entregue':'✓','Agendado':'◆','Agend. Conforme Cliente':'◆',
+  'Reagendada':'↺','Reagendamento Solicitado':'↻','Aguardando Retorno Cliente':'⏱',
+  'Entrega Programada':'📅','Pendente Baixa Entrega':'!',
+  'NF com Ocorrência':'⚡','Devolução':'↩','Pendente Agendamento':'…',
+}
+// intensidade de fundo por urgência
+const STATUS_BG_ALPHA: Record<string,number> = {
+  'Entregue':.12,'Agendado':.1,'Agend. Conforme Cliente':.1,'Reagendada':.1,
+  'Reagendamento Solicitado':.14,'Aguardando Retorno Cliente':.13,
+  'Entrega Programada':.1,'Pendente Baixa Entrega':.18,
+  'NF com Ocorrência':.2,'Devolução':.2,'Pendente Agendamento':.14,
+}
 function StatusBadge({ status }: { status: string }) {
   const color = STATUS_COLOR[status] || D.text3
+  const icon  = STATUS_ICON[status]  || '·'
+  const alpha = STATUS_BG_ALPHA[status] ?? .12
+  // hex alpha → rgba
+  const bg = color.startsWith('#')
+    ? `rgba(${parseInt(color.slice(1,3),16)},${parseInt(color.slice(3,5),16)},${parseInt(color.slice(5,7),16)},${alpha})`
+    : `${color}${Math.round(alpha*255).toString(16).padStart(2,'0')}`
   return (
-    <span style={{display:'inline-flex',alignItems:'center',gap:5,fontSize:10.5,fontWeight:600,
-      padding:'3px 9px',borderRadius:20,whiteSpace:'nowrap',lineHeight:1.5,
-      background:`${color}16`, color, border:`1px solid ${color}28`}}>
-      <span style={{width:5,height:5,borderRadius:'50%',background:color,flexShrink:0,display:'inline-block'}}/>
+    <span style={{display:'inline-flex',alignItems:'center',gap:4,fontSize:10.5,fontWeight:700,
+      padding:'3px 10px 3px 7px',borderRadius:6,whiteSpace:'nowrap',lineHeight:1.5,
+      background:bg, color, border:`1px solid ${color}30`, letterSpacing:'.01em'}}>
+      <span style={{fontSize:9,lineHeight:1,flexShrink:0,opacity:.85}}>{icon}</span>
       {status}
     </span>
   )
@@ -465,9 +484,12 @@ export default function TorrePage() {
                 <span style={{fontSize:14,color:active?D.accentBlu:D.text3,width:18,textAlign:'center',flexShrink:0}}>{item.icon}</span>
                 <span style={{flex:1}}>{item.label}</span>
                 {item.badge!=null&&item.badge>0&&(
-                  <span style={{fontSize:10,fontWeight:700,color:item.badgeColor,background:`${item.badgeColor}18`,
-                    border:`1px solid ${item.badgeColor}30`,padding:'1px 7px',borderRadius:10,flexShrink:0}}>
-                    {item.badge}
+                  <span style={{fontSize:10,fontWeight:700,color:item.badgeColor,
+                    background:`${item.badgeColor}18`,
+                    border:`1px solid ${item.badgeColor}30`,
+                    padding:'1px 6px',borderRadius:8,flexShrink:0,
+                    minWidth:22,textAlign:'center',letterSpacing:'-.02em'}}>
+                    {item.badge>999 ? `${(item.badge/1000).toFixed(1)}k` : item.badge}
                   </span>
                 )}
               </button>
@@ -540,22 +562,25 @@ export default function TorrePage() {
         </div>
 
         {/* ── 3 KPIs Destacados ───────────────────────── */}
-        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14}}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16}}>
 
           {/* KPI 1 — Total em Aberto */}
           <div onClick={()=>{setFiltroAtivo(null);setActiveSection('notas')}}
-            style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:14,
-              padding:'20px 22px',cursor:'pointer',position:'relative',overflow:'hidden',
-              boxShadow:D.shadow,transition:'all .2s'}}
+            style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:16,
+              padding:'24px 26px 22px',cursor:'pointer',position:'relative',overflow:'hidden',
+              boxShadow:D.shadow,transition:'all .2s',minHeight:148}}
             onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.borderColor=D.accentBlu;(e.currentTarget as HTMLElement).style.boxShadow=D.glow}}
             onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.borderColor=D.border;(e.currentTarget as HTMLElement).style.boxShadow=D.shadow}}>
-            <div style={{position:'absolute',top:0,left:0,right:0,height:2,background:`linear-gradient(90deg,${D.accentBlu},transparent)`,opacity:.5}}/>
-            <div style={{position:'absolute',top:12,right:16,fontSize:28,opacity:.08,color:D.accentBlu,fontWeight:900,lineHeight:1}}>∑</div>
-            <div style={{fontSize:11,fontWeight:700,color:D.text3,letterSpacing:'.08em',textTransform:'uppercase',marginBottom:12}}>Total em Aberto</div>
-            <div style={{fontSize:40,fontWeight:800,color:D.text,lineHeight:1,fontVariantNumeric:'tabular-nums',letterSpacing:'-.03em',marginBottom:6}}>
+            <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:`linear-gradient(90deg,${D.accentBlu},rgba(59,130,246,.2),transparent)`,borderRadius:'16px 16px 0 0'}}/>
+            <div style={{position:'absolute',bottom:-4,right:10,fontSize:72,fontWeight:900,color:D.accentBlu,opacity:.04,lineHeight:1,letterSpacing:'-.04em',userSelect:'none'}}>∑</div>
+            <div style={{fontSize:10,fontWeight:800,color:D.text3,letterSpacing:'.12em',textTransform:'uppercase',marginBottom:16,display:'flex',alignItems:'center',gap:6}}>
+              <span style={{width:6,height:6,borderRadius:'50%',background:D.accentBlu,display:'inline-block',boxShadow:`0 0 6px ${D.accentBlu}`}}/>
+              Total em Aberto
+            </div>
+            <div style={{fontSize:56,fontWeight:900,color:D.text,lineHeight:1,fontVariantNumeric:'tabular-nums',letterSpacing:'-.04em',marginBottom:10}}>
               {totalAberto}
             </div>
-            <div style={{fontSize:12,color:D.text2,fontWeight:500}}>{money(totalValorAberto)}</div>
+            <div style={{fontSize:13,color:D.text2,fontWeight:600}}>{money(totalValorAberto)}</div>
           </div>
 
           {/* KPI 2 — LT Vencidos (URGÊNCIA MÁXIMA) */}
@@ -563,53 +588,69 @@ export default function TorrePage() {
             const active=filtroAtivo==='__lt'
             return (
               <div onClick={()=>{setFiltroAtivo(active?null:'__lt');setActiveSection('notas')}}
-                style={{background:active?'rgba(239,68,68,.08)':D.surface,
-                  border:`1px solid ${active?'rgba(239,68,68,.5)':D.border}`,borderRadius:14,
-                  padding:'20px 22px',cursor:'pointer',position:'relative',overflow:'hidden',
-                  boxShadow:active?`0 0 0 1px rgba(239,68,68,.3), 0 8px 32px rgba(239,68,68,.18), ${D.shadow}`:D.shadow,
-                  transition:'all .2s'}}
-                onMouseEnter={e=>{if(!active){(e.currentTarget as HTMLElement).style.borderColor='rgba(239,68,68,.4)';(e.currentTarget as HTMLElement).style.boxShadow=`0 0 0 1px rgba(239,68,68,.2),${D.shadow}`}}}
+                style={{background:active?'rgba(239,68,68,.07)':D.surface,
+                  border:`1px solid ${active?'rgba(239,68,68,.55)':D.border}`,borderRadius:16,
+                  padding:'24px 26px 22px',cursor:'pointer',position:'relative',overflow:'hidden',
+                  boxShadow:active?`0 0 0 1px rgba(239,68,68,.25), 0 12px 40px rgba(239,68,68,.2), ${D.shadow}`:D.shadow,
+                  transition:'all .2s',minHeight:148}}
+                onMouseEnter={e=>{if(!active){(e.currentTarget as HTMLElement).style.borderColor='rgba(239,68,68,.45)';(e.currentTarget as HTMLElement).style.boxShadow=`0 0 0 1px rgba(239,68,68,.15), ${D.shadow}`}}}
                 onMouseLeave={e=>{if(!active){(e.currentTarget as HTMLElement).style.borderColor=D.border;(e.currentTarget as HTMLElement).style.boxShadow=D.shadow}}}>
-                {/* barra vermelha no topo */}
-                <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:'linear-gradient(90deg,#ef4444,#dc2626,transparent)',borderRadius:'14px 14px 0 0'}}/>
-                {/* glow sutil */}
-                {ltCount>0&&<div style={{position:'absolute',inset:0,background:'radial-gradient(ellipse 70% 60% at 50% -20%, rgba(239,68,68,.12) 0%, transparent 70%)',pointerEvents:'none'}}/>}
-                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
-                  <span style={{fontSize:11,fontWeight:700,color:'#ef4444',letterSpacing:'.08em',textTransform:'uppercase'}}>LT Vencidos</span>
+                <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:'linear-gradient(90deg,#ef4444,rgba(239,68,68,.3),transparent)',borderRadius:'16px 16px 0 0'}}/>
+                {ltCount>0&&<div style={{position:'absolute',inset:0,background:'radial-gradient(ellipse 80% 50% at 20% 0%, rgba(239,68,68,.1) 0%, transparent 70%)',pointerEvents:'none'}}/>}
+                <div style={{position:'absolute',bottom:-4,right:10,fontSize:72,fontWeight:900,color:'#ef4444',opacity:.05,lineHeight:1,letterSpacing:'-.04em',userSelect:'none'}}>!</div>
+                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:16}}>
+                  <span style={{fontSize:10,fontWeight:800,color:'#ef4444',letterSpacing:'.12em',textTransform:'uppercase'}}>LT Vencidos</span>
                   {ltCount>0&&(
-                    <span style={{fontSize:9,fontWeight:800,color:'#ef4444',background:'rgba(239,68,68,.15)',
-                      border:'1px solid rgba(239,68,68,.3)',padding:'2px 7px',borderRadius:10,letterSpacing:'.06em',
-                      animation:'blink 2s ease-in-out infinite'}}>ALERTA</span>
+                    <span style={{fontSize:9,fontWeight:800,color:'#ef4444',background:'rgba(239,68,68,.18)',
+                      border:'1px solid rgba(239,68,68,.35)',padding:'2px 8px',borderRadius:10,letterSpacing:'.08em',
+                      animation:'blink 1.8s ease-in-out infinite'}}>ALERTA</span>
                   )}
                 </div>
-                <div style={{fontSize:40,fontWeight:800,color:'#ef4444',lineHeight:1,fontVariantNumeric:'tabular-nums',letterSpacing:'-.03em',marginBottom:6,
-                  textShadow:ltCount>0?'0 0 20px rgba(239,68,68,.5)':'none'}}>
+                <div style={{fontSize:56,fontWeight:900,color:'#ef4444',lineHeight:1,fontVariantNumeric:'tabular-nums',letterSpacing:'-.04em',marginBottom:10,
+                  textShadow:ltCount>0?'0 0 28px rgba(239,68,68,.55)':'none'}}>
                   {ltCount}
                 </div>
-                <div style={{fontSize:12,color:'rgba(239,68,68,.7)',fontWeight:500}}>{money(ltValor)}</div>
+                <div style={{fontSize:13,color:'rgba(239,68,68,.6)',fontWeight:600}}>{money(ltValor)}</div>
               </div>
             )
           })()}
 
-          {/* KPI 3 — NF c/ Ocorrência */}
+          {/* KPI 3 — NF c/ Ocorrência + mini bar chart */}
           {(()=>{
             const active=filtroAtivo==='NF com Ocorrência'
+            const numColor=active?'#f97316':D.text
+            const labelC=active?'#f97316':D.text3
+            const bars=[0.4,0.65,0.5,0.8,0.55,0.7,ocCount>0?1:0.3]
+            const barW=22,barGap=4,barMaxH=34
             return (
               <div onClick={()=>{setFiltroAtivo(active?null:'NF com Ocorrência');setActiveSection('notas')}}
-                style={{background:active?'rgba(249,115,22,.08)':D.surface,
-                  border:`1px solid ${active?'rgba(249,115,22,.5)':D.border}`,borderRadius:14,
-                  padding:'20px 22px',cursor:'pointer',position:'relative',overflow:'hidden',
-                  boxShadow:active?`0 0 0 1px rgba(249,115,22,.25), 0 8px 32px rgba(249,115,22,.15), ${D.shadow}`:D.shadow,
-                  transition:'all .2s'}}
-                onMouseEnter={e=>{if(!active){(e.currentTarget as HTMLElement).style.borderColor='rgba(249,115,22,.4)';(e.currentTarget as HTMLElement).style.boxShadow=`0 0 0 1px rgba(249,115,22,.15),${D.shadow}`}}}
+                style={{background:active?'rgba(249,115,22,.06)':D.surface,
+                  border:`1px solid ${active?'rgba(249,115,22,.55)':D.border}`,borderRadius:16,
+                  padding:'24px 26px 0',cursor:'pointer',position:'relative',overflow:'hidden',
+                  boxShadow:active?`0 0 0 1px rgba(249,115,22,.2), 0 12px 40px rgba(249,115,22,.15), ${D.shadow}`:D.shadow,
+                  transition:'all .2s',minHeight:148,display:'flex',flexDirection:'column'}}
+                onMouseEnter={e=>{if(!active){(e.currentTarget as HTMLElement).style.borderColor='rgba(249,115,22,.4)';(e.currentTarget as HTMLElement).style.boxShadow=`0 0 0 1px rgba(249,115,22,.12), ${D.shadow}`}}}
                 onMouseLeave={e=>{if(!active){(e.currentTarget as HTMLElement).style.borderColor=D.border;(e.currentTarget as HTMLElement).style.boxShadow=D.shadow}}}>
-                <div style={{position:'absolute',top:0,left:0,right:0,height:2,background:`linear-gradient(90deg,#f97316,transparent)`,opacity:.6}}/>
-                <div style={{position:'absolute',top:10,right:14,fontSize:32,opacity:.06,color:'#f97316',lineHeight:1}}>⚡</div>
-                <div style={{fontSize:11,fontWeight:700,color:active?'#f97316':D.text3,letterSpacing:'.08em',textTransform:'uppercase',marginBottom:12}}>NF c/ Ocorrência</div>
-                <div style={{fontSize:40,fontWeight:800,color:active?'#f97316':D.text,lineHeight:1,fontVariantNumeric:'tabular-nums',letterSpacing:'-.03em',marginBottom:6}}>
-                  {ocCount}
+                <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:`linear-gradient(90deg,#f97316,rgba(249,115,22,.25),transparent)`,borderRadius:'16px 16px 0 0'}}/>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:10,fontWeight:800,color:labelC,letterSpacing:'.12em',textTransform:'uppercase',marginBottom:16,display:'flex',alignItems:'center',gap:6}}>
+                    <span style={{width:6,height:6,borderRadius:'50%',background:'#f97316',display:'inline-block',boxShadow:active?'0 0 6px #f97316':'none'}}/>
+                    NF com Ocorrência
+                  </div>
+                  <div style={{fontSize:56,fontWeight:900,color:numColor,lineHeight:1,fontVariantNumeric:'tabular-nums',letterSpacing:'-.04em',marginBottom:10}}>
+                    {ocCount}
+                  </div>
+                  <div style={{fontSize:13,color:active?'rgba(249,115,22,.65)':D.text2,fontWeight:600,marginBottom:12}}>{money(ocValor)}</div>
                 </div>
-                <div style={{fontSize:12,color:active?'rgba(249,115,22,.7)':D.text2,fontWeight:500}}>{money(ocValor)}</div>
+                {/* Mini bar chart — 7 colunas */}
+                <div style={{display:'flex',alignItems:'flex-end',gap:barGap+'px',paddingBottom:14,paddingTop:4,opacity:.5,marginTop:'auto'}}>
+                  {bars.map((h,i)=>(
+                    <div key={i} style={{width:barW+'px',height:Math.max(4,h*barMaxH)+'px',borderRadius:'3px 3px 0 0',flexShrink:0,
+                      background:i===bars.length-1
+                        ?`linear-gradient(180deg,#f97316,rgba(249,115,22,.45))`
+                        :`linear-gradient(180deg,rgba(249,115,22,.35),rgba(249,115,22,.08))`}}/>
+                  ))}
+                </div>
               </div>
             )
           })()}
@@ -846,6 +887,18 @@ export default function TorrePage() {
         ══════════════════════════════════════════════ */}
         {activeSection==='notas'&&(
           <div style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:14,overflow:'hidden',boxShadow:D.shadow,flex:1,display:'flex',flexDirection:'column'}}>
+            {/* Cabeçalho da tabela com contagem proeminente */}
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 18px 11px',borderBottom:`1px solid ${D.borderLo}`,flexShrink:0,background:`linear-gradient(90deg,${D.surface2},${D.surface})`}}>
+              <div style={{display:'flex',alignItems:'center',gap:12}}>
+                <span style={{fontSize:14,fontWeight:800,color:D.text,fontVariantNumeric:'tabular-nums',letterSpacing:'-.02em'}}>{filtered.length}</span>
+                <span style={{fontSize:12,color:D.text3,fontWeight:500}}>notas encontradas</span>
+                {filtroAtivo&&<span style={{fontSize:11,color:D.text3}}>· filtro ativo</span>}
+              </div>
+              <div style={{display:'flex',alignItems:'center',gap:6}}>
+                <span style={{fontSize:11,color:D.text3}}>Total:</span>
+                <span style={{fontSize:13,fontWeight:700,color:D.accent}}>{money(totalValor)}</span>
+              </div>
+            </div>
             {/* Scrollbar espelho */}
             <div ref={topRef} onScroll={()=>syncScroll('top')} style={{overflowX:'auto',overflowY:'hidden',height:12,borderBottom:`1px solid ${D.borderLo}`,cursor:'col-resize',flexShrink:0}}>
               <div style={{height:1,width:tableW}}/>
