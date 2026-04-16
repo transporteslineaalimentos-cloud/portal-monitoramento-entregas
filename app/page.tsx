@@ -143,7 +143,7 @@ function MonitoramentoInner() {
         .order(sortField, { ascending: sortDir==='asc' })
         .range(from, from + PAGE - 1)
       if (error || !rows || rows.length === 0) break
-      all = all.concat(rows as Entrega[])
+      all = all.concat(rows as unknown as Entrega[])
       if (rows.length < PAGE) break
       from += PAGE
     }

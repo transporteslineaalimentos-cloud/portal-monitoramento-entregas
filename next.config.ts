@@ -1,16 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Compressão Gzip/Brotli automática
   compress: true,
 
-  // Otimizar imagens (logo PNG)
   images: {
     formats: ['image/webp', 'image/avif'],
-    minimumCacheTTL: 86400, // 24h cache
+    minimumCacheTTL: 86400,
   },
 
-  // Headers de cache para assets estáticos
   async headers() {
     return [
       {
@@ -22,18 +19,6 @@ const nextConfig: NextConfig = {
         headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
       },
     ]
-  },
-
-  // Webpack: otimizar bundle (tree-shaking agressivo)
-  webpack(config, { dev }) {
-    if (!dev) {
-      config.optimization = {
-        ...config.optimization,
-        usedExports: true,
-        sideEffects: false,
-      }
-    }
-    return config
   },
 }
 

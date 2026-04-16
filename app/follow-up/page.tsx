@@ -90,7 +90,7 @@ export default function FollowUp() {
         .order('dt_previsao',{ ascending:true, nullsFirst:false })
         .range(from, from + PAGE - 1)
       if (error || !rows || rows.length === 0) break
-      all = all.concat(rows as Entrega[]); if (rows.length < PAGE) break; from += PAGE
+      all = all.concat(rows as unknown as Entrega[]); if (rows.length < PAGE) break; from += PAGE
     }
     if (all.length > 0) { setData(all); setLastUpdate(new Date()) }
     setLoading(false)

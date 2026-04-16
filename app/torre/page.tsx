@@ -369,7 +369,7 @@ export default function TorrePage() {
     while (true) {
       const { data:rows, error } = await supabase.from('v_monitoramento_completo').select('nf_numero,nf_serie,dt_emissao,filial,remetente_cnpj,destinatario_cnpj,destinatario_nome,destinatario_fantasia,cidade_destino,uf_destino,pedido,centro_custo,valor_produtos,volumes,transportador_nome,dt_expedida,dt_previsao,dt_lt_interno,lt_dias,lt_vencido,codigo_ocorrencia,ultima_ocorrencia,dt_entrega,status,followup_status,followup_obs,followup_usuario,assistente,cc_editado,is_mock,cod_agend').range(from,from+PAGE-1)
       if (error||!rows||rows.length===0) break
-      all=all.concat(rows as Entrega[]); if(rows.length<PAGE) break; from+=PAGE
+      all=all.concat(rows as unknown as Entrega[]); if(rows.length<PAGE) break; from+=PAGE
     }
     const meusCCs = user.centros_custo.map(c=>c.toLowerCase().trim())
     const meuNome = (user.nome||'').toLowerCase().trim()

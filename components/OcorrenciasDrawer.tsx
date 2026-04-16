@@ -201,7 +201,7 @@ export default function OcorrenciasDrawer({ nf, onClose, onTranspEdited }: {
       .select('id,nf_numero,codigo_ocorrencia,descricao_ocorrencia,subtipo,data_ocorrencia,data_entrega,observacao,created_at,payload_raw')
       .eq('nf_numero', nf.nf_numero)
       .order('created_at', { ascending: false })
-    setOcorrs((data as Ocorrencia[]) || [])
+    setOcorrs((data as unknown as Ocorrencia[]) || [])
     setLoading(false)
   }, [nf])
 
