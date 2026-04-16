@@ -6,6 +6,7 @@ import { getTheme } from '@/lib/theme'
 import { format, isToday, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import OcorrenciasDrawer from '@/components/OcorrenciasDrawer'
+import FollowupModal from '@/components/FollowupModal'
 import { OCORR_TODAS } from '@/lib/ocorrencias'
 
 /* ── Tipos ──────────────────────────────────────────────────────────── */
@@ -240,6 +241,7 @@ export default function TorrePage() {
   }
 
   const [selectedNF, setSelectedNF] = useState<Entrega|null>(null)
+  const [followupNF, setFollowupNF] = useState<Entrega|null>(null)
   const [ocorrNF, setOcorrNF] = useState<Entrega|null>(null)
   const [activeSection, setActiveSection] = useState<'notas'|'sem-cc'>('notas')
   const [editCCNF, setEditCCNF] = useState<string|null>(null)
@@ -848,6 +850,7 @@ export default function TorrePage() {
                       <Th                        label="LT Interno"     w={90}/>
                       <Th                        label="Ocorrência"     w={155}/>
                       <Th field="status"         label="Status"         w={168}/>
+                      <Th                        label="St. Interno"    w={155}/>
                       <Th                        label="Registrar"      w={105}/>
                       <Th                        label="DANFE"          w={60}/>
                     </tr>
@@ -919,6 +922,27 @@ export default function TorrePage() {
                             ):<span style={{color:D.text3,fontSize:11}}>—</span>}
                           </td>
                           <td style={{padding:'10px 12px'}}><StatusBadge status={r.status||''}/></td>
+                          {/* Status Interno — apenas assistentes podem registrar */}
+                          <td style={{padding:'10px 12px'}} onClick={e=>e.stopPropagation()}>
+                            <button
+                              onClick={()=>setFollowupNF(r)}
+                              title={r.followup_obs||r.followup_status||'Registrar status interno'}
+                              style={{fontSize:11,padding:'4px 10px',borderRadius:7,
+                                background:r.followup_status?'rgba(99,102,241,.1)':'transparent',
+                                border:`1px solid ${r.followup_status?'rgba(99,102,241,.3)':D.border}`,
+                                color:r.followup_status?'#818cf8':D.text3,
+                                cursor:'pointer',fontFamily:'inherit',fontWeight:r.followup_status?600:400,
+                                maxWidth:148,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
+                                display:'block',textAlign:'left',transition:'all .15s'}}
+                              onMouseEnter={e=>{if(!r.followup_status)(e.currentTarget as HTMLElement).style.borderColor=D.text3}}
+                              onMouseLeave={e=>{if(!r.followup_status)(e.currentTarget as HTMLElement).style.borderColor=D.border}}>
+                              {r.followup_status ? `📋 ${r.followup_status}` : '+ status'}
+                            </button>
+                            {r.followup_obs && (
+                              <div style={{fontSize:10,color:D.text3,marginTop:2,maxWidth:148,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}
+                                title={r.followup_obs}>{r.followup_obs}</div>
+                            )}
+                          </td>
                           <td style={{padding:'10px 12px'}} onClick={e=>e.stopPropagation()}>
                             <button
                               onClick={()=>{setOcorrNF(r);setOcorrCod('');setOcorrBusca('');setOcorrObs('');setOcorrData('');setOcorrAnexo(null);setOcorrDropOpen(false);setOcorrMsg(null)}}
@@ -954,6 +978,17 @@ export default function TorrePage() {
           DRAWER
       ═══════════════════════════════════════════ */}
       <OcorrenciasDrawer nf={selectedNF} onClose={()=>setSelectedNF(null)}/>
+
+      {/* ═══════════════════════════════════════════
+          MODAL STATUS INTERNO (Torre — assistentes)
+      ═══════════════════════════════════════════ */}
+      <FollowupModal
+        nf={followupNF}
+        onClose={()=>setFollowupNF(null)}
+        onSaved={()=>{ setFollowupNF(null); load() }}
+        readOnly={false}
+        usuarioNome={user.nome}
+      />
 
       {/* ═══════════════════════════════════════════
           MODAL LANÇAR OCORRÊNCIA

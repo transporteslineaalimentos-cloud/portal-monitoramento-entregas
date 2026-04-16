@@ -22,16 +22,23 @@ const STATUS_INTERNOS = [
 
 const fmtFull = (d: string) => { try { return format(new Date((d.slice(0,10))+' 12:00'),'dd/MM/yyyy',{locale:ptBR}) } catch { return d } }
 
-export default function FollowupModal({ nf, onClose, onSaved }: {
+export default function FollowupModal({ nf, onClose, onSaved, readOnly = false, usuarioNome }: {
   nf: Entrega | null; onClose: () => void; onSaved: () => void
+  readOnly?: boolean   // true = admin só visualiza, não pode registrar
+  usuarioNome?: string // nome da assistente logada (auto-fill)
 }) {
   const { theme } = useTheme()
   const T = getTheme(theme)
   const [historico, setHistorico] = useState<FollowupStatus[]>([])
   const [statusSel, setStatusSel] = useState('')
   const [obs, setObs] = useState('')
-  const [usuario, setUsuario] = useState('Coordenação')
+  const [usuario, setUsuario] = useState(usuarioNome || 'Coordenação')
   const [saving, setSaving] = useState(false)
+
+  // Atualizar usuario quando usuarioNome mudar
+  useEffect(() => {
+    if (usuarioNome) setUsuario(usuarioNome)
+  }, [usuarioNome])
 
   useEffect(() => {
     if (!nf) return
@@ -80,7 +87,7 @@ export default function FollowupModal({ nf, onClose, onSaved }: {
           display:'flex', justifyContent:'space-between', alignItems:'center' }}>
           <div>
             <div style={{ fontFamily:"'Inter',sans-serif", fontWeight:800, fontSize:16, color:T.text }}>
-              Follow-up Interno — NF {nf.nf_numero}
+              {readOnly ? 'Status Interno — NF ' : 'Follow-up Interno — NF '}{nf.nf_numero}
             </div>
             <div style={{ fontSize:11, color:T.text2, marginTop:2 }}>
               {nf.destinatario_nome?.split(' - ').slice(1).join(' ').substring(0,40)} · {nf.cidade_destino}
@@ -90,7 +97,8 @@ export default function FollowupModal({ nf, onClose, onSaved }: {
             color:T.text2, padding:'4px 8px', borderRadius:4, cursor:'pointer', fontSize:14 }}>✕</button>
         </div>
 
-        {/* Formulário */}
+        {/* Formulário — só para assistentes (não admin) */}
+        {!readOnly && (
         <div style={{ padding:'14px 18px', borderBottom:`1px solid ${T.border}` }}>
           <div style={{ fontSize:11, color:T.text3, marginBottom:8, fontWeight:600, letterSpacing:'0.04em' }}>
             REGISTRAR NOVO STATUS
@@ -106,10 +114,11 @@ export default function FollowupModal({ nf, onClose, onSaved }: {
               </select>
             </div>
             <div>
-              <div style={{ fontSize:10, color:T.text3, marginBottom:4 }}>Usuário</div>
-              <input value={usuario} onChange={e => setUsuario(e.target.value)}
+              <div style={{ fontSize:10, color:T.text3, marginBottom:4 }}>Responsável</div>
+              <input value={usuario} readOnly
                 style={{ width:'100%', background:T.surface2, border:`1px solid ${T.border}`, color:T.text,
-                  padding:'7px 10px', borderRadius:5, fontSize:12, fontFamily:'DM Mono, monospace' }} />
+                  padding:'7px 10px', borderRadius:5, fontSize:12, fontFamily:'DM Mono, monospace',
+                  opacity:.7, cursor:'default' }} />
             </div>
           </div>
           <div>
@@ -128,6 +137,7 @@ export default function FollowupModal({ nf, onClose, onSaved }: {
             {saving ? 'Salvando...' : '+ Registrar Status'}
           </button>
         </div>
+        )}
 
         {/* Histórico */}
         <div style={{ flex:1, overflowY:'auto', padding:'12px 18px' }}>

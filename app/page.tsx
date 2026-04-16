@@ -649,19 +649,23 @@ function MonitoramentoInner() {
                     </td>
                     {visibleCols.has('status_interno') && (
                       <td style={{ padding:'6px 10px' }}>
-                        <button onClick={e=>{e.stopPropagation();setFollowupNF(r)}}
-                          title={r.followup_obs||r.followup_status||'Registrar follow-up'}
-                          style={{
-                            fontSize:11, padding:'4px 10px', borderRadius:5, cursor:'pointer',
-                            background:r.followup_status?'rgba(37,99,235,0.08)':'transparent',
-                            border:`1px solid ${r.followup_status?'rgba(37,99,235,0.28)':T.border}`,
-                            color:r.followup_status?T.blue:T.text4,
-                            maxWidth:155, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
-                            display:'block', textAlign:'left', fontFamily:'var(--font-ui)',
-                            fontWeight:r.followup_status?600:400,
-                          }}>
-                          {r.followup_status?`📋 ${r.followup_status}`:'+ follow-up'}
-                        </button>
+                        {/* Admin: read-only — só visualiza, clique abre histórico */}
+                        {r.followup_status ? (
+                          <button onClick={e=>{e.stopPropagation();setFollowupNF(r)}}
+                            title={r.followup_obs||r.followup_status}
+                            style={{
+                              fontSize:11, padding:'4px 10px', borderRadius:5, cursor:'pointer',
+                              background:'rgba(37,99,235,0.08)',
+                              border:'1px solid rgba(37,99,235,0.28)',
+                              color:'#2563eb',
+                              maxWidth:155, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
+                              display:'block', textAlign:'left', fontFamily:'var(--font-ui)', fontWeight:600,
+                            }}>
+                            📋 {r.followup_status}
+                          </button>
+                        ) : (
+                          <span style={{fontSize:11,color:T.text4,padding:'4px 2px',display:'block'}}>—</span>
+                        )}
                       </td>
                     )}
                     {visibleCols.has('assistente') && (
@@ -711,7 +715,7 @@ function MonitoramentoInner() {
           )
         }}
       />
-      <FollowupModal nf={followupNF} onClose={()=>setFollowupNF(null)} onSaved={load} />
+      <FollowupModal nf={followupNF} onClose={()=>setFollowupNF(null)} onSaved={load} readOnly={true} />
     </div>
   )
 }
