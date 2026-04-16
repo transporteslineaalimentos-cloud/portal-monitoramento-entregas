@@ -367,7 +367,7 @@ export default function TorrePage() {
     setLoading(true)
     const PAGE=1000; let all:Entrega[]=[]; let from=0
     while (true) {
-      const { data:rows, error } = await supabase.from('v_monitoramento_completo').select('*').range(from,from+PAGE-1)
+      const { data:rows, error } = await supabase.from('v_monitoramento_completo').select('nf_numero,nf_serie,dt_emissao,filial,remetente_cnpj,destinatario_cnpj,destinatario_nome,destinatario_fantasia,cidade_destino,uf_destino,pedido,centro_custo,valor_produtos,volumes,transportador_nome,dt_expedida,dt_previsao,dt_lt_interno,lt_dias,lt_vencido,codigo_ocorrencia,ultima_ocorrencia,dt_entrega,status,followup_status,followup_obs,followup_usuario,assistente,cc_editado,is_mock,cod_agend').range(from,from+PAGE-1)
       if (error||!rows||rows.length===0) break
       all=all.concat(rows as Entrega[]); if(rows.length<PAGE) break; from+=PAGE
     }
@@ -404,17 +404,20 @@ export default function TorrePage() {
     setSavingManual(false)
   }
 
-  useEffect(() => { load(); loadManualData() }, [load])
+  useEffect(() => { load() }, [load])
+  useEffect(() => { loadManualData() }, []) // carrega dados manuais apenas 1x
 
   useEffect(() => {
     if (!user) return
+    let rtTimer: ReturnType<typeof setTimeout>|null = null
+    const debouncedLoad = () => { if(rtTimer) clearTimeout(rtTimer); rtTimer = setTimeout(()=>load(), 3000) }
     const ch = supabase.channel('torre-rt')
-      .on('postgres_changes',{event:'*',schema:'public',table:'active_ocorrencias'},()=>load())
-      .on('postgres_changes',{event:'*',schema:'public',table:'active_webhooks'},()=>load())
-      .on('postgres_changes',{event:'*',schema:'public',table:'mon_followup_status'},()=>load())
+      .on('postgres_changes',{event:'*',schema:'public',table:'active_ocorrencias'},debouncedLoad)
+      .on('postgres_changes',{event:'*',schema:'public',table:'active_webhooks'},debouncedLoad)
+      .on('postgres_changes',{event:'*',schema:'public',table:'mon_followup_status'},debouncedLoad)
       .subscribe()
     const interval = setInterval(load, 5*60*1000)
-    return () => { supabase.removeChannel(ch); clearInterval(interval) }
+    return () => { supabase.removeChannel(ch); clearInterval(interval); if(rtTimer) clearTimeout(rtTimer) }
   }, [user, load])
 
   const filtered = useMemo(()=>{
@@ -460,7 +463,7 @@ export default function TorrePage() {
   const totalValorAberto = baseParaKpi.filter(r=>r.status!=='Entregue').reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
   const totalValor = filtered.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
   const trOpts = useMemo(()=>[...new Set(data.map(r=>r.transportador_nome).filter(Boolean))].sort(),[data])
-  const tableW = COL_DEFS.filter(col => visibleCols.has(col.id)).reduce((s,col)=>s+col.w,0)
+  const tableW = useMemo(() => COL_DEFS.filter(col => visibleCols.has(col.id)).reduce((s,col)=>s+col.w,0), [visibleCols])
 
   const nfsSemCC = data.filter(r=>{ const cc=(r.centro_custo||'').trim(); return !cc||cc===''||cc==='-'||cc==='Não mapeado' })
 

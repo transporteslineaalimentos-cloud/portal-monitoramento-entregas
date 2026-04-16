@@ -75,7 +75,7 @@ export default function DashboardGestao() {
     setLoading(true)
     let _all: Entrega[] = []; let _from = 0
     while (true) {
-      const { data: _rows } = await supabase.from('v_monitoramento_completo').select('*').range(_from, _from + 999)
+      const { data: _rows } = await supabase.from('v_monitoramento_completo').select('nf_numero,dt_emissao,filial,centro_custo,valor_produtos,transportador_nome,dt_previsao,lt_vencido,status,assistente,is_mock').range(_from, _from + 999)
       if (!_rows || _rows.length === 0) break
       _all = _all.concat(_rows as Entrega[]); if (_rows.length < 1000) break; _from += 1000
     }

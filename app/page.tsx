@@ -160,9 +160,11 @@ function MonitoramentoInner() {
     }
   }, [data, _urlNfRef]) // eslint-disable-line
   useEffect(() => {
+    let _rtTimer: ReturnType<typeof setTimeout>|null = null
+    const _debouncedLoad = () => { if(_rtTimer) clearTimeout(_rtTimer); _rtTimer = setTimeout(()=>load(), 3000) }
     const ch = supabase.channel('mon-rt')
-      .on('postgres_changes', { event:'*', schema:'public', table:'active_ocorrencias' }, load)
-      .on('postgres_changes', { event:'*', schema:'public', table:'active_webhooks' }, load)
+      .on('postgres_changes', { event:'*', schema:'public', table:'active_ocorrencias' }, _debouncedLoad)
+      .on('postgres_changes', { event:'*', schema:'public', table:'active_webhooks' }, _debouncedLoad)
       .subscribe()
     return () => { supabase.removeChannel(ch) }
   }, [load])

@@ -144,7 +144,7 @@ function ExecPage() {
     let _all: Entrega[] = []; let _from = 0
     while (true) {
       const { data: _rows } = await supabase
-        .from('v_monitoramento_completo').select('*').eq('is_mock', false).range(_from, _from + 999)
+        .from('v_monitoramento_completo').select('nf_numero,dt_emissao,filial,destinatario_cnpj,destinatario_nome,destinatario_fantasia,cidade_destino,uf_destino,centro_custo,valor_produtos,transportador_nome,dt_expedida,dt_previsao,dt_lt_interno,lt_vencido,lt_transp_vencido,codigo_ocorrencia,ultima_ocorrencia,dt_entrega,status,status_detalhado,assistente,cod_agend,is_mock').eq('is_mock', false).range(_from, _from + 999)
       if (!_rows || _rows.length === 0) break
       _all = _all.concat(_rows as Entrega[]); if (_rows.length < 1000) break; _from += 1000
     }
@@ -355,7 +355,7 @@ function ExecPage() {
       setLoadingOcorr(true)
       const { data: ocs } = await supabase
         .from('v_todas_ocorrencias')
-        .select('*')
+        .select('nf_numero,dt_emissao,filial,destinatario_cnpj,destinatario_nome,destinatario_fantasia,cidade_destino,uf_destino,centro_custo,valor_produtos,transportador_nome,dt_expedida,dt_previsao,dt_lt_interno,lt_vencido,lt_transp_vencido,codigo_ocorrencia,ultima_ocorrencia,dt_entrega,status,status_detalhado,assistente,cod_agend,is_mock')
         .eq('nf_numero', num)
         .order('created_at', { ascending: false })
       setOcorrencias((ocs as Ocorrencia[]) || [])
