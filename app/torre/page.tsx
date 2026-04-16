@@ -188,13 +188,15 @@ function LoginScreen({ onLogin }: { onLogin:(u:TorreUser)=>void }) {
           borderBottom:`1px solid ${D.border}`,position:'relative',overflow:'hidden'}}>
           <div style={{position:'absolute',inset:0,background:'radial-gradient(ellipse 60% 80% at 50% -10%, rgba(59,130,246,.12) 0%, transparent 70%)',pointerEvents:'none'}}/>
           <div style={{display:'flex',justifyContent:'center',marginBottom:16}}>
-            <LogoIcon size={48}/>
+            <div style={{background:'#fff',borderRadius:12,padding:'10px 20px',display:'inline-flex',alignItems:'center',justifyContent:'center'}}>
+              <img src="/logo-linea-headlin.png" alt="Linea Alimentos" style={{height:44,width:'auto',display:'block'}}/>
+            </div>
           </div>
-          <div style={{fontSize:20,fontWeight:700,color:D.text,letterSpacing:'-.02em',marginBottom:6}}>
+          <div style={{fontSize:13,fontWeight:700,color:D.text,letterSpacing:'.06em',textTransform:'uppercase',marginBottom:4}}>
             Torre de Controle
           </div>
-          <div style={{fontSize:13,color:D.text3,letterSpacing:'.02em'}}>
-            Acesso restrito · Linea Alimentos
+          <div style={{fontSize:12,color:D.text3,letterSpacing:'.02em'}}>
+            Acesso restrito
           </div>
         </div>
         <div style={{padding:'28px 36px 36px',display:'flex',flexDirection:'column',gap:16}}>
@@ -467,11 +469,12 @@ export default function TorrePage() {
 
         {/* Logo */}
         <div style={{padding:'20px 18px 16px',borderBottom:`1px solid ${T.border}`}}>
-          <div style={{display:'flex',alignItems:'center',gap:10}}>
-            <LogoIcon size={36}/>
-            <div>
-              <div style={{fontSize:13,fontWeight:700,color:T.text,letterSpacing:'-.02em',lineHeight:1.2}}>Torre de Controle</div>
-              <div style={{fontSize:10,color:T.text3,letterSpacing:'.04em',marginTop:2}}>Linea Alimentos</div>
+          <div style={{display:'flex',flexDirection:'column',gap:4}}>
+            <div style={{background:'#ffffff',borderRadius:8,padding:'5px 8px',display:'flex',alignItems:'center',justifyContent:'center'}}>
+              <img src="/logo-linea-headlin.png" alt="Linea Alimentos" style={{height:32,width:'auto',display:'block',maxWidth:'100%'}}/>
+            </div>
+            <div style={{fontSize:9,fontWeight:700,color:T.text3,letterSpacing:'.1em',textTransform:'uppercase',textAlign:'center'}}>
+              Torre de Controle
             </div>
           </div>
         </div>

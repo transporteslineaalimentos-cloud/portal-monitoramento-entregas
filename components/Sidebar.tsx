@@ -77,15 +77,15 @@ export default function Sidebar({ theme, onToggleTheme }: { theme: Theme; onTogg
         {!collapsed && (
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{
-              background: '#0d1b3e',
+              background: '#ffffff',
               borderRadius: 8,
-              padding: '5px 8px',
+              padding: '6px 8px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
             }}>
-              <Image src="/logo-linea.png" alt="Linea Alimentos" width={150} height={55}
-                style={{ objectFit: 'contain', width: '100%', height: 'auto', maxHeight: 42, display: 'block' }}
+              <Image src="/logo-linea-headlin.png" alt="Linea Alimentos" width={168} height={50}
+                style={{ objectFit: 'contain', width: '100%', height: 'auto', maxHeight: 40, display: 'block' }}
                 priority />
             </div>
             <div style={{ fontSize: 9, color: T.text3, letterSpacing: '0.08em', fontWeight: 500, paddingLeft: 2, marginTop: 4 }}>

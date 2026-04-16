@@ -442,11 +442,9 @@ function ExecPage() {
 
       {/* ── HEADER ─────────────────────────────────────────────────────── */}
       <header style={{background:C.surface3,borderBottom:`1px solid ${C.border}`,padding:'12px 28px',position:'sticky',top:0,zIndex:50,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-        <div style={{display:'flex',alignItems:'center',gap:14}}>
-          <div style={{width:36,height:36,borderRadius:8,background:'linear-gradient(135deg,#f97316,#ea580c)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,fontWeight:800,color:'#fff',boxShadow:'0 4px 12px rgba(249,115,22,.35)'}}>L</div>
-          <div>
-            <div style={{fontWeight:800,fontSize:15,color:C.text,letterSpacing:'-.01em'}}>LINEA ALIMENTOS</div>
-            <div style={{fontSize:9,color:C.text3,letterSpacing:'.06em'}}>MONITORAMENTO DE ENTREGAS</div>
+        <div style={{display:'flex',alignItems:'center',gap:0}}>
+          <div style={{background:'#ffffff',borderRadius:10,padding:'5px 14px',display:'flex',alignItems:'center',justifyContent:'center'}}>
+            <img src="/logo-linea-headlin.png" alt="Linea Alimentos" style={{height:36,width:'auto',display:'block'}}/>
           </div>
         </div>
         <div style={{display:'flex',gap:4,background:C.surface2,padding:4,borderRadius:9,border:`1px solid ${C.border}`}}>
