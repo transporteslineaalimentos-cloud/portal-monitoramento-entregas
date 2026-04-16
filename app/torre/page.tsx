@@ -419,7 +419,7 @@ export default function TorrePage() {
   }
 
   const exportExcel=()=>{
-    const rows=(activeSection==='sem-cc'?nfsSemCC:filtered).map(r=>({'NF':r.nf_numero,'Filial':r.filial,'Emissão':r.dt_emissao?.slice(0,10)||'','Destinatário':r.destinatario_fantasia||r.destinatario_nome||'','Cidade':r.cidade_destino||'','UF':r.uf_destino||'','C. Custo':r.centro_custo||'','Valor':Number(r.valor_produtos)||0,'Transportadora':r.transportador_nome||'','Expedida':r.dt_expedida?.slice(0,10)||'','Previsão':r.dt_previsao||'','LT Interno':r.dt_lt_interno?.slice(0,10)||'','Ocorrência':r.ultima_ocorrencia||'','Status':r.status||'','Follow-up':r.followup_obs||''}))
+    const rows=(activeSection==='sem-cc'?nfsSemCC:filtered).map(r=>({'NF':r.nf_numero,'Pedido':r.pedido||'','Filial':r.filial,'Emissão':r.dt_emissao?.slice(0,10)||'','Destinatário':r.destinatario_fantasia||r.destinatario_nome||'','Cidade':r.cidade_destino||'','UF':r.uf_destino||'','C. Custo':r.centro_custo||'','Valor':Number(r.valor_produtos)||0,'Transportadora':r.transportador_nome||'','Expedida':r.dt_expedida?.slice(0,10)||'','Previsão':r.dt_previsao||'','LT Interno':r.dt_lt_interno?.slice(0,10)||'','Ocorrência':r.ultima_ocorrencia||'','Status':r.status||'','Follow-up':r.followup_obs||''}))
     if(rows.length===0) return
     const headers=Object.keys(rows[0])
     const csvLines=[headers.join(';'),...rows.map(r=>headers.map(h=>{const v=(r as Record<string,unknown>)[h];const s=String(v??'').replace(/;/g,',');return `"${s}"`}).join(';'))]
@@ -873,6 +873,7 @@ export default function TorrePage() {
                   <thead>
                     <tr>
                       <Th field="nf_numero"     label="NF"             w={75}/>
+                      <Th                        label="Pedido"         w={95}/>
                       <Th                        label="Filial"         w={72}/>
                       <Th field="dt_emissao"     label="Emissão"        w={82}/>
                       <Th                        label="Destinatário"   w={168}/>
@@ -905,6 +906,9 @@ export default function TorrePage() {
 
                           <td style={{padding:'5px 10px'}}>
                             <span style={{color:T.accent,fontWeight:700,fontFamily:'var(--font-mono)',fontSize:12,letterSpacing:'-.01em'}}>{r.nf_numero}</span>
+                          </td>
+                          <td style={{padding:'5px 10px',fontSize:11,color:T.text2,fontFamily:'var(--font-mono)',whiteSpace:'nowrap'}}>
+                            {r.pedido||'—'}
                           </td>
                           <td style={{padding:'5px 10px'}}>
                             <span style={{fontSize:10,fontWeight:700,padding:'2px 7px',borderRadius:5,background:r.filial==='CHOCOLATE'?'rgba(124,58,237,.15)':'rgba(148,163,184,.08)',color:r.filial==='CHOCOLATE'?'#a78bfa':T.text3}}>{r.filial==='CHOCOLATE'?'CHOCO':r.filial}</span>
