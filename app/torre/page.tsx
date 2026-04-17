@@ -469,7 +469,14 @@ export default function TorrePage() {
   const trOpts = useMemo(()=>[...new Set(data.map(r=>r.transportador_nome).filter(Boolean))].sort(),[data])
   const tableW = useMemo(() => COL_DEFS.filter(col => visibleCols.has(col.id)).reduce((s,col)=>s+col.w,0), [visibleCols])
 
-  const nfsSemCC = data.filter(r=>{ const cc=(r.centro_custo||'').trim(); return !cc||cc===''||cc==='-'||cc==='Não mapeado' })
+  const nfsSemCC = useMemo(()=>{
+    let d = data.filter(r=>{ const cc=(r.centro_custo||'').trim(); return !cc||cc===''||cc==='-'||cc==='Não mapeado' })
+    if (filtroTransp) d=d.filter(r=>r.transportador_nome?.toLowerCase().includes(filtroTransp.toLowerCase()))
+    if (filtroNF) d=d.filter(r=>r.nf_numero?.includes(filtroNF)||r.destinatario_fantasia?.toLowerCase().includes(filtroNF.toLowerCase())||r.destinatario_nome?.toLowerCase().includes(filtroNF.toLowerCase()))
+    if (dateFrom) { const f=new Date(dateFrom); f.setHours(0,0,0,0); d=d.filter(r=>r.dt_emissao&&new Date(r.dt_emissao)>=f) }
+    if (dateTo)   { const t=new Date(dateTo);   t.setHours(23,59,59,999); d=d.filter(r=>r.dt_emissao&&new Date(r.dt_emissao)<=t) }
+    return d
+  },[data,filtroTransp,filtroNF,dateFrom,dateTo])
 
 
 
@@ -915,16 +922,16 @@ export default function TorrePage() {
                         <td style={{padding:'11px 16px',fontSize:11,color:T.text2,maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.transportador_nome?.split(' ').slice(0,2).join(' ')||'—'}</td>
                         <td style={{padding:'11px 16px'}}>
                           {editCCNF===r.nf_numero?(
-                            <div style={{display:'flex',gap:5,alignItems:'center'}}>
+                            <div style={{display:'flex',gap:5,alignItems:'center'}} onClick={e=>e.stopPropagation()}>
                               <select value={editCCValor} onChange={e=>setEditCCValor(e.target.value)} style={{...darkInput,padding:'5px 8px',fontSize:11,flex:1,borderColor:T.accent}}>
                                 <option value=''>Selecionar CC…</option>
                                 {CC_OPTS.map(cc=><option key={cc} value={cc}>{cc}</option>)}
                               </select>
-                              <button onClick={()=>saveCC(r.nf_numero,editCCValor)} disabled={!editCCValor||editCCSaving} style={{padding:'5px 9px',background:editCCValor&&!editCCSaving?T.accent:'#334155',border:'none',color:'#fff',borderRadius:7,cursor:'pointer',fontSize:11,fontFamily:'inherit',fontWeight:600}}>{editCCSaving?'…':'✓'}</button>
-                              <button onClick={()=>{setEditCCNF(null);setEditCCValor('')}} style={{padding:'5px 8px',background:'none',border:`1px solid ${T.border}`,color:T.text3,borderRadius:7,cursor:'pointer',fontSize:11}}>✕</button>
+                              <button onClick={e=>{e.stopPropagation();saveCC(r.nf_numero,editCCValor)}} disabled={!editCCValor||editCCSaving} style={{padding:'5px 9px',background:editCCValor&&!editCCSaving?T.accent:'#334155',border:'none',color:'#fff',borderRadius:7,cursor:'pointer',fontSize:11,fontFamily:'inherit',fontWeight:600}}>{editCCSaving?'…':'✓'}</button>
+                              <button onClick={e=>{e.stopPropagation();setEditCCNF(null);setEditCCValor('')}} style={{padding:'5px 8px',background:'none',border:`1px solid ${T.border}`,color:T.text3,borderRadius:7,cursor:'pointer',fontSize:11}}>✕</button>
                             </div>
                           ):(
-                            <button onClick={()=>{setEditCCNF(r.nf_numero);setEditCCValor('')}} style={{padding:'5px 12px',background:'rgba(249,115,22,.08)',border:'1px solid rgba(249,115,22,.25)',color:T.accent,borderRadius:7,cursor:'pointer',fontSize:11,fontFamily:'inherit',fontWeight:600}}>+ Definir CC</button>
+                            <button onClick={e=>{e.stopPropagation();setEditCCNF(r.nf_numero);setEditCCValor('')}} style={{padding:'5px 12px',background:'rgba(249,115,22,.08)',border:'1px solid rgba(249,115,22,.25)',color:T.accent,borderRadius:7,cursor:'pointer',fontSize:11,fontFamily:'inherit',fontWeight:600}}>+ Definir CC</button>
                           )}
                         </td>
                         <td style={{padding:'11px 16px'}}><StatusBadge status={r.status||''}/></td>
@@ -1015,8 +1022,8 @@ export default function TorrePage() {
                                   <option value=''>CC…</option>
                                   {CC_OPTS.map(cc=><option key={cc} value={cc}>{cc}</option>)}
                                 </select>
-                                <button onClick={()=>saveCC(r.nf_numero,editCCValor)} disabled={!editCCValor||editCCSaving} style={{padding:'3px 7px',background:editCCValor&&!editCCSaving?T.accent:'#334155',border:'none',color:'#fff',borderRadius:5,cursor:'pointer',fontSize:11,fontFamily:'inherit'}}>{editCCSaving?'…':'✓'}</button>
-                                <button onClick={()=>{setEditCCNF(null);setEditCCValor('')}} style={{padding:'3px 6px',background:'none',border:`1px solid ${T.border}`,color:T.text3,borderRadius:5,cursor:'pointer',fontSize:11}}>✕</button>
+                                <button onClick={e=>{e.stopPropagation();saveCC(r.nf_numero,editCCValor)}} disabled={!editCCValor||editCCSaving} style={{padding:'3px 7px',background:editCCValor&&!editCCSaving?T.accent:'#334155',border:'none',color:'#fff',borderRadius:5,cursor:'pointer',fontSize:11,fontFamily:'inherit'}}>{editCCSaving?'…':'✓'}</button>
+                                <button onClick={e=>{e.stopPropagation();setEditCCNF(null);setEditCCValor('')}} style={{padding:'3px 6px',background:'none',border:`1px solid ${T.border}`,color:T.text3,borderRadius:5,cursor:'pointer',fontSize:11}}>✕</button>
                               </div>
                             ):(
                               <div style={{display:'flex',alignItems:'center',gap:4}}>
