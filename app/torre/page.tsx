@@ -901,12 +901,14 @@ export default function TorrePage() {
                   </tr></thead>
                   <tbody>
                     {nfsSemCC.map((r,i)=>(
-                      <tr key={i} style={{borderBottom:`1px solid ${T.borderLo}`,transition:'background .15s'}}
+                      <tr key={i}
+                        onClick={()=>setSelectedNF(r)}
+                        style={{borderBottom:`1px solid ${T.borderLo}`,transition:'background .15s',cursor:'pointer'}}
                         onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background=T.surface2}
                         onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background='transparent'}>
                         <td style={{padding:'11px 16px'}}><span style={{color:T.accent,fontWeight:700,fontFamily:'var(--font-mono)',fontSize:12}}>{r.nf_numero}</span></td>
                         <td style={{padding:'11px 16px'}}><span style={{fontSize:10,fontWeight:700,padding:'2px 7px',borderRadius:5,background:r.filial==='CHOCOLATE'?'rgba(124,58,237,.15)':'rgba(148,163,184,.1)',color:r.filial==='CHOCOLATE'?'#a78bfa':T.text3}}>{r.filial}</span></td>
-                        <td style={{padding:'11px 16px',fontSize:11,color:T.text2}}>{r.dt_emissao?r.dt_emissao.slice(0,10):'—'}</td>
+                        <td style={{padding:'11px 16px',fontSize:11,color:T.text2}}>{fmt(r.dt_emissao)}</td>
                         <td style={{padding:'11px 16px',maxWidth:180,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontWeight:500,fontSize:12}}>{r.destinatario_fantasia||r.destinatario_nome||'—'}</td>
                         <td style={{padding:'11px 16px',fontSize:11,color:T.text2,whiteSpace:'nowrap'}}>{r.cidade_destino} · {r.uf_destino}</td>
                         <td style={{padding:'11px 16px',fontVariantNumeric:'tabular-nums',fontSize:12,fontWeight:600}}>R${(Number(r.valor_produtos)||0).toLocaleString('pt-BR',{minimumFractionDigits:0})}</td>
