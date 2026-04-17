@@ -144,7 +144,7 @@ function ExecPage() {
     let _all: Entrega[] = []; let _from = 0
     while (true) {
       const { data: _rows } = await supabase
-        .from('v_monitoramento_completo').select('nf_numero,dt_emissao,filial,destinatario_cnpj,destinatario_nome,destinatario_fantasia,cidade_destino,uf_destino,centro_custo,valor_produtos,transportador_nome,dt_expedida,dt_previsao,dt_lt_interno,lt_vencido,lt_transp_vencido,codigo_ocorrencia,ultima_ocorrencia,dt_entrega,status,status_detalhado,assistente,cod_agend,is_mock').eq('is_mock', false).range(_from, _from + 999)
+        .from('v_monitoramento_completo').select('nf_numero,nf_serie,dt_emissao,filial,destinatario_cnpj,destinatario_nome,destinatario_fantasia,cidade_destino,uf_destino,pedido,centro_custo,valor_produtos,volumes,cfop,transportador_nome,tem_romaneio,romaneio_numero,dt_expedida,dt_previsao,dt_lt_interno,lt_vencido,lt_transp_vencido,codigo_ocorrencia,ultima_ocorrencia,dt_entrega,status,status_detalhado,assistente,cod_agend,is_mock').eq('is_mock', false).range(_from, _from + 999)
       if (!_rows || _rows.length === 0) break
       _all = _all.concat(_rows as unknown as Entrega[]); if (_rows.length < 1000) break; _from += 1000
     }
@@ -986,7 +986,8 @@ function ExecPage() {
                 
                         {label:'Data de Entrega',    value:(()=>{ const oc=ocorrencias.find(o=>['01','107','123','124'].includes(o.codigo_ocorrencia)); const d=r.dt_entrega||(oc?.data_ocorrencia); return d?fmt(d):'Não entregue' })(),  color:(r.dt_entrega||ocorrencias.some(o=>['01','107','123','124'].includes(o.codigo_ocorrencia)))?C.green:C.text3},
                         {label:'Responsável',        value:r.assistente||'—',                  color:C.text},
-                        {label:'Volumes',            value:String(r.volumes||'—'),             color:C.text},
+                        {label:'Emissão NF',         value:fmt(r.dt_emissao)||'—',             color:C.text},
+                        {label:'Volumes',            value:r.volumes?String(r.volumes):'—',    color:C.text},
                         {label:'CFOP',               value:r.cfop||'—',                        color:C.text},
                       ].map(f=>(
                         <div key={f.label}>
