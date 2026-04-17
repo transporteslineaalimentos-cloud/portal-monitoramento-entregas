@@ -594,10 +594,15 @@ function ExecPage() {
                       if (ant.count === 0 && atual.count === 0) return null
                       const cor = STATUS_COLORS[linha] || C.text3
                       return (
-                        <tr key={linha} style={{borderBottom:`1px solid ${C.border}`}}>
+                        <tr key={linha}
+                          onClick={()=>navToMonitor({status:linha})}
+                          style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'opacity .15s'}}
+                          onMouseEnter={e=>(e.currentTarget as HTMLElement).style.opacity='.7'}
+                          onMouseLeave={e=>(e.currentTarget as HTMLElement).style.opacity='1'}>
                           <td style={{padding:'8px 10px',display:'flex',alignItems:'center',gap:7}}>
                             <div style={{width:8,height:8,borderRadius:'50%',background:cor,flexShrink:0}}/>
                             <span style={{color:C.text,fontWeight:500}}>{linha}</span>
+                            <span style={{fontSize:9,color:cor,opacity:.7,marginLeft:2}}>↗</span>
                           </td>
                           <td style={{padding:'8px 10px',textAlign:'right'}}>
                             {ant.count > 0 ? (

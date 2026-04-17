@@ -374,12 +374,15 @@ export default function TorrePage() {
     }
     const meusCCs = user.centros_custo.map(c=>c.toLowerCase().trim())
     const meuNome = (user.nome||'').toLowerCase().trim()
+    const SEM_CC_INVALIDOS = ['', '-', 'não mapeado', 'nao mapeado']
     setData(all.filter(r=>{
       const ccNota=(r.centro_custo||'').toLowerCase().trim()
       const assistenteNota=(r.assistente||'').toLowerCase().trim()
-      const matchCC = ccNota ? meusCCs.some(cc=>cc===ccNota) : false
+      // NFs sem CC válido aparecem para TODAS as assistentes (aba Sem Centro de Custo)
+      const semCC = SEM_CC_INVALIDOS.includes(ccNota)
+      const matchCC = !semCC && meusCCs.some(cc=>cc===ccNota)
       const matchAssistente = !!meuNome && assistenteNota===meuNome
-      return matchCC || matchAssistente
+      return semCC || matchCC || matchAssistente
     }))
     setLastUpdate(new Date())
     setLoading(false)
