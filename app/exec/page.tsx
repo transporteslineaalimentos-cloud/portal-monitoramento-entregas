@@ -11,18 +11,28 @@ import { ptBR } from 'date-fns/locale'
 
 // ── Paleta standalone ─────────────────────────────────────────────────────────
 const DARK = {
-  bg:'#060912', surface:'#0e1521', surface2:'#141e2e', surface3:'#0a1018',
-  border:'#1a2d45', border2:'#243d5e',
-  text:'#f0f4f8', text2:'#8fa3bb', text3:'#4e6580', text4:'#2d4055',
-  accent:'#f97316', green:'#22c55e', blue:'#3b82f6',
+  bg:'#04070d', surface:'#0b1320', surface2:'#111b2c', surface3:'#060c17',
+  border:'#1e3352', border2:'#2b4a74',
+  text:'#f1f5fb', text2:'#94abc6', text3:'#546e8d', text4:'#2d4360',
+  accent:'#f97316', accent2:'#fb923c',
+  green:'#22c55e', blue:'#3b82f6',
   yellow:'#eab308', red:'#ef4444', purple:'#a855f7',
+  gradCard:'linear-gradient(180deg, rgba(30,51,82,0.28) 0%, rgba(11,19,32,0) 100%)',
+  gradHero:'linear-gradient(135deg, rgba(249,115,22,0.14) 0%, rgba(249,115,22,0) 60%)',
+  shadow:'0 1px 0 0 rgba(255,255,255,.03) inset, 0 8px 24px -12px rgba(0,0,0,.6)',
+  shadowHover:'0 1px 0 0 rgba(255,255,255,.04) inset, 0 12px 32px -12px rgba(0,0,0,.7)',
 }
 const LIGHT = {
-  bg:'#f0f4f8', surface:'#ffffff', surface2:'#f8fafc', surface3:'#e8edf3',
-  border:'#d1dce8', border2:'#b8c9da',
-  text:'#0f1923', text2:'#3d5166', text3:'#7a92a8', text4:'#b0c3d4',
-  accent:'#f97316', green:'#16a34a', blue:'#2563eb',
+  bg:'#f4f6fa', surface:'#ffffff', surface2:'#f8fafc', surface3:'#eef2f7',
+  border:'#dde4ee', border2:'#c2cfde',
+  text:'#0a1426', text2:'#3d5166', text3:'#7a8ba0', text4:'#b8c4d4',
+  accent:'#ea6c0a', accent2:'#f97316',
+  green:'#16a34a', blue:'#2563eb',
   yellow:'#ca8a04', red:'#dc2626', purple:'#7c3aed',
+  gradCard:'linear-gradient(180deg, rgba(248,250,252,0.6) 0%, rgba(255,255,255,0) 100%)',
+  gradHero:'linear-gradient(135deg, rgba(234,108,10,0.06) 0%, rgba(234,108,10,0) 60%)',
+  shadow:'0 1px 3px rgba(15,25,42,.04), 0 1px 2px rgba(15,25,42,.06)',
+  shadowHover:'0 4px 12px rgba(15,25,42,.08), 0 2px 4px rgba(15,25,42,.06)',
 }
 const STATUS_COLORS: Record<string,string> = {
   'Entregue':                  '#22c55e',
@@ -373,42 +383,57 @@ function ExecPage() {
   const Tip = ({active,payload,label}:any) => {
     if(!active||!payload?.length) return null
     return (
-      <div style={{background:'#0d1520',border:'1px solid #334155',borderRadius:8,padding:'10px 14px',fontSize:12,boxShadow:'0 8px 24px rgba(0,0,0,0.5)'}}>
-        <div style={{color:'#94a3b8',marginBottom:6,fontWeight:600,fontSize:11}}>{label}</div>
+      <div style={{background:isDark?'#0a1322':'#ffffff',border:`1px solid ${C.border2}`,borderRadius:10,padding:'11px 14px',fontSize:12,boxShadow:isDark?'0 12px 32px -8px rgba(0,0,0,0.7)':'0 8px 24px rgba(10,20,38,.12)',minWidth:160,backdropFilter:'blur(8px)'}}>
+        <div style={{color:C.text3,marginBottom:7,fontWeight:600,fontSize:10,letterSpacing:'.08em',textTransform:'uppercase'}}>{label}</div>
         {payload.map((p:any,i:number)=>(
-          <div key={i} style={{color:p.color||'#f1f5f9',marginBottom:3,display:'flex',gap:8,justifyContent:'space-between'}}>
-            <span style={{color:'#94a3b8'}}>{p.name}:</span>
-            <strong style={{color:'#f1f5f9'}}>{typeof p.value==='number'&&p.value>999?moneyFull(p.value):p.value}</strong>
+          <div key={i} style={{marginBottom:3,display:'flex',gap:12,justifyContent:'space-between',alignItems:'center'}}>
+            <span style={{display:'flex',alignItems:'center',gap:6,color:C.text2,fontSize:11}}>
+              <span style={{width:7,height:7,borderRadius:'50%',background:p.color||C.accent,display:'inline-block'}}/>
+              {p.name}
+            </span>
+            <strong style={{color:C.text,fontVariantNumeric:'tabular-nums',fontSize:12}}>{typeof p.value==='number'&&p.value>999?moneyFull(p.value):p.value}</strong>
           </div>
         ))}
       </div>
     )
   }
 
-  const SecCard = ({title, sub, children, accent}:{title:string;sub?:string;children:React.ReactNode;accent?:string}) => (
-    <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,overflow:'hidden'}}>
-      <div style={{padding:'10px 16px',background:C.surface3,borderBottom:`1px solid ${C.border}`,display:'flex',justifyContent:'space-between',alignItems:'center',borderLeft:`3px solid ${accent||C.border}`}}>
-        <span style={{fontSize:12,fontWeight:700,color:C.text}}>{title}</span>
-        {sub&&<span style={{fontSize:12,fontWeight:700,color:accent||C.accent}}>{sub}</span>}
+  const SecCard = ({title, sub, children, accent, icon}:{title:string;sub?:string;children:React.ReactNode;accent?:string;icon?:React.ReactNode}) => (
+    <div style={{background:C.surface,backgroundImage:C.gradCard,border:`1px solid ${C.border}`,borderRadius:12,overflow:'hidden',boxShadow:C.shadow,transition:'box-shadow .2s, border-color .2s'}}>
+      <div style={{padding:'14px 18px 12px',borderBottom:`1px solid ${C.border}`,display:'flex',justifyContent:'space-between',alignItems:'center',gap:12}}>
+        <div style={{display:'flex',alignItems:'center',gap:10,minWidth:0,flex:1}}>
+          {accent && <span style={{width:3,height:18,background:accent,borderRadius:2,flexShrink:0}}/>}
+          {icon && <span style={{color:accent||C.text3,display:'flex',alignItems:'center',fontSize:14}}>{icon}</span>}
+          <span style={{fontSize:11,fontWeight:700,color:C.text,letterSpacing:'.06em',textTransform:'uppercase',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{title}</span>
+        </div>
+        {sub&&<span style={{fontSize:12,fontWeight:700,color:accent||C.accent,fontVariantNumeric:'tabular-nums',flexShrink:0,letterSpacing:'-.01em'}}>{sub}</span>}
       </div>
-      <div style={{padding:14}}>{children}</div>
+      <div style={{padding:'16px 18px'}}>{children}</div>
+    </div>
+  )
+
+  const SectionLabel = ({num, label, count}:{num:string;label:string;count?:string}) => (
+    <div style={{display:'flex',alignItems:'baseline',gap:10,marginTop:10,marginBottom:2,paddingLeft:2}}>
+      <span style={{fontSize:10,fontWeight:700,color:C.accent,letterSpacing:'.12em',fontVariantNumeric:'tabular-nums'}}>— {num}</span>
+      <span style={{fontSize:11,fontWeight:700,color:C.text2,letterSpacing:'.14em',textTransform:'uppercase'}}>{label}</span>
+      {count && <span style={{fontSize:10,color:C.text3,fontVariantNumeric:'tabular-nums',marginLeft:'auto'}}>{count}</span>}
     </div>
   )
 
   const NfRow = ({r, extraLabel, extraValue, extraColor}:{r:Entrega;extraLabel:string;extraValue:string;extraColor?:string}) => (
-    <tr style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer'}}
+    <tr style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'background .12s'}}
       onClick={()=>abrirNF(r)}
-      onMouseEnter={e=>(e.currentTarget.style.background=C.surface2)}
+      onMouseEnter={e=>(e.currentTarget.style.background=isDark?'rgba(59,130,246,.04)':'rgba(59,130,246,.035)')}
       onMouseLeave={e=>(e.currentTarget.style.background='')}>
-      <td style={{padding:'7px 10px',fontWeight:700,color:C.accent,whiteSpace:'nowrap'}}>{r.nf_numero}</td>
-      <td style={{padding:'7px 10px',maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontSize:11,color:C.text}}
-        title={r.destinatario_nome||''}>{(r.destinatario_fantasia||r.destinatario_nome||'—').substring(0,16)}</td>
-      <td style={{padding:'7px 10px'}}>
-        <span style={{fontSize:10,fontWeight:600,padding:'1px 6px',borderRadius:3,color:C.blue,background:`${C.blue}18`}}>{(r.centro_custo||'—').substring(0,10)}</span>
+      <td style={{padding:'10px 12px',fontWeight:800,color:C.accent,whiteSpace:'nowrap',fontVariantNumeric:'tabular-nums',letterSpacing:'-.015em'}}>{r.nf_numero}</td>
+      <td style={{padding:'10px 12px',maxWidth:140,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontSize:12,color:C.text,fontWeight:500,letterSpacing:'-.005em'}}
+        title={r.destinatario_nome||''}>{(r.destinatario_fantasia||r.destinatario_nome||'—').substring(0,18)}</td>
+      <td style={{padding:'10px 12px'}}>
+        <span style={{fontSize:9.5,fontWeight:700,padding:'3px 8px',borderRadius:5,color:C.blue,background:`${C.blue}14`,border:`1px solid ${C.blue}22`,letterSpacing:'.03em'}}>{(r.centro_custo||'—').substring(0,12)}</span>
       </td>
-      <td style={{padding:'7px 10px',textAlign:'right',fontWeight:600,color:C.text,fontVariantNumeric:'tabular-nums',whiteSpace:'nowrap'}}>{moneyK(Number(r.valor_produtos))}</td>
-      <td style={{padding:'7px 10px',color:extraColor||C.yellow,fontWeight:600,fontSize:11,whiteSpace:'nowrap'}}>{extraValue}</td>
-      <td style={{padding:'7px 10px',fontSize:10,color:C.text3}}>↗ ver</td>
+      <td style={{padding:'10px 12px',textAlign:'right',fontWeight:700,color:C.text,fontVariantNumeric:'tabular-nums',whiteSpace:'nowrap',letterSpacing:'-.01em'}}>{moneyK(Number(r.valor_produtos))}</td>
+      <td style={{padding:'10px 12px',color:extraColor||C.yellow,fontWeight:600,fontSize:11.5,whiteSpace:'nowrap',letterSpacing:'-.005em'}}>{extraValue}</td>
+      <td style={{padding:'10px 12px',fontSize:10,color:C.text4,opacity:.6,letterSpacing:'.05em'}}>→</td>
     </tr>
   )
 
@@ -422,153 +447,215 @@ function ExecPage() {
   }
 
   return (
-    <div style={{minHeight:'100vh',background:C.bg,color:C.text,fontFamily:"'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"}}>
+    <div style={{minHeight:'100vh',background:C.bg,color:C.text,fontFamily:"'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",letterSpacing:'-.005em'}}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Instrument+Serif:ital@0;1&display=swap');
         *{box-sizing:border-box;margin:0;padding:0}
-        ::-webkit-scrollbar{width:4px;height:4px}
+        ::-webkit-scrollbar{width:6px;height:6px}
         ::-webkit-scrollbar-track{background:transparent}
         ::-webkit-scrollbar-thumb{background:${C.border2};border-radius:10px}
-        input,select{background:${C.surface2};border:1px solid ${C.border};color:${C.text};border-radius:7px;padding:9px 13px;font-size:13px;font-family:inherit;outline:none;transition:border-color .15s}
+        ::-webkit-scrollbar-thumb:hover{background:${C.text3}}
+        input,select{background:${C.surface2};border:1px solid ${C.border};color:${C.text};border-radius:8px;padding:9px 13px;font-size:13px;font-family:inherit;outline:none;transition:all .15s;font-weight:500}
         input:focus,select:focus{border-color:${C.accent};box-shadow:0 0 0 3px rgba(249,115,22,.12)}
         input::placeholder{color:${C.text4}}
         button{font-family:inherit;cursor:pointer}
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-        @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes slideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
         table{width:100%;border-collapse:collapse}
-        th{padding:8px 10px;text-align:left;font-size:10px;font-weight:600;color:${C.text3};letter-spacing:.04em;background:${C.surface3};border-bottom:1px solid ${C.border};text-transform:uppercase;white-space:nowrap;user-select:none}
-        td{padding:7px 10px;border-bottom:1px solid ${C.border};vertical-align:middle;font-size:12px}
+        th{padding:11px 12px;text-align:left;font-size:9.5px;font-weight:700;color:${C.text3};letter-spacing:.1em;background:transparent;border-bottom:1px solid ${C.border};text-transform:uppercase;white-space:nowrap;user-select:none}
+        td{padding:10px 12px;border-bottom:1px solid ${C.border};vertical-align:middle;font-size:12.5px}
+        tr:last-child td{border-bottom:none}
+        .serif{font-family:'Instrument Serif',Georgia,serif;font-weight:400}
+        .num{font-variant-numeric:tabular-nums;letter-spacing:-.015em}
+        .hover-card:hover{border-color:${C.border2}!important;box-shadow:${C.shadowHover}!important}
       `}</style>
 
       {/* ── HEADER ─────────────────────────────────────────────────────── */}
-      <header style={{background:C.surface3,borderBottom:`1px solid ${C.border}`,padding:'12px 28px',position:'sticky',top:0,zIndex:50,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-        <div style={{display:'flex',alignItems:'center',gap:0}}>
-          <div style={{background:'#ffffff',borderRadius:10,padding:'5px 14px',display:'flex',alignItems:'center',justifyContent:'center'}}>
-            <img src="/logo-linea-headlin.png" alt="Linea Alimentos" style={{height:36,width:'auto',display:'block'}}/>
+      <header style={{background:isDark?'rgba(6,12,23,0.85)':'rgba(255,255,255,0.82)',backdropFilter:'blur(16px)',WebkitBackdropFilter:'blur(16px)',borderBottom:`1px solid ${C.border}`,padding:'14px 32px',position:'sticky',top:0,zIndex:50,display:'flex',alignItems:'center',justifyContent:'space-between',gap:24}}>
+        <div style={{display:'flex',alignItems:'center',gap:16}}>
+          <div style={{background:'#ffffff',borderRadius:10,padding:'5px 14px',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 1px 2px rgba(0,0,0,.08)'}}>
+            <img src="/logo-linea-headlin.png" alt="Linea Alimentos" style={{height:34,width:'auto',display:'block'}}/>
+          </div>
+          <div style={{display:'flex',flexDirection:'column',gap:1,paddingLeft:14,borderLeft:`1px solid ${C.border}`}}>
+            <span style={{fontSize:9.5,fontWeight:700,color:C.text3,letterSpacing:'.16em',textTransform:'uppercase'}}>Painel Executivo</span>
+            <span style={{fontSize:13,fontWeight:600,color:C.text,letterSpacing:'-.01em'}}>Monitoramento de Entregas</span>
           </div>
         </div>
-        <div style={{display:'flex',gap:4,background:C.surface2,padding:4,borderRadius:9,border:`1px solid ${C.border}`}}>
-          {[{id:'dash',label:'📊 Dashboard'},{id:'lista',label:'📋 Notas'},{id:'busca',label:'🔍 Consultar NF'}].map(t=>(
+        <div style={{display:'flex',gap:2,background:C.surface2,padding:3,borderRadius:10,border:`1px solid ${C.border}`}}>
+          {[
+            {id:'dash',label:'Dashboard'},
+            {id:'lista',label:'Notas'},
+            {id:'busca',label:'Consultar NF'},
+          ].map(t=>(
             <button key={t.id} onClick={()=>setTab(t.id as any)}
-              style={{padding:'7px 18px',borderRadius:6,fontSize:12,fontWeight:600,border:'none',
-                background:tab===t.id?C.accent:'transparent',color:tab===t.id?'#fff':C.text3,transition:'all .15s'}}>
+              style={{padding:'8px 18px',borderRadius:7,fontSize:12,fontWeight:600,border:'none',letterSpacing:'-.005em',
+                background:tab===t.id?C.accent:'transparent',color:tab===t.id?'#fff':C.text2,
+                transition:'all .18s',boxShadow:tab===t.id?'0 2px 6px rgba(249,115,22,.25)':'none'}}>
               {t.label}
             </button>
           ))}
         </div>
-        <div style={{textAlign:'right'}}>
-          <div style={{display:'flex',alignItems:'center',gap:6,justifyContent:'flex-end'}}>
-            <span style={{width:7,height:7,borderRadius:'50%',background:C.green,display:'inline-block',animation:'pulse 2.5s infinite'}}/>
-            <span style={{fontSize:11,color:C.text3}}>{format(lastUpd,'HH:mm:ss')}</span>
+        <div style={{display:'flex',alignItems:'center',gap:16}}>
+          <div style={{textAlign:'right'}}>
+            <div style={{display:'flex',alignItems:'center',gap:6,justifyContent:'flex-end'}}>
+              <span style={{width:6,height:6,borderRadius:'50%',background:C.green,display:'inline-block',animation:'pulse 2.5s infinite',boxShadow:`0 0 8px ${C.green}`}}/>
+              <span style={{fontSize:11,color:C.text2,fontVariantNumeric:'tabular-nums',fontWeight:600}}>{format(lastUpd,'HH:mm:ss')}</span>
+            </div>
+            <div style={{fontSize:10,color:C.text3,marginTop:2,letterSpacing:'.02em'}}>{data.length} notas · tempo real</div>
           </div>
-          <div style={{fontSize:10,color:C.text3,marginTop:2}}>{data.length} notas · tempo real</div>
+          <button onClick={()=>setIsDark(d=>!d)}
+            title={isDark?'Modo claro':'Modo escuro'}
+            style={{width:36,height:36,borderRadius:'50%',border:`1px solid ${C.border}`,
+              background:C.surface2,color:C.text2,
+              cursor:'pointer',fontSize:14,transition:'all .2s',display:'flex',alignItems:'center',justifyContent:'center'}}>
+            {isDark?'☀':'◐'}
+          </button>
         </div>
-        <button onClick={()=>setIsDark(d=>!d)}
-          title={isDark?'Modo claro':'Modo escuro'}
-          style={{padding:'7px 14px',borderRadius:20,border:`1px solid ${C.border}`,
-            background:isDark?C.surface2:'#1e293b',color:isDark?C.text2:'#94a3b8',
-            cursor:'pointer',fontSize:12,fontWeight:600,transition:'all .2s'}}>
-          {isDark?'☀ Claro':'🌙 Escuro'}
-        </button>
       </header>
 
-      <main style={{padding:'18px 28px',maxWidth:1400,margin:'0 auto'}}>
+      <main style={{padding:'22px 32px 40px',maxWidth:1500,margin:'0 auto'}}>
 
         {/* ── FILTROS ─────────────────────────────────────────────────── */}
-        <div style={{display:'flex',gap:10,alignItems:'center',marginBottom:16,flexWrap:'wrap',background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:'10px 14px'}}>
-          <select value={ccFiltro} onChange={e=>setCcFiltro(e.target.value)} style={{width:'auto',minWidth:170}}>
-            {ccList.map(c=><option key={c}>{c}</option>)}
-          </select>
+        <div style={{display:'flex',gap:10,alignItems:'center',marginBottom:18,flexWrap:'wrap',background:C.surface,backgroundImage:C.gradCard,border:`1px solid ${C.border}`,borderRadius:12,padding:'12px 16px',boxShadow:C.shadow}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,paddingRight:10,borderRight:`1px solid ${C.border}`}}>
+            <span style={{fontSize:9.5,fontWeight:700,color:C.text3,letterSpacing:'.12em',textTransform:'uppercase'}}>Canal</span>
+            <select value={ccFiltro} onChange={e=>setCcFiltro(e.target.value)} style={{minWidth:170,fontWeight:600}}>
+              {ccList.map(c=><option key={c}>{c}</option>)}
+            </select>
+          </div>
 
           {/* Período */}
           <button onClick={()=>{ const t=getToday(); setDateFrom(t); setDateTo(t) }}
-            style={{padding:'6px 12px',fontSize:11,fontWeight:600,borderRadius:20,border:'1px solid',cursor:'pointer',
+            style={{padding:'7px 14px',fontSize:11,fontWeight:700,borderRadius:20,border:'1px solid',cursor:'pointer',letterSpacing:'.02em',transition:'all .15s',
               borderColor:dateFrom===getToday()&&dateTo===getToday()?C.accent:C.border,
-              color:dateFrom===getToday()&&dateTo===getToday()?C.accent:C.text3,
+              color:dateFrom===getToday()&&dateTo===getToday()?C.accent:C.text2,
               background:dateFrom===getToday()&&dateTo===getToday()?'rgba(249,115,22,.1)':'transparent'}}>
             Hoje
           </button>
           <button onClick={()=>{ setDateFrom(getFirstDay()); setDateTo(getToday()) }}
-            style={{padding:'6px 12px',fontSize:11,fontWeight:600,borderRadius:20,border:'1px solid',cursor:'pointer',
+            style={{padding:'7px 14px',fontSize:11,fontWeight:700,borderRadius:20,border:'1px solid',cursor:'pointer',letterSpacing:'.02em',transition:'all .15s',
               borderColor:dateFrom===getFirstDay()&&dateTo===getToday()?C.accent:C.border,
-              color:dateFrom===getFirstDay()&&dateTo===getToday()?C.accent:C.text3,
+              color:dateFrom===getFirstDay()&&dateTo===getToday()?C.accent:C.text2,
               background:dateFrom===getFirstDay()&&dateTo===getToday()?'rgba(249,115,22,.1)':'transparent'}}>
             Mês
           </button>
-          <span style={{fontSize:11,color:C.text3}}>De</span>
+          <span style={{fontSize:11,color:C.text3,fontWeight:600}}>De</span>
           <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)}
-            style={{padding:'5px 8px',fontSize:12,borderRadius:6,border:`1px solid ${C.border}`,background:C.surface2,color:C.text,width:130}} />
-          <span style={{fontSize:11,color:C.text3}}>até</span>
+            style={{padding:'6px 10px',fontSize:12,borderRadius:7,border:`1px solid ${C.border}`,background:C.surface2,color:C.text,width:138,fontVariantNumeric:'tabular-nums'}} />
+          <span style={{fontSize:11,color:C.text3,fontWeight:600}}>até</span>
           <input type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)}
-            style={{padding:'5px 8px',fontSize:12,borderRadius:6,border:`1px solid ${C.border}`,background:C.surface2,color:C.text,width:130}} />
+            style={{padding:'6px 10px',fontSize:12,borderRadius:7,border:`1px solid ${C.border}`,background:C.surface2,color:C.text,width:138,fontVariantNumeric:'tabular-nums'}} />
 
-          <div style={{marginLeft:'auto',fontSize:12,color:C.text2,fontWeight:500,fontVariantNumeric:'tabular-nums'}}>
-            {totalNFs} notas · {moneyFull(totalValor)}
+          <div style={{marginLeft:'auto',display:'flex',alignItems:'baseline',gap:8}}>
+            <span style={{fontSize:10,color:C.text3,letterSpacing:'.1em',fontWeight:700,textTransform:'uppercase'}}>Resultado</span>
+            <span style={{fontSize:12,color:C.text,fontWeight:700,fontVariantNumeric:'tabular-nums'}}>{totalNFs}</span>
+            <span style={{fontSize:11,color:C.text3}}>notas ·</span>
+            <span style={{fontSize:12,color:C.accent,fontWeight:700,fontVariantNumeric:'tabular-nums'}}>{moneyFull(totalValor)}</span>
           </div>
         </div>
 
         {/* ══════════════ ABA DASHBOARD ══════════════════════════════════ */}
         {tab==='dash' && (
-          <div style={{display:'flex',flexDirection:'column',gap:14,animation:'fadeIn .3s ease'}}>
+          <div style={{display:'flex',flexDirection:'column',gap:18,animation:'fadeIn .35s ease'}}>
 
-            {/* KPIs */}
-            <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:8}}>
+            {/* ═════ SEÇÃO 01 — VISÃO GERAL ═════ */}
+            <SectionLabel num="01" label="Visão Geral" count={`${totalNFs} notas · ${moneyFull(totalValor)}`}/>
+
+            {/* KPIs Premium */}
+            <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:10}}>
               {[
-                {label:'TOTAL EMITIDO',    value:moneyK(totalValor),    sub:`${totalNFs} notas`,          color:C.blue},
-                {label:'ENTREGUES',        value:entregues.length,       sub:`${taxaEnt}% de entrega`,     color:C.green,   status:'Entregue'},
-                {label:'AGENDADOS',        value:agendados.length,       sub:moneyK(agendados.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)), color:'#3b82f6', status:'Agendado'},
-                {label:'PENDENTES',        value:pendentes.length,       sub:moneyK(pendentes.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)), color:C.yellow,  status:'Pendente Agendamento'},
-                {label:'DEVOLUÇÕES',       value:devolucoes.length,      sub:moneyK(devolucoes.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)),color:C.red,     status:'Devolução'},
-              ].map(k=>(
-                <div key={k.label} onClick={()=>(k as any).status!==undefined&&(k as any).status!==''&&navToMonitor({status:(k as any).status})} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:'13px 15px',borderLeft:`3px solid ${k.color}`,cursor:(k as any).status?'pointer':'default'}} onMouseEnter={e=>{if((k as any).status)(e.currentTarget as HTMLElement).style.opacity='.75'}} onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.opacity='1'}}>
-                  <div style={{fontSize:9,fontWeight:700,color:C.text3,letterSpacing:'.06em',marginBottom:7}}>{k.label}</div>
-                  <div style={{fontWeight:800,fontSize:26,color:k.color,lineHeight:1,letterSpacing:'-.03em',fontVariantNumeric:'tabular-nums'}}>{k.value}</div>
-                  <div style={{fontSize:11,color:C.text3,marginTop:4}}>{k.sub}</div>
+                {label:'Total Emitido',    valueRaw:totalValor,      display:moneyK(totalValor),    sub:`${totalNFs} notas emitidas`,   color:C.accent, isHero:true},
+                {label:'Entregues',        valueRaw:entregues.length, display:String(entregues.length), sub:`${taxaEnt}% de entrega`,       color:C.green,  status:'Entregue', deltaColor:taxaEnt>=80?C.green:taxaEnt>=60?C.yellow:C.red, deltaLabel:`${taxaEnt}%`},
+                {label:'Agendados',        valueRaw:agendados.length, display:String(agendados.length), sub:moneyK(agendados.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)), color:C.blue,  status:'Agendado'},
+                {label:'Pendentes',        valueRaw:pendentes.length, display:String(pendentes.length), sub:moneyK(pendentes.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)), color:C.yellow, status:'Pendente Agendamento'},
+                {label:'Devoluções',       valueRaw:devolucoes.length,display:String(devolucoes.length),sub:moneyK(devolucoes.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)),color:C.red,    status:'Devolução'},
+              ].map((k:any)=>(
+                <div key={k.label}
+                  className="hover-card"
+                  onClick={()=>k.status&&navToMonitor({status:k.status})}
+                  style={{
+                    background:C.surface,
+                    backgroundImage:k.isHero?C.gradHero:C.gradCard,
+                    border:`1px solid ${C.border}`,
+                    borderRadius:12,padding:'16px 18px 14px',
+                    cursor:k.status?'pointer':'default',
+                    position:'relative',overflow:'hidden',
+                    boxShadow:C.shadow,
+                    transition:'all .22s cubic-bezier(.4,0,.2,1)',
+                  }}>
+                  {/* accent bar */}
+                  <div style={{position:'absolute',top:0,left:0,right:0,height:2,background:`linear-gradient(90deg,${k.color} 0%,${k.color}66 100%)`}}/>
+                  {/* eyebrow */}
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+                    <span style={{fontSize:9.5,fontWeight:700,color:C.text3,letterSpacing:'.14em',textTransform:'uppercase'}}>{k.label}</span>
+                    {k.deltaLabel && <span style={{fontSize:9.5,fontWeight:800,color:k.deltaColor,background:`${k.deltaColor}18`,padding:'2px 7px',borderRadius:4,fontVariantNumeric:'tabular-nums',letterSpacing:'.02em'}}>{k.deltaLabel}</span>}
+                  </div>
+                  {/* value */}
+                  <div style={{fontWeight:800,fontSize:k.isHero?30:26,color:C.text,lineHeight:1,letterSpacing:'-.035em',fontVariantNumeric:'tabular-nums',fontFeatureSettings:"'ss01','cv11'"}}>{k.display}</div>
+                  {/* sub */}
+                  <div style={{fontSize:11,color:C.text3,marginTop:8,letterSpacing:'-.005em'}}>{k.sub}</div>
+                  {/* arrow when clickable */}
+                  {k.status && <span style={{position:'absolute',right:14,bottom:14,fontSize:10,color:C.text4,opacity:.6}}>→</span>}
                 </div>
               ))}
             </div>
 
             {/* Status + Previsão semanal */}
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1.6fr',gap:12}}>
-              <SecCard title="STATUS GERAL" sub={moneyFull(totalValor)}>
-                <div style={{display:'flex',gap:14,alignItems:'center'}}>
-                  <ResponsiveContainer width={135} height={135}>
-                    <PieChart>
-                      <Pie data={statusData} dataKey="count" cx="50%" cy="50%" innerRadius={34} outerRadius={58}>
-                        {statusData.map(e=><Cell key={e.status} fill={STATUS_COLORS[e.status]||C.text4}/>)}
-                      </Pie>
-                      <Tooltip content={<Tip/>}/>
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div style={{flex:1,display:'flex',flexDirection:'column',gap:5}}>
+            <SectionLabel num="02" label="Performance Operacional" count={`${taxaEnt}% de entrega · ${entregues.length}/${totalNFs}`}/>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1.6fr',gap:14}}>
+              <SecCard title="Distribuição por Status" sub={moneyFull(totalValor)} accent={C.accent}>
+                <div style={{display:'flex',gap:18,alignItems:'center'}}>
+                  <div style={{position:'relative',flexShrink:0}}>
+                    <ResponsiveContainer width={150} height={150}>
+                      <PieChart>
+                        <Pie data={statusData} dataKey="count" cx="50%" cy="50%" innerRadius={42} outerRadius={66} paddingAngle={2} strokeWidth={0}>
+                          {statusData.map(e=><Cell key={e.status} fill={STATUS_COLORS[e.status]||C.text4}/>)}
+                        </Pie>
+                        <Tooltip content={<Tip/>}/>
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',textAlign:'center',pointerEvents:'none'}}>
+                      <div style={{fontSize:18,fontWeight:800,color:C.text,letterSpacing:'-.025em',fontVariantNumeric:'tabular-nums',lineHeight:1}}>{totalNFs}</div>
+                      <div style={{fontSize:9,color:C.text3,letterSpacing:'.08em',marginTop:2,fontWeight:600,textTransform:'uppercase'}}>NFs</div>
+                    </div>
+                  </div>
+                  <div style={{flex:1,display:'flex',flexDirection:'column',gap:7}}>
                     {statusData.map(s=>(
-                      <div key={s.status} style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                        <div style={{display:'flex',alignItems:'center',gap:6}}>
-                          <div style={{width:7,height:7,borderRadius:'50%',background:STATUS_COLORS[s.status]||C.text4,flexShrink:0}}/>
-                          <span style={{fontSize:11,color:C.text2}}>{s.status}</span>
+                      <div key={s.status} style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:8}}>
+                        <div style={{display:'flex',alignItems:'center',gap:8,minWidth:0}}>
+                          <div style={{width:8,height:8,borderRadius:2,background:STATUS_COLORS[s.status]||C.text4,flexShrink:0}}/>
+                          <span style={{fontSize:11.5,color:C.text2,fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',letterSpacing:'-.005em'}}>{s.status}</span>
                         </div>
-                        <div style={{display:'flex',gap:7}}>
-                          <span style={{fontSize:11,fontWeight:700,color:C.text}}>{s.count}</span>
-                          <span style={{fontSize:10,color:C.text3}}>{moneyK(s.valor)}</span>
+                        <div style={{display:'flex',gap:9,flexShrink:0,alignItems:'baseline'}}>
+                          <span style={{fontSize:12,fontWeight:800,color:C.text,fontVariantNumeric:'tabular-nums',letterSpacing:'-.01em'}}>{s.count}</span>
+                          <span style={{fontSize:10,color:C.text3,fontVariantNumeric:'tabular-nums',minWidth:38,textAlign:'right'}}>{moneyK(s.valor)}</span>
                         </div>
                       </div>
                     ))}
                   </div>
                 </div>
               </SecCard>
-              <SecCard title="PREVISÃO DE ENTREGAS — SEMANAL">
-                <ResponsiveContainer width="100%" height={180}>
-                  <ComposedChart data={semanalData} margin={{left:4,right:32,top:30,bottom:4}}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={C.border}/>
-                    <XAxis dataKey="semana" tick={{fontSize:11,fill:C.text2}}/>
-                    <YAxis yAxisId="val" tick={{fontSize:8,fill:C.text3}} tickFormatter={moneyK} domain={[0,'auto']}/>
-                    <YAxis yAxisId="cnt" orientation="right" tick={{fontSize:8,fill:C.text3}} domain={[0,'auto']}/>
-                    <Tooltip content={<Tip/>}/>
-                    <Bar yAxisId="val" dataKey="valor" name="Valor" fill={`${C.blue}44`} radius={[4,4,0,0]}>
-                      <LabelList dataKey="valor" position="insideTop" formatter={(v:any)=>Number(v)>0?moneyK(Number(v)):''} style={{fontSize:9,fill:C.text2}}/>
+              <SecCard title="Previsão Semanal de Entregas" accent={C.blue}>
+                <ResponsiveContainer width="100%" height={195}>
+                  <ComposedChart data={semanalData} margin={{left:8,right:36,top:32,bottom:6}}>
+                    <defs>
+                      <linearGradient id="gradPrev" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={C.blue} stopOpacity={0.45}/>
+                        <stop offset="100%" stopColor={C.blue} stopOpacity={0.06}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 4" stroke={C.border} vertical={false}/>
+                    <XAxis dataKey="semana" tick={{fontSize:11,fill:C.text2,fontWeight:600}} axisLine={false} tickLine={false}/>
+                    <YAxis yAxisId="val" tick={{fontSize:9,fill:C.text3}} tickFormatter={moneyK} domain={[0,'auto']} axisLine={false} tickLine={false}/>
+                    <YAxis yAxisId="cnt" orientation="right" tick={{fontSize:9,fill:C.text3}} domain={[0,'auto']} axisLine={false} tickLine={false}/>
+                    <Tooltip content={<Tip/>} cursor={{fill:`${C.accent}08`}}/>
+                    <Bar yAxisId="val" dataKey="valor" name="Valor" fill="url(#gradPrev)" radius={[6,6,0,0]} maxBarSize={48}>
+                      <LabelList dataKey="valor" position="insideTop" formatter={(v:any)=>Number(v)>0?moneyK(Number(v)):''} style={{fontSize:9.5,fill:C.text,fontWeight:600}}/>
                     </Bar>
-                    <Line yAxisId="cnt" type="monotone" dataKey="count" name="NFs" stroke={C.accent} strokeWidth={2.5} dot={{fill:C.accent,r:4,stroke:C.surface,strokeWidth:2}}>
-                      <LabelList dataKey="count" position="top" offset={12} formatter={(v:any)=>Number(v)>0?`${v} NFs`:''} style={{fontSize:10,fontWeight:700,fill:C.accent}}/>
+                    <Line yAxisId="cnt" type="monotone" dataKey="count" name="NFs" stroke={C.accent} strokeWidth={2.5} dot={{fill:C.accent,r:5,stroke:C.surface,strokeWidth:2}} activeDot={{r:7,stroke:C.surface,strokeWidth:2}}>
+                      <LabelList dataKey="count" position="top" offset={12} formatter={(v:any)=>Number(v)>0?`${v} NFs`:''} style={{fontSize:10.5,fontWeight:800,fill:C.accent,letterSpacing:'-.01em'}}/>
                     </Line>
                   </ComposedChart>
                 </ResponsiveContainer>
@@ -576,15 +663,15 @@ function ExecPage() {
             </div>
 
             {/* Relatório: Valor por Status — Mês Atual vs Mês Anterior */}
-            <SecCard title={`📊 VALOR POR STATUS — ${relatorioMensal.labelAnt} vs ${relatorioMensal.labelAtual}`} sub="Emissão por mês · todos os CCs">
+            <SecCard title={`Valor por Status · ${relatorioMensal.labelAnt} vs ${relatorioMensal.labelAtual}`} sub="Emissão por mês — todos os CCs" accent={C.accent}>
               <div style={{overflowX:'auto'}}>
-                <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+                <table style={{width:'100%',borderCollapse:'collapse',fontSize:12.5}}>
                   <thead>
-                    <tr style={{borderBottom:`1px solid ${C.border}`}}>
-                      <th style={{textAlign:'left',padding:'7px 10px',fontSize:10,color:C.text3,letterSpacing:'.06em'}}>STATUS</th>
-                      <th style={{textAlign:'right',padding:'7px 10px',fontSize:10,color:C.text3,letterSpacing:'.06em'}}>{relatorioMensal.labelAnt}</th>
-                      <th style={{textAlign:'right',padding:'7px 10px',fontSize:10,color:C.text3,letterSpacing:'.06em'}}>{relatorioMensal.labelAtual}</th>
-                      <th style={{textAlign:'right',padding:'7px 10px',fontSize:10,color:C.text3,letterSpacing:'.06em'}}>TOTAL GERAL</th>
+                    <tr style={{borderBottom:`2px solid ${C.border2}`}}>
+                      <th style={{textAlign:'left',padding:'11px 12px',fontSize:9.5,color:C.text3,letterSpacing:'.12em',fontWeight:700}}>STATUS</th>
+                      <th style={{textAlign:'right',padding:'11px 12px',fontSize:9.5,color:C.text3,letterSpacing:'.12em',fontWeight:700}}>{relatorioMensal.labelAnt.toUpperCase()}</th>
+                      <th style={{textAlign:'right',padding:'11px 12px',fontSize:9.5,color:C.text3,letterSpacing:'.12em',fontWeight:700}}>{relatorioMensal.labelAtual.toUpperCase()}</th>
+                      <th style={{textAlign:'right',padding:'11px 12px',fontSize:9.5,color:C.text3,letterSpacing:'.12em',fontWeight:700}}>TOTAL GERAL</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -599,40 +686,40 @@ function ExecPage() {
                           style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'opacity .15s'}}
                           onMouseEnter={e=>(e.currentTarget as HTMLElement).style.opacity='.7'}
                           onMouseLeave={e=>(e.currentTarget as HTMLElement).style.opacity='1'}>
-                          <td style={{padding:'8px 10px',display:'flex',alignItems:'center',gap:7}}>
-                            <div style={{width:8,height:8,borderRadius:'50%',background:cor,flexShrink:0}}/>
-                            <span style={{color:C.text,fontWeight:500}}>{linha}</span>
-                            <span style={{fontSize:9,color:cor,opacity:.7,marginLeft:2}}>↗</span>
+                          <td style={{padding:'12px 12px',display:'flex',alignItems:'center',gap:9}}>
+                            <span style={{width:7,height:7,borderRadius:'50%',background:cor,flexShrink:0,boxShadow:`0 0 0 3px ${cor}22`}}/>
+                            <span style={{color:C.text,fontWeight:600,letterSpacing:'-.005em'}}>{linha}</span>
+                            <span style={{fontSize:10,color:C.text4,marginLeft:'auto',opacity:.5}}>↗</span>
                           </td>
-                          <td style={{padding:'8px 10px',textAlign:'right'}}>
+                          <td style={{padding:'12px 12px',textAlign:'right'}}>
                             {ant.count > 0 ? (
                               <div>
-                                <div style={{fontWeight:700,color:C.text,fontVariantNumeric:'tabular-nums'}}>{moneyFull(ant.valor)}</div>
-                                <div style={{fontSize:10,color:C.text3}}>{ant.count} NFs</div>
+                                <div style={{fontWeight:700,color:C.text,fontVariantNumeric:'tabular-nums',letterSpacing:'-.01em'}}>{moneyFull(ant.valor)}</div>
+                                <div style={{fontSize:10,color:C.text3,marginTop:2,fontVariantNumeric:'tabular-nums'}}>{ant.count} NFs</div>
                               </div>
-                            ) : <span style={{color:C.text4}}>—</span>}
+                            ) : <span style={{color:C.text4,fontSize:14}}>—</span>}
                           </td>
-                          <td style={{padding:'8px 10px',textAlign:'right'}}>
+                          <td style={{padding:'12px 12px',textAlign:'right'}}>
                             {atual.count > 0 ? (
                               <div>
-                                <div style={{fontWeight:700,color:C.text,fontVariantNumeric:'tabular-nums'}}>{moneyFull(atual.valor)}</div>
-                                <div style={{fontSize:10,color:C.text3}}>{atual.count} NFs</div>
+                                <div style={{fontWeight:700,color:C.text,fontVariantNumeric:'tabular-nums',letterSpacing:'-.01em'}}>{moneyFull(atual.valor)}</div>
+                                <div style={{fontSize:10,color:C.text3,marginTop:2,fontVariantNumeric:'tabular-nums'}}>{atual.count} NFs</div>
                               </div>
-                            ) : <span style={{color:C.text4}}>—</span>}
+                            ) : <span style={{color:C.text4,fontSize:14}}>—</span>}
                           </td>
-                          <td style={{padding:'8px 10px',textAlign:'right',fontWeight:700,color:C.accent,fontVariantNumeric:'tabular-nums'}}>
-                            {(ant.valor + atual.valor) > 0 ? moneyFull(ant.valor + atual.valor) : '—'}
+                          <td style={{padding:'12px 12px',textAlign:'right',fontWeight:800,color:C.accent,fontVariantNumeric:'tabular-nums',letterSpacing:'-.01em'}}>
+                            {(ant.valor + atual.valor) > 0 ? moneyFull(ant.valor + atual.valor) : <span style={{color:C.text4,fontWeight:400}}>—</span>}
                           </td>
                         </tr>
                       )
                     })}
                   </tbody>
                   <tfoot>
-                    <tr style={{borderTop:`2px solid ${C.border2}`,background:C.surface2}}>
-                      <td style={{padding:'9px 10px',fontWeight:800,color:C.text,fontSize:13}}>TOTAL GERAL</td>
-                      <td style={{padding:'9px 10px',textAlign:'right',fontWeight:800,color:C.text,fontVariantNumeric:'tabular-nums'}}>{moneyFull(relatorioMensal.totalAnt)}</td>
-                      <td style={{padding:'9px 10px',textAlign:'right',fontWeight:800,color:C.text,fontVariantNumeric:'tabular-nums'}}>{moneyFull(relatorioMensal.totalAtual)}</td>
-                      <td style={{padding:'9px 10px',textAlign:'right',fontWeight:800,color:C.accent,fontVariantNumeric:'tabular-nums'}}>{moneyFull(relatorioMensal.totalAnt + relatorioMensal.totalAtual)}</td>
+                    <tr style={{borderTop:`2px solid ${C.border2}`,background:isDark?'rgba(30,51,82,.25)':'rgba(234,108,10,.04)'}}>
+                      <td style={{padding:'13px 12px',fontWeight:800,color:C.text,fontSize:12,letterSpacing:'.05em',textTransform:'uppercase'}}>Total Geral</td>
+                      <td style={{padding:'13px 12px',textAlign:'right',fontWeight:800,color:C.text,fontVariantNumeric:'tabular-nums',letterSpacing:'-.01em',fontSize:13.5}}>{moneyFull(relatorioMensal.totalAnt)}</td>
+                      <td style={{padding:'13px 12px',textAlign:'right',fontWeight:800,color:C.text,fontVariantNumeric:'tabular-nums',letterSpacing:'-.01em',fontSize:13.5}}>{moneyFull(relatorioMensal.totalAtual)}</td>
+                      <td style={{padding:'13px 12px',textAlign:'right',fontWeight:800,color:C.accent,fontVariantNumeric:'tabular-nums',letterSpacing:'-.01em',fontSize:13.5}}>{moneyFull(relatorioMensal.totalAnt + relatorioMensal.totalAtual)}</td>
                     </tr>
                   </tfoot>
                 </table>
@@ -640,52 +727,53 @@ function ExecPage() {
             </SecCard>
 
             {/* Pend. Agendamento por CC + Compliance Transportadora */}
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
-              <SecCard title="PENDENTE AGENDAMENTO — POR CANAL" sub={moneyK(pendAgendCC.reduce((s,r)=>s+r.valor,0))} accent={C.yellow}>
+            <SectionLabel num="03" label="Análise por Canal" count={`${ccList.length-1} canais ativos`}/>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+              <SecCard title="Pendente Agendamento por Canal" sub={moneyK(pendAgendCC.reduce((s,r)=>s+r.valor,0))} accent={C.yellow}>
                 {pendAgendCC.length===0
                   ? <div style={{textAlign:'center',padding:24,color:C.text3,fontSize:12}}>✓ Nenhum pendente</div>
-                  : <ResponsiveContainer width="100%" height={170}>
-                      <BarChart data={pendAgendCC} layout="vertical" margin={{left:8,right:70,top:4,bottom:4}}>
-                        <CartesianGrid strokeDasharray="3 3" stroke={C.border} horizontal={false}/>
-                        <XAxis type="number" tick={{fontSize:9,fill:C.text3}} tickFormatter={moneyK}/>
-                        <YAxis type="category" dataKey="cc" tick={{fontSize:10,fill:C.text2}} width={115} tickFormatter={v=>v.substring(0,14)}/>
-                        <Tooltip content={<Tip/>}/>
-                        <Bar dataKey="valor" name="Valor" radius={[0,4,4,0]}>
+                  : <ResponsiveContainer width="100%" height={195}>
+                      <BarChart data={pendAgendCC} layout="vertical" margin={{left:4,right:75,top:4,bottom:4}}>
+                        <CartesianGrid strokeDasharray="3 4" stroke={C.border} horizontal={false}/>
+                        <XAxis type="number" tick={{fontSize:9,fill:C.text3}} tickFormatter={moneyK} axisLine={false} tickLine={false}/>
+                        <YAxis type="category" dataKey="cc" tick={{fontSize:10.5,fill:C.text2,fontWeight:600}} width={120} tickFormatter={v=>v.substring(0,15)} axisLine={false} tickLine={false}/>
+                        <Tooltip content={<Tip/>} cursor={{fill:`${C.yellow}10`}}/>
+                        <Bar dataKey="valor" name="Valor" radius={[0,5,5,0]} maxBarSize={20}>
                           {pendAgendCC.map((_,i)=><Cell key={i} fill={CC_COLORS[i%CC_COLORS.length]}/>)}
-                          <LabelList dataKey="count" position="right" formatter={(v:any)=>`${v} NFs`} style={{fontSize:10,fontWeight:600,fill:C.text}}/>
+                          <LabelList dataKey="count" position="right" formatter={(v:any)=>`${v} NFs`} style={{fontSize:10,fontWeight:700,fill:C.text2}}/>
                         </Bar>
                       </BarChart>
                     </ResponsiveContainer>}
               </SecCard>
 
               {/* Taxa de Entrega por Canal — relevante para o comercial */}
-              <SecCard title="📈 TAXA DE ENTREGA POR CANAL" sub={`${taxaPorCanal.length} canais`} accent={C.green}>
+              <SecCard title="Taxa de Entrega por Canal" sub={`${taxaPorCanal.length} canais`} accent={C.green}>
                 {taxaPorCanal.length===0
                   ? <div style={{textAlign:'center',padding:24,color:C.text3,fontSize:12}}>Sem dados no período</div>
-                  : <div style={{display:'flex',flexDirection:'column',gap:9,maxHeight:180,overflowY:'auto'}}>
-                      {taxaPorCanal.map((c,i)=>{
-                        const cor = c.pctEntregue>=80?C.green:c.pctEntregue>=60?C.yellow:C.red
-                        const cc = c.cc.replace(/^[A-Z]{2,4} - /,'')
+                  : <div style={{display:'flex',flexDirection:'column',gap:12,maxHeight:200,overflowY:'auto',paddingRight:4}}>
+                      {taxaPorCanal.map((canal,i)=>{
+                        const cor = canal.pctEntregue>=80?C.green:canal.pctEntregue>=60?C.yellow:C.red
+                        const cc = canal.cc.replace(/^[A-Z]{2,4} - /,'')
                         return (
-                          <div key={i}>
-                            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
-                              <span style={{fontSize:11,color:C.text2,fontWeight:500,flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:160}}>{cc}</span>
-                              <div style={{display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
-                                <span style={{fontSize:9,color:C.text3}}>{c.entregue}/{c.total}</span>
-                                {c.pctOcorr>0&&<span style={{fontSize:9,color:C.red,fontWeight:600}}>{c.pctOcorr}% ocorr.</span>}
-                                <span style={{fontSize:13,fontWeight:800,color:cor,minWidth:38,textAlign:'right'}}>{c.pctEntregue}%</span>
+                          <div key={i} style={{cursor:'default'}}>
+                            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+                              <span style={{fontSize:11.5,color:C.text,fontWeight:600,flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:160,letterSpacing:'-.005em'}}>{cc}</span>
+                              <div style={{display:'flex',alignItems:'center',gap:10,flexShrink:0}}>
+                                <span style={{fontSize:10,color:C.text3,fontVariantNumeric:'tabular-nums'}}>{canal.entregue}/{canal.total}</span>
+                                {canal.pctOcorr>0&&<span style={{fontSize:9.5,color:C.red,fontWeight:700,background:`${C.red}15`,padding:'2px 6px',borderRadius:4,letterSpacing:'.02em'}}>{canal.pctOcorr}% OCORR</span>}
+                                <span style={{fontSize:14,fontWeight:800,color:cor,minWidth:42,textAlign:'right',fontVariantNumeric:'tabular-nums',letterSpacing:'-.01em'}}>{canal.pctEntregue}%</span>
                               </div>
                             </div>
-                            <div style={{height:5,background:C.border,borderRadius:3,overflow:'hidden',display:'flex',gap:1}}>
-                              <div style={{height:'100%',width:`${c.pctEntregue}%`,background:`linear-gradient(90deg,${cor}88,${cor})`,borderRadius:3}}/>
-                              {c.pctOcorr>0&&<div style={{height:'100%',width:`${c.pctOcorr}%`,background:C.red+'66',borderRadius:3}}/>}
+                            <div style={{height:6,background:C.surface2,borderRadius:6,overflow:'hidden',display:'flex',gap:1,border:`1px solid ${C.border}`}}>
+                              <div style={{height:'100%',width:`${canal.pctEntregue}%`,background:`linear-gradient(90deg,${cor}aa,${cor})`,borderRadius:5,boxShadow:`0 0 6px ${cor}44`}}/>
+                              {canal.pctOcorr>0&&<div style={{height:'100%',width:`${canal.pctOcorr}%`,background:`${C.red}88`,borderRadius:5}}/>}
                             </div>
                           </div>
                         )
                       })}
-                      <div style={{fontSize:10,color:C.text3,marginTop:4,display:'flex',gap:12}}>
-                        <span style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:8,height:8,background:C.green,borderRadius:2,display:'inline-block'}}/> Entregue</span>
-                        <span style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:8,height:8,background:C.red+'88',borderRadius:2,display:'inline-block'}}/> Ocorrência</span>
+                      <div style={{fontSize:10,color:C.text3,marginTop:6,paddingTop:8,borderTop:`1px solid ${C.border}`,display:'flex',gap:14,letterSpacing:'.02em'}}>
+                        <span style={{display:'flex',alignItems:'center',gap:5}}><span style={{width:9,height:5,background:`linear-gradient(90deg,${C.green}aa,${C.green})`,borderRadius:2,display:'inline-block'}}/> Entregue</span>
+                        <span style={{display:'flex',alignItems:'center',gap:5}}><span style={{width:9,height:5,background:`${C.red}88`,borderRadius:2,display:'inline-block'}}/> Ocorrência</span>
                       </div>
                     </div>}
               </SecCard>
@@ -693,19 +781,25 @@ function ExecPage() {
 
             {/* Agendadas por dia */}
             {agendDia.length>0 && (
-              <SecCard title="AGUARDANDO ENTREGA POR DIA" sub={moneyK(agendDia.reduce((s,r)=>s+r.valor,0))} accent={C.blue}>
-                <ResponsiveContainer width="100%" height={145}>
-                  <ComposedChart data={agendDia} margin={{left:4,right:24,top:8,bottom:4}}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={C.border}/>
-                    <XAxis dataKey="dia" tick={{fontSize:10,fill:C.text2}}/>
-                    <YAxis yAxisId="val" tick={{fontSize:8,fill:C.text3}} tickFormatter={moneyK}/>
-                    <YAxis yAxisId="cnt" orientation="right" tick={{fontSize:8,fill:C.text3}}/>
-                    <Tooltip content={<Tip/>}/>
-                    <Bar yAxisId="val" dataKey="valor" name="Valor" fill={`${C.blue}44`} radius={[3,3,0,0]}>
-                      <LabelList dataKey="valor" position="top" formatter={(v:any)=>moneyK(Number(v))} style={{fontSize:9,fill:C.text3}}/>
+              <SecCard title="Aguardando Entrega por Dia" sub={moneyK(agendDia.reduce((s,r)=>s+r.valor,0))} accent={C.blue}>
+                <ResponsiveContainer width="100%" height={170}>
+                  <ComposedChart data={agendDia} margin={{left:8,right:28,top:24,bottom:4}}>
+                    <defs>
+                      <linearGradient id="gradAgendDia" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={C.blue} stopOpacity={0.5}/>
+                        <stop offset="100%" stopColor={C.blue} stopOpacity={0.08}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 4" stroke={C.border} vertical={false}/>
+                    <XAxis dataKey="dia" tick={{fontSize:10,fill:C.text2,fontWeight:600}} axisLine={false} tickLine={false}/>
+                    <YAxis yAxisId="val" tick={{fontSize:9,fill:C.text3}} tickFormatter={moneyK} axisLine={false} tickLine={false}/>
+                    <YAxis yAxisId="cnt" orientation="right" tick={{fontSize:9,fill:C.text3}} axisLine={false} tickLine={false}/>
+                    <Tooltip content={<Tip/>} cursor={{fill:`${C.blue}10`}}/>
+                    <Bar yAxisId="val" dataKey="valor" name="Valor" fill="url(#gradAgendDia)" radius={[6,6,0,0]} maxBarSize={42}>
+                      <LabelList dataKey="valor" position="top" formatter={(v:any)=>moneyK(Number(v))} style={{fontSize:9.5,fill:C.text2,fontWeight:600}}/>
                     </Bar>
-                    <Line yAxisId="cnt" type="monotone" dataKey="count" name="NFs" stroke={C.accent} strokeWidth={2.5} dot={{fill:C.accent,r:4,stroke:C.surface,strokeWidth:2}}>
-                      <LabelList dataKey="count" position="top" style={{fontSize:10,fontWeight:700,fill:C.accent}}/>
+                    <Line yAxisId="cnt" type="monotone" dataKey="count" name="NFs" stroke={C.accent} strokeWidth={2.5} dot={{fill:C.accent,r:4,stroke:C.surface,strokeWidth:2}} activeDot={{r:6,stroke:C.surface,strokeWidth:2}}>
+                      <LabelList dataKey="count" position="top" offset={10} style={{fontSize:10.5,fontWeight:800,fill:C.accent}}/>
                     </Line>
                   </ComposedChart>
                 </ResponsiveContainer>
@@ -713,8 +807,9 @@ function ExecPage() {
             )}
 
             {/* Ocorrências + Reagendadas */}
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
-              <SecCard title="⚠ NOTAS COM OCORRÊNCIA NA ENTREGA" sub={`${nfsOcorrencia.length} NFs`} accent={C.red}>
+            <SectionLabel num="04" label="Pontos de Atenção" count={`${nfsOcorrencia.length + nfsReagendadas.length} NFs`}/>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+              <SecCard title="Notas com Ocorrência na Entrega" sub={`${nfsOcorrencia.length} NFs`} accent={C.red}>
                 {nfsOcorrencia.length===0
                   ? <div style={{textAlign:'center',padding:24,color:C.text3,fontSize:12}}>✓ Nenhuma NF com ocorrência</div>
                   : <div style={{overflowY:'auto',maxHeight:220}}>
@@ -732,7 +827,7 @@ function ExecPage() {
                       </table>
                     </div>}
               </SecCard>
-              <SecCard title="⟳ NOTAS REAGENDADAS" sub={`${nfsReagendadas.length} NFs`} accent={C.yellow}>
+              <SecCard title="Notas Reagendadas" sub={`${nfsReagendadas.length} NFs`} accent={C.yellow}>
                 {nfsReagendadas.length===0
                   ? <div style={{textAlign:'center',padding:24,color:C.text3,fontSize:12}}>✓ Nenhuma nota reagendada</div>
                   : <div style={{overflowY:'auto',maxHeight:220}}>
@@ -754,33 +849,33 @@ function ExecPage() {
 
             {/* Mês passado em aberto */}
             {nfsMesPassado.length>0 && (
-              <SecCard title={`📅 NOTAS DO MÊS PASSADO AINDA EM ABERTO — ${format(prev_m,"MMMM/yyyy",{locale:ptBR}).toUpperCase()}`}
+              <SecCard title={`Notas do Mês Passado em Aberto · ${format(prev_m,"MMMM/yyyy",{locale:ptBR})}`}
                 sub={`${nfsMesPassado.length} NFs · ${moneyK(nfsMesPassado.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0))}`}
                 accent="#7c3aed">
-                <div style={{overflowX:'auto',maxHeight:240,overflowY:'auto'}}>
+                <div style={{overflowX:'auto',maxHeight:280,overflowY:'auto',margin:'-4px -4px'}}>
                   <table style={{minWidth:700}}>
                     <thead>
                       <tr>
                         <th>NF</th><th>Emissão</th><th>Destinatário</th><th>Cidade · UF</th>
                         <th>Canal</th><th style={{textAlign:'right'}}>Valor</th>
-                        <th>Transportadora</th><th>LT Total</th><th>Status</th><th/>
+                        <th>Transportadora</th><th>Status</th><th/>
                       </tr>
                     </thead>
                     <tbody>
                       {nfsMesPassado.slice(0,20).map((r,i)=>(
-                        <tr key={i} style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer'}}
+                        <tr key={i} style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'background .12s'}}
                           onClick={()=>abrirNF(r)}
-                          onMouseEnter={e=>(e.currentTarget.style.background=C.surface2)}
+                          onMouseEnter={e=>(e.currentTarget.style.background=isDark?'rgba(124,58,237,.06)':'rgba(124,58,237,.04)')}
                           onMouseLeave={e=>(e.currentTarget.style.background='')}>
-                          <td style={{fontWeight:700,color:C.accent}}>{r.nf_numero}</td>
-                          <td style={{color:C.text3,whiteSpace:'nowrap'}}>{fmt(r.dt_emissao)}</td>
-                          <td style={{maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={r.destinatario_nome||''}>{(r.destinatario_fantasia||r.destinatario_nome||'—').substring(0,15)}</td>
-                          <td style={{color:C.text2,whiteSpace:'nowrap'}}>{r.cidade_destino}·{r.uf_destino}</td>
-                          <td><span style={{fontSize:10,fontWeight:600,padding:'1px 5px',borderRadius:3,color:C.blue,background:`${C.blue}18`}}>{(r.centro_custo||'—').substring(0,10)}</span></td>
-                          <td style={{textAlign:'right',fontWeight:600,color:C.text,fontVariantNumeric:'tabular-nums'}}>{moneyK(Number(r.valor_produtos))}</td>
-                          <td style={{color:C.text2,fontSize:11}}>{r.transportador_nome?.split(' ').slice(0,2).join(' ')||'—'}</td>
+                          <td style={{fontWeight:800,color:C.accent,fontVariantNumeric:'tabular-nums',letterSpacing:'-.015em'}}>{r.nf_numero}</td>
+                          <td style={{color:C.text3,whiteSpace:'nowrap',fontVariantNumeric:'tabular-nums'}}>{fmt(r.dt_emissao)}</td>
+                          <td style={{maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontWeight:500,color:C.text,letterSpacing:'-.005em'}} title={r.destinatario_nome||''}>{(r.destinatario_fantasia||r.destinatario_nome||'—').substring(0,17)}</td>
+                          <td style={{color:C.text2,whiteSpace:'nowrap',fontSize:11.5}}>{r.cidade_destino}·{r.uf_destino}</td>
+                          <td><span style={{fontSize:9.5,fontWeight:700,padding:'3px 8px',borderRadius:5,color:C.blue,background:`${C.blue}14`,border:`1px solid ${C.blue}22`,letterSpacing:'.03em'}}>{(r.centro_custo||'—').substring(0,12)}</span></td>
+                          <td style={{textAlign:'right',fontWeight:700,color:C.text,fontVariantNumeric:'tabular-nums',letterSpacing:'-.01em'}}>{moneyK(Number(r.valor_produtos))}</td>
+                          <td style={{color:C.text2,fontSize:11.5,fontWeight:500}}>{r.transportador_nome?.split(' ').slice(0,2).join(' ')||'—'}</td>
                           <td><StatusBadge status={r.status_detalhado||r.status}/></td>
-                          <td style={{color:C.text3,fontSize:10}}>↗</td>
+                          <td style={{color:C.text4,fontSize:11,opacity:.6}}>→</td>
                         </tr>
                       ))}
                     </tbody>
@@ -791,18 +886,24 @@ function ExecPage() {
 
             {/* Entregues S-1 + Resumo CC */}
             <div style={{display:'grid',gridTemplateColumns:'1fr 1.4fr',gap:12}}>
-              <SecCard title="NOTAS ENTREGUES — SEMANA PASSADA" sub={moneyK(entregS1.reduce((s,r)=>s+r.valor,0))} accent={C.green}>
+              <SecCard title="Notas Entregues · Semana Passada" sub={moneyK(entregS1.reduce((s,r)=>s+r.valor,0))} accent={C.green}>
                 {entregS1.length===0
                   ? <div style={{textAlign:'center',padding:28,color:C.text3,fontSize:12}}>Sem entregas na semana passada</div>
                   : <ResponsiveContainer width="100%" height={165}>
-                      <ComposedChart data={entregS1} margin={{left:4,right:24,top:8,bottom:4}}>
-                        <CartesianGrid strokeDasharray="3 3" stroke={C.border}/>
-                        <XAxis dataKey="dia" tick={{fontSize:10,fill:C.text2}}/>
-                        <YAxis yAxisId="val" tick={{fontSize:8,fill:C.text3}} tickFormatter={moneyK}/>
-                        <YAxis yAxisId="cnt" orientation="right" tick={{fontSize:8,fill:C.text3}}/>
-                        <Tooltip content={<Tip/>}/>
-                        <Bar yAxisId="val" dataKey="valor" name="Valor" fill="rgba(34,197,94,.2)" radius={[3,3,0,0]}>
-                          <LabelList dataKey="valor" position="top" formatter={(v:any)=>moneyK(Number(v))} style={{fontSize:8,fill:C.text3}}/>
+                      <ComposedChart data={entregS1} margin={{left:8,right:28,top:24,bottom:4}}>
+                        <defs>
+                          <linearGradient id="gradEntS1" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor={C.green} stopOpacity={0.45}/>
+                            <stop offset="100%" stopColor={C.green} stopOpacity={0.05}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 4" stroke={C.border} vertical={false}/>
+                        <XAxis dataKey="dia" tick={{fontSize:10,fill:C.text2,fontWeight:600}} axisLine={false} tickLine={false}/>
+                        <YAxis yAxisId="val" tick={{fontSize:9,fill:C.text3}} tickFormatter={moneyK} axisLine={false} tickLine={false}/>
+                        <YAxis yAxisId="cnt" orientation="right" tick={{fontSize:9,fill:C.text3}} axisLine={false} tickLine={false}/>
+                        <Tooltip content={<Tip/>} cursor={{fill:`${C.green}10`}}/>
+                        <Bar yAxisId="val" dataKey="valor" name="Valor" fill="url(#gradEntS1)" radius={[6,6,0,0]} maxBarSize={42}>
+                          <LabelList dataKey="valor" position="top" formatter={(v:any)=>moneyK(Number(v))} style={{fontSize:9.5,fill:C.text2,fontWeight:600}}/>
                         </Bar>
                         <Line yAxisId="cnt" type="monotone" dataKey="count" name="NFs" stroke={C.green} strokeWidth={2.5} dot={{fill:C.green,r:4,stroke:C.surface,strokeWidth:2}}>
                           <LabelList dataKey="count" position="top" style={{fontSize:10,fontWeight:700,fill:C.green}}/>
@@ -810,7 +911,7 @@ function ExecPage() {
                       </ComposedChart>
                     </ResponsiveContainer>}
               </SecCard>
-              <SecCard title="RESUMO POR CENTRO DE CUSTO">
+              <SecCard title="Resumo por Centro de Custo" accent={C.purple}>
                 <div style={{overflowX:'auto'}}>
                   <table>
                     <thead>
@@ -826,15 +927,17 @@ function ExecPage() {
                     </thead>
                     <tbody>
                       {ccBreak.map(([cc,v],i)=>(
-                        <tr key={i} onClick={()=>navToMonitor({cc})} style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer'}} onMouseEnter={e=>(e.currentTarget as HTMLElement).style.opacity='.7'} onMouseLeave={e=>(e.currentTarget as HTMLElement).style.opacity='1'}>
-                          <td style={{fontWeight:700,color:C.blue}}>{cc}</td>
-                          <td style={{color:C.text2,fontSize:11}}>{v.assistente||'—'}</td>
-                          <td style={{textAlign:'right',color:v.agendP>0?C.yellow:C.text4,fontWeight:v.agendP>0?600:400}}>{v.agendP||'—'}</td>
-                          <td style={{textAlign:'right',color:v.agend>0?C.blue:C.text4,fontWeight:v.agend>0?600:400}}>{v.agend||'—'}</td>
-                          <td style={{textAlign:'right',color:v.entregue>0?C.green:C.text4,fontWeight:v.entregue>0?600:400}}>{v.entregue||'—'}</td>
-                          <td style={{textAlign:'right',color:v.lt>0?C.red:C.text4,fontWeight:v.lt>0?700:400}}>{v.lt||'—'}</td>
-                          <td style={{textAlign:'right',fontWeight:600,color:C.text}}>{v.total}</td>
-                          <td style={{textAlign:'right',fontWeight:700,color:C.accent,fontVariantNumeric:'tabular-nums'}}>{moneyK(v.valor)}</td>
+                        <tr key={i} onClick={()=>navToMonitor({cc})} style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'background .12s'}}
+                          onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background=isDark?'rgba(168,85,247,.05)':'rgba(168,85,247,.04)'}
+                          onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background=''}>
+                          <td style={{fontWeight:700,color:C.blue,letterSpacing:'-.005em'}}>{cc}</td>
+                          <td style={{color:C.text2,fontSize:11.5,fontWeight:500}}>{v.assistente||'—'}</td>
+                          <td style={{textAlign:'right',color:v.agendP>0?C.yellow:C.text4,fontWeight:v.agendP>0?700:400,fontVariantNumeric:'tabular-nums'}}>{v.agendP||'—'}</td>
+                          <td style={{textAlign:'right',color:v.agend>0?C.blue:C.text4,fontWeight:v.agend>0?700:400,fontVariantNumeric:'tabular-nums'}}>{v.agend||'—'}</td>
+                          <td style={{textAlign:'right',color:v.entregue>0?C.green:C.text4,fontWeight:v.entregue>0?700:400,fontVariantNumeric:'tabular-nums'}}>{v.entregue||'—'}</td>
+                          <td style={{textAlign:'right',color:v.lt>0?C.red:C.text4,fontWeight:v.lt>0?800:400,fontVariantNumeric:'tabular-nums'}}>{v.lt||'—'}</td>
+                          <td style={{textAlign:'right',fontWeight:700,color:C.text,fontVariantNumeric:'tabular-nums'}}>{v.total}</td>
+                          <td style={{textAlign:'right',fontWeight:800,color:C.accent,fontVariantNumeric:'tabular-nums',letterSpacing:'-.01em'}}>{moneyK(v.valor)}</td>
                         </tr>
                       ))}
                     </tbody>
