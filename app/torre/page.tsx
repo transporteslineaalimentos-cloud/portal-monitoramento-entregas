@@ -1153,18 +1153,21 @@ export default function TorrePage() {
         </>)}
 {/* DASHBOARD SECTION */}
       {activeSection==='dashboard'&&(()=>{
-        const entregues     = data.filter(r=>r.status==='Entregue')
-        const emAberto      = data.filter(r=>r.status!=='Entregue')
-        const ltVenc        = data.filter(r=>r.lt_vencido&&r.status!=='Entregue')
-        const comOcorr      = data.filter(r=>r.status==='NF com Ocorrência')
-        const hojeD         = data.filter(r=>['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao)))
-        const totalValorNFs = data.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
+        // Excluir NFs sem CC dos gráficos — essas pertencem a "todas" e distorceriam os dados da assistente
+        const SEM_CC_VALS = ['','-','não mapeado','nao mapeado']
+        const dashData      = data.filter(r=>!SEM_CC_VALS.includes((r.centro_custo||'').toLowerCase().trim()))
+        const entregues     = dashData.filter(r=>r.status==='Entregue')
+        const emAberto      = dashData.filter(r=>r.status!=='Entregue')
+        const ltVenc        = dashData.filter(r=>r.lt_vencido&&r.status!=='Entregue')
+        const comOcorr      = dashData.filter(r=>r.status==='NF com Ocorrência')
+        const hojeD         = dashData.filter(r=>['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao)))
+        const totalValorNFs = dashData.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
         const valorAberto   = emAberto.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
         const valorEntregue = entregues.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
-        const txEntrega     = data.length>0 ? Math.round(entregues.length/data.length*100) : 0
+        const txEntrega     = dashData.length>0 ? Math.round(entregues.length/data.length*100) : 0
 
         const statusDist = Object.entries(
-          data.reduce((acc: Record<string,number>,r)=>{ acc[r.status]=(acc[r.status]||0)+1; return acc; },{} as Record<string,number>)
+          dashData.reduce((acc: Record<string,number>,r)=>{ acc[r.status]=(acc[r.status]||0)+1; return acc; },{} as Record<string,number>)
         ).sort((a,b)=>(b[1] as number)-(a[1] as number)).slice(0,7).map(([name,value])=>({name:(name as string).replace('Aguardando Retorno Cliente','Ag. Retorno').replace('Reagendamento Solicitado','Reagend. Solicit.').replace('Agend. Conforme Cliente','Ag. Conf. Cliente').replace('Pendente Agendamento','Pend. Agend.').replace('Pendente Baixa Entrega','Pend. Baixa'),value}))
 
         const diasArr = Array.from({length:14},(_,i)=>{
@@ -1180,7 +1183,7 @@ export default function TorrePage() {
         ).sort((a,b)=>(b[1] as number)-(a[1] as number)).slice(0,6).map(([name,value])=>({name: name as string,value: value as number}))
 
         const mesesMap: Record<string,number> = {}
-        data.forEach(r=>{ if(!r.dt_emissao) return; const mk=r.dt_emissao.slice(0,7); mesesMap[mk]=(mesesMap[mk]||0)+1 })
+        dashData.forEach(r=>{ if(!r.dt_emissao) return; const mk=r.dt_emissao.slice(0,7); mesesMap[mk]=(mesesMap[mk]||0)+1 })
         const meses=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
         const mesesArr = Object.entries(mesesMap).sort((a,b)=>a[0].localeCompare(b[0])).slice(-5).map(([k,cnt])=>{
           const [ano,mes]=k.split('-')
@@ -1223,7 +1226,7 @@ export default function TorrePage() {
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:8}}>
               <div>
                 <h1 style={{margin:0,fontSize:20,fontWeight:800,color:T.text,letterSpacing:'-.03em'}}>Dashboard</h1>
-                <div style={{fontSize:12,color:T.text3,marginTop:3}}>{user.nome} · {user.centros_custo.join(', ')} · {data.length} notas</div>
+                <div style={{fontSize:12,color:T.text3,marginTop:3}}>{user.nome} · {user.centros_custo.join(', ')} · {dashData.length} notas</div>
               </div>
               <div style={{fontSize:11,color:T.text3,background:T.surface,border:'1px solid '+T.border,borderRadius:8,padding:'6px 12px'}}>
                 Atualizado às {lastUpdate.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}
