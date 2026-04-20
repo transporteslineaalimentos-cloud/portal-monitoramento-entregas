@@ -570,34 +570,31 @@ function MonitoramentoInner() {
                   <Th field="nf_numero"        label="NF"          w={68}  sticky left={0}   />
                   <Th field="filial"            label="Filial"      w={72}  sticky left={68}  />
                   <Th field="destinatario_nome" label="Destinatário" w={162} sticky left={140} />
-                  {/* Dynamic */}
+                  {/* Colunas na mesma ordem do ALL_COLS — sincronizado com tbody */}
                   {visibleCols.has('emissao')        && <Th field="dt_emissao"          label="Emissão"        w={76}  />}
-                  {visibleCols.has('cidade')         && <Th field="cidade_destino"       label="Cidade / UF"    w={125} />}
-                  {visibleCols.has('ccusto')         && <Th field="centro_custo"         label="C. Custo"       w={110} />}
-                  {visibleCols.has('valor')          && <Th field="valor_produtos"       label="Valor"          w={95}  />}
-                  {visibleCols.has('volumes')        && <Th field="volumes"              label="Vol."           w={44}  />}
-                  {visibleCols.has('romaneio')       && <Th field="tem_romaneio"         label="Romaneio"       w={100} />}
-                  {visibleCols.has('transportadora') && <Th field="transportador_nome"   label="Transportadora" w={128} />}
-                  {visibleCols.has('expedida')       && <Th field="dt_expedida"          label="Expedida"       w={76}  />}
-                  {visibleCols.has('previsao')       && <Th field="dt_previsao"          label="Previsão"       w={76}  />}
-                  {visibleCols.has('lt_interno')     && <Th field="dt_lt_interno"        label="LT Interno"     w={96}  />}
-                  {visibleCols.has('ocorrencia')     && <Th field="ultima_ocorrencia"    label="Ocorrência"     w={175} />}
-                  {visibleCols.has('dt_ocorr')       && <Th field="dt_ultima_ocorrencia" label="Dt. Ocorr."     w={74}  />}
-                  {visibleCols.has('dt_entrega')     && <Th field="dt_entrega"           label="Entrega"        w={74}  />}
-                  {/* Extra colunas Nota */}
-                  {visibleCols.has('cnpj_cliente')   && <Th field="destinatario_cnpj"  label="CNPJ Cliente"   w={130} />}
-                  {visibleCols.has('razao_social')   && <Th field="destinatario_nome"  label="Razão Social"   w={175} />}
-                  {visibleCols.has('pedido_cliente') && <Th field="pedido"             label="Pedido Cliente" w={100} />}
-                  {visibleCols.has('regional')       && <Th field="filial"             label="Regional"       w={80}  />}
-                  {visibleCols.has('data_agendada')  && <Th field="dt_previsao"        label="Data Agendada"  w={90}  />}
-                  {/* Follow-up */}
-                  {visibleCols.has('status_interno') && <Th field="followup_status"  label="Status Interno" w={150} />}
-                  {visibleCols.has('followup_obs')   && <Th field="followup_obs"     label="Observação FU"  w={200} />}
-                  {visibleCols.has('assistente')     && <Th field="assistente"       label="Responsável"    w={110} />}
-                  {/* Campos manuais */}
-                  {visibleCols.has('loja')           && <Th field=""                 label="Loja"           w={100} />}
-                  {visibleCols.has('voucher')        && <Th field=""                 label="Voucher"        w={100} />}
-                  {visibleCols.has('protocolo')      && <Th field=""                 label="Protocolo"      w={110} />}
+                  {visibleCols.has('cnpj_cliente')   && <Th field="destinatario_cnpj"   label="CNPJ Cliente"   w={130} />}
+                  {visibleCols.has('razao_social')   && <Th field="destinatario_nome"   label="Razão Social"   w={175} />}
+                  {visibleCols.has('cidade')         && <Th field="cidade_destino"      label="Cidade / UF"    w={125} />}
+                  {visibleCols.has('pedido_cliente') && <Th field="pedido"              label="Pedido Cliente" w={100} />}
+                  {visibleCols.has('ccusto')         && <Th field="centro_custo"        label="C. Custo"       w={110} />}
+                  {visibleCols.has('regional')       && <Th field="filial"              label="Regional"       w={80}  />}
+                  {visibleCols.has('valor')          && <Th field="valor_produtos"      label="Valor NF"       w={95}  />}
+                  {visibleCols.has('volumes')        && <Th field="volumes"             label="Vol."           w={60}  />}
+                  {visibleCols.has('romaneio')       && <Th field="tem_romaneio"        label="Romaneio"       w={100} />}
+                  {visibleCols.has('transportadora') && <Th field="transportador_nome"  label="Transportador"  w={128} />}
+                  {visibleCols.has('expedida')       && <Th field="dt_expedida"         label="Expedida"       w={76}  />}
+                  {visibleCols.has('data_agendada')  && <Th field="dt_previsao"         label="Data Agendada"  w={90}  />}
+                  {visibleCols.has('previsao')       && <Th field="dt_previsao"         label="Previsão"       w={76}  />}
+                  {visibleCols.has('lt_interno')     && <Th field="dt_lt_interno"       label="LT Interno"     w={96}  />}
+                  {visibleCols.has('ocorrencia')     && <Th field="ultima_ocorrencia"   label="Ocorrência"     w={175} />}
+                  {visibleCols.has('dt_ocorr')       && <Th field="dt_ultima_ocorrencia" label="Dt. Ocorr."    w={74}  />}
+                  {visibleCols.has('dt_entrega')     && <Th field="dt_entrega"          label="Entrega"        w={74}  />}
+                  {visibleCols.has('status_interno') && <Th field="followup_status"     label="Status Interno" w={150} />}
+                  {visibleCols.has('followup_obs')   && <Th field="followup_obs"        label="Observação FU"  w={200} />}
+                  {visibleCols.has('assistente')     && <Th field="assistente"          label="Responsável"    w={110} />}
+                  {visibleCols.has('loja')           && <Th field=""                    label="Loja"           w={100} />}
+                  {visibleCols.has('voucher')        && <Th field=""                    label="Voucher"        w={100} />}
+                  {visibleCols.has('protocolo')      && <Th field=""                    label="Protocolo"      w={110} />}
                 </tr>
               </thead>
               <tbody>
@@ -640,14 +637,23 @@ function MonitoramentoInner() {
                       </span>
                     </StickyTd>
 
-                    {/* ── Dynamic cells ── */}
+                    {/* ── Dynamic cells — MESMA ORDEM do ALL_COLS e thead ── */}
                     {visibleCols.has('emissao') && (
                       <td style={{ color:T.text2, whiteSpace:'nowrap', padding:'8px 10px' }}>{fmt(r.dt_emissao)}</td>
+                    )}
+                    {visibleCols.has('cnpj_cliente') && (
+                      <td style={{ color:T.text2, fontSize:11, fontVariantNumeric:'tabular-nums', whiteSpace:'nowrap', padding:'8px 10px' }}>{r.destinatario_cnpj||'—'}</td>
+                    )}
+                    {visibleCols.has('razao_social') && (
+                      <td style={{ color:T.text, fontSize:12, maxWidth:175, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', padding:'8px 10px' }} title={r.destinatario_nome||''}>{r.destinatario_nome||'—'}</td>
                     )}
                     {visibleCols.has('cidade') && (
                       <td style={{ color:T.text2, whiteSpace:'nowrap', fontSize:12, padding:'8px 10px' }}>
                         {r.cidade_destino?`${r.cidade_destino} · ${r.uf_destino}`:'—'}
                       </td>
+                    )}
+                    {visibleCols.has('pedido_cliente') && (
+                      <td style={{ color:T.text2, fontSize:12, whiteSpace:'nowrap', padding:'8px 10px', fontVariantNumeric:'tabular-nums' }}>{r.pedido||'—'}</td>
                     )}
                     {visibleCols.has('ccusto') && (
                       <td style={{ padding:'8px 10px' }}>
@@ -657,6 +663,15 @@ function MonitoramentoInner() {
                               {r.centro_custo}
                             </span>
                           : <span style={{ color:T.text4 }}>—</span>}
+                      </td>
+                    )}
+                    {visibleCols.has('regional') && (
+                      <td style={{ padding:'8px 10px' }}>
+                        <span style={{ fontSize:10, fontWeight:600, padding:'2px 6px', borderRadius:4,
+                          color:r.filial==='CHOCOLATE'?'#a78bfa':'#60a5fa',
+                          background:r.filial==='CHOCOLATE'?'rgba(167,139,250,.1)':'rgba(96,165,250,.1)' }}>
+                          {r.filial||'—'}
+                        </span>
                       </td>
                     )}
                     {visibleCols.has('valor') && (
@@ -689,6 +704,11 @@ function MonitoramentoInner() {
                         {r.dt_expedida?fmt(r.dt_expedida):'—'}
                       </td>
                     )}
+                    {visibleCols.has('data_agendada') && (
+                      <td style={{ whiteSpace:'nowrap', padding:'8px 10px' }}>
+                        {r.dt_previsao ? <span style={{ color:T.yellow, fontWeight:500 }}>{fmt(r.dt_previsao)}</span> : <span style={{color:T.text4}}>—</span>}
+                      </td>
+                    )}
                     {visibleCols.has('previsao') && (
                       <td style={{ whiteSpace:'nowrap', padding:'8px 10px' }}>
                         {r.dt_previsao
@@ -700,7 +720,6 @@ function MonitoramentoInner() {
                     )}
                     {visibleCols.has('lt_interno') && (
                       <>
-                        {/* LT TOTAL — meta empresa (a partir do pedido) */}
                         <td style={{ whiteSpace:'nowrap', padding:'8px 10px' }}>
                           {r.dt_lt_total
                             ? <span style={{ color:r.lt_total_vencido?T.red:T.green, fontWeight:r.lt_total_vencido?700:500, fontSize:12 }}
@@ -709,7 +728,6 @@ function MonitoramentoInner() {
                               </span>
                             : <span style={{ color:T.text4 }}>—</span>}
                         </td>
-                        {/* LT TRANSPORTE — nível de serviço da transportadora */}
                         <td style={{ whiteSpace:'nowrap', padding:'8px 10px' }}>
                           {r.dt_lt_transp
                             ? <span style={{ color:r.lt_transp_vencido?T.red:T.green, fontWeight:r.lt_transp_vencido?700:500, fontSize:12 }}
@@ -737,32 +755,6 @@ function MonitoramentoInner() {
                         {fmt(r.dt_entrega)}
                       </td>
                     )}
-
-                    {/* Extra colunas Nota */}
-                    {visibleCols.has('cnpj_cliente') && (
-                      <td style={{ color:T.text2, fontSize:11, fontVariantNumeric:'tabular-nums', whiteSpace:'nowrap', padding:'8px 10px' }}>{r.destinatario_cnpj||'—'}</td>
-                    )}
-                    {visibleCols.has('razao_social') && (
-                      <td style={{ color:T.text, fontSize:12, maxWidth:175, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', padding:'8px 10px' }} title={r.destinatario_nome||''}>{r.destinatario_nome||'—'}</td>
-                    )}
-                    {visibleCols.has('pedido_cliente') && (
-                      <td style={{ color:T.text2, fontSize:12, whiteSpace:'nowrap', padding:'8px 10px', fontVariantNumeric:'tabular-nums' }}>{r.pedido||'—'}</td>
-                    )}
-                    {visibleCols.has('regional') && (
-                      <td style={{ padding:'8px 10px' }}>
-                        <span style={{ fontSize:10, fontWeight:600, padding:'2px 6px', borderRadius:4,
-                          color:r.filial==='CHOCOLATE'?'#a78bfa':'#60a5fa',
-                          background:r.filial==='CHOCOLATE'?'rgba(167,139,250,.1)':'rgba(96,165,250,.1)' }}>
-                          {r.filial||'—'}
-                        </span>
-                      </td>
-                    )}
-                    {visibleCols.has('data_agendada') && (
-                      <td style={{ whiteSpace:'nowrap', padding:'8px 10px' }}>
-                        {r.dt_previsao ? <span style={{ color:T.yellow, fontWeight:500 }}>{fmt(r.dt_previsao)}</span> : <span style={{color:T.text4}}>—</span>}
-                      </td>
-                    )}
-                    {/* Follow-up */}
                     {visibleCols.has('status_interno') && (
                       <td style={{ padding:'6px 10px' }}>
                         {r.followup_status ? (
@@ -792,7 +784,6 @@ function MonitoramentoInner() {
                     {visibleCols.has('assistente') && (
                       <td style={{ color:T.text2, fontSize:12, whiteSpace:'nowrap', padding:'8px 10px' }}>{r.assistente||'—'}</td>
                     )}
-                    {/* Campos manuais — somente leitura */}
                     {visibleCols.has('loja') && (
                       <td style={{ color:manualData[r.nf_numero]?.loja?T.text:T.text4, fontSize:11, whiteSpace:'nowrap', padding:'8px 10px' }}>
                         {manualData[r.nf_numero]?.loja||'—'}
