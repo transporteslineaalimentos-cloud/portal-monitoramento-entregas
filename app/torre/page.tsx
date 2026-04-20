@@ -470,13 +470,13 @@ export default function TorrePage() {
   const tableW = useMemo(() => COL_DEFS.filter(col => visibleCols.has(col.id)).reduce((s,col)=>s+col.w,0), [visibleCols])
 
   const nfsSemCC = useMemo(()=>{
+    // Sem CC mostra TODAS as NFs sem CC, sem filtro de data
+    // O objetivo é que nenhuma NF fique sem dono — datas antigas também precisam de CC
     let d = data.filter(r=>{ const cc=(r.centro_custo||'').trim(); return !cc||cc===''||cc==='-'||cc==='Não mapeado' })
     if (filtroTransp) d=d.filter(r=>r.transportador_nome?.toLowerCase().includes(filtroTransp.toLowerCase()))
     if (filtroNF) d=d.filter(r=>r.nf_numero?.includes(filtroNF)||r.destinatario_fantasia?.toLowerCase().includes(filtroNF.toLowerCase())||r.destinatario_nome?.toLowerCase().includes(filtroNF.toLowerCase()))
-    if (dateFrom) { const f=new Date(dateFrom); f.setHours(0,0,0,0); d=d.filter(r=>r.dt_emissao&&new Date(r.dt_emissao)>=f) }
-    if (dateTo)   { const t=new Date(dateTo);   t.setHours(23,59,59,999); d=d.filter(r=>r.dt_emissao&&new Date(r.dt_emissao)<=t) }
-    return d
-  },[data,filtroTransp,filtroNF,dateFrom,dateTo])
+    return d.sort((a,b)=>(Number(b.valor_produtos)||0)-(Number(a.valor_produtos)||0))
+  },[data,filtroTransp,filtroNF])
 
 
 
