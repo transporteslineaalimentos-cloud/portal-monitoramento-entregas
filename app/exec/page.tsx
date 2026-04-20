@@ -131,6 +131,7 @@ function ExecPage() {
 
   // No /exec: filtrar internamente — NÃO navegar para o portal interno
   // Os executivos comerciais não têm acesso ao link interno de monitoramento
+  const [execFiltroLtVencido, setExecFiltroLtVencido] = useState<boolean>(false)
   const [execFiltroStatus, setExecFiltroStatus] = useState<string>(()=>{
     if (typeof window !== 'undefined') return sessionStorage.getItem('exec_filtro_status') || ''
     return ''
@@ -143,9 +144,10 @@ function ExecPage() {
   useEffect(() => { sessionStorage.setItem('exec_filtro_cc', execFiltroCC) }, [execFiltroCC])
 
   const navToMonitor = (params: Record<string,string>) => {
-    // Aplica filtros internamente na aba busca/lista do exec
-    if (params.status) setExecFiltroStatus(params.status)
-    if (params.cc) setExecFiltroCC(params.cc)
+    // Aplica filtros internamente na aba lista do exec
+    setExecFiltroStatus(params.status || '')
+    setExecFiltroCC(params.cc || '')
+    setExecFiltroLtVencido(!!params.lt_vencido)
     setTab('lista')
   }
 
@@ -486,14 +488,13 @@ function ExecPage() {
         <div style={{display:'flex',gap:2,background:C.surface2,padding:3,borderRadius:10,border:`1px solid ${C.border}`}}>
           {[
             {id:'dash',label:'Dashboard'},
-            {id:'lista',label:'Notas'},
             {id:'busca',label:'Consultar NF'},
           ].map(t=>(
-            <button key={t.id} onClick={()=>setTab(t.id as any)}
+            <button key={t.id} onClick={()=>{if(t.id==='dash'&&tab==='lista'){setExecFiltroStatus('');setExecFiltroCC('');setExecFiltroLtVencido(false);}setTab(t.id as any)}}
               style={{padding:'8px 18px',borderRadius:7,fontSize:12,fontWeight:600,border:'none',letterSpacing:'-.005em',
-                background:tab===t.id?C.accent:'transparent',color:tab===t.id?'#fff':C.text2,
+                background:tab===t.id||tab==='lista'?C.accent:'transparent',color:tab===t.id||tab==='lista'?'#fff':C.text2,
                 transition:'all .18s',boxShadow:tab===t.id?'0 2px 6px rgba(249,115,22,.25)':'none'}}>
-              {t.label}
+              {t.id==='dash'&&tab==='lista'?'← Relatório':t.label}
             </button>
           ))}
         </div>
@@ -926,20 +927,64 @@ function ExecPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {ccBreak.map(([cc,v],i)=>(
-                        <tr key={i} onClick={()=>navToMonitor({cc})} style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'background .12s'}}
-                          onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background=isDark?'rgba(168,85,247,.05)':'rgba(168,85,247,.04)'}
+                      {ccBreak.map(([cc,v],i)=>{
+                        // Helper: célula clicável individual
+                        const ClickCell = ({children, statusFilter, color, weight, textAlign='right' as const}:{children:React.ReactNode;statusFilter:string;color:string;weight:number;textAlign?:'right'|'left'}) => (
+                          <td
+                            onClick={e=>{e.stopPropagation();navToMonitor({cc,status:statusFilter})}}
+                            style={{textAlign,cursor:'pointer',borderRadius:6,transition:'all .12s',padding:'10px 12px'}}
+                            onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.background=`${color}18`}}
+                            onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background=''}}
+                          >
+                            <span style={{color,fontWeight:weight,fontVariantNumeric:'tabular-nums' as const}}>{children}</span>
+                          </td>
+                        )
+                        return (
+                        <tr key={i} style={{borderBottom:`1px solid ${C.border}`,transition:'background .12s'}}
+                          onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background=isDark?'rgba(168,85,247,.03)':'rgba(168,85,247,.02)'}
                           onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background=''}>
-                          <td style={{fontWeight:700,color:C.blue,letterSpacing:'-.005em'}}>{cc}</td>
-                          <td style={{color:C.text2,fontSize:11.5,fontWeight:500}}>{v.assistente||'—'}</td>
-                          <td style={{textAlign:'right',color:v.agendP>0?C.yellow:C.text4,fontWeight:v.agendP>0?700:400,fontVariantNumeric:'tabular-nums'}}>{v.agendP||'—'}</td>
-                          <td style={{textAlign:'right',color:v.agend>0?C.blue:C.text4,fontWeight:v.agend>0?700:400,fontVariantNumeric:'tabular-nums'}}>{v.agend||'—'}</td>
-                          <td style={{textAlign:'right',color:v.entregue>0?C.green:C.text4,fontWeight:v.entregue>0?700:400,fontVariantNumeric:'tabular-nums'}}>{v.entregue||'—'}</td>
-                          <td style={{textAlign:'right',color:v.lt>0?C.red:C.text4,fontWeight:v.lt>0?800:400,fontVariantNumeric:'tabular-nums'}}>{v.lt||'—'}</td>
-                          <td style={{textAlign:'right',fontWeight:700,color:C.text,fontVariantNumeric:'tabular-nums'}}>{v.total}</td>
-                          <td style={{textAlign:'right',fontWeight:800,color:C.accent,fontVariantNumeric:'tabular-nums',letterSpacing:'-.01em'}}>{moneyK(v.valor)}</td>
+                          {/* Canal — clica em todas as NFs desse CC */}
+                          <td onClick={()=>navToMonitor({cc})} style={{fontWeight:700,color:C.blue,letterSpacing:'-.005em',cursor:'pointer',padding:'10px 12px'}}
+                            onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.color=C.accent}}
+                            onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.color=C.blue}}>
+                            {cc}
+                          </td>
+                          <td style={{color:C.text2,fontSize:11.5,fontWeight:500,padding:'10px 12px'}}>{v.assistente||'—'}</td>
+                          {/* Pendente */}
+                          {v.agendP>0
+                            ? <ClickCell statusFilter="Pendente Agendamento" color={C.yellow} weight={700}>{v.agendP}</ClickCell>
+                            : <td style={{textAlign:'right',color:C.text4,fontVariantNumeric:'tabular-nums',padding:'10px 12px'}}>—</td>}
+                          {/* Agendado */}
+                          {v.agend>0
+                            ? <ClickCell statusFilter="Agendado" color={C.blue} weight={700}>{v.agend}</ClickCell>
+                            : <td style={{textAlign:'right',color:C.text4,fontVariantNumeric:'tabular-nums',padding:'10px 12px'}}>—</td>}
+                          {/* Entregue */}
+                          {v.entregue>0
+                            ? <ClickCell statusFilter="Entregue" color={C.green} weight={700}>{v.entregue}</ClickCell>
+                            : <td style={{textAlign:'right',color:C.text4,fontVariantNumeric:'tabular-nums',padding:'10px 12px'}}>—</td>}
+                          {/* LT Vencidos — filter: lt_vencido=true (todos status exceto entregue) */}
+                          {v.lt>0
+                            ? <td onClick={e=>{e.stopPropagation();navToMonitor({cc,lt_vencido:'1'})}} style={{textAlign:'right',cursor:'pointer',padding:'10px 12px',borderRadius:6,transition:'all .12s'}}
+                                onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.background=`${C.red}18`}}
+                                onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background=''}}>
+                                <span style={{color:C.red,fontWeight:800,fontVariantNumeric:'tabular-nums'}}>{v.lt}</span>
+                              </td>
+                            : <td style={{textAlign:'right',color:C.text4,fontVariantNumeric:'tabular-nums',padding:'10px 12px'}}>—</td>}
+                          {/* Total — todas as NFs do CC */}
+                          <td onClick={()=>navToMonitor({cc})} style={{textAlign:'right',fontWeight:700,color:C.text,fontVariantNumeric:'tabular-nums',cursor:'pointer',padding:'10px 12px'}}
+                            onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.background=isDark?'rgba(255,255,255,.04)':'rgba(0,0,0,.03)'}}
+                            onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background=''}}>
+                            {v.total}
+                          </td>
+                          {/* Valor — todas as NFs do CC */}
+                          <td onClick={()=>navToMonitor({cc})} style={{textAlign:'right',fontWeight:800,color:C.accent,fontVariantNumeric:'tabular-nums',letterSpacing:'-.01em',cursor:'pointer',padding:'10px 12px'}}
+                            onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.background=isDark?'rgba(249,115,22,.06)':'rgba(249,115,22,.05)'}}
+                            onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background=''}}>
+                            {moneyK(v.valor)}
+                          </td>
                         </tr>
-                      ))}
+                        )
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -955,18 +1000,20 @@ function ExecPage() {
           <div style={{animation:'fadeIn .3s ease'}}>
             <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:12,padding:'14px 20px',marginBottom:12,display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
               <div style={{fontSize:13,color:C.text2,fontWeight:500}}>
+                {execFiltroCC && <span style={{color:C.text3}}>Canal: <strong style={{color:C.blue}}>{execFiltroCC}</strong></span>}
+                {execFiltroCC && (execFiltroStatus||execFiltroLtVencido) && <span style={{color:C.text4,margin:'0 6px'}}>·</span>}
                 {execFiltroStatus && <span>Status: <strong style={{color:C.accent}}>{execFiltroStatus}</strong></span>}
-                {execFiltroCC && <span style={{marginLeft:8}}>Canal: <strong style={{color:C.accent}}>{execFiltroCC}</strong></span>}
-                {!execFiltroStatus&&!execFiltroCC && <span>Todas as notas do período</span>}
+                {execFiltroLtVencido && <span>Filtro: <strong style={{color:C.red}}>LT Vencido</strong></span>}
+                {!execFiltroStatus&&!execFiltroCC&&!execFiltroLtVencido && <span>Todas as notas do período</span>}
               </div>
-              <button onClick={()=>{setExecFiltroStatus('');setExecFiltroCC('');setTab('dash')}}
+              <button onClick={()=>{setExecFiltroStatus('');setExecFiltroCC('');setExecFiltroLtVencido(false);setTab('dash')}}
                 style={{marginLeft:'auto',padding:'6px 14px',background:'none',border:`1px solid ${C.border}`,borderRadius:6,color:C.text3,fontSize:12,cursor:'pointer'}}>
                 ← Voltar ao Dashboard
               </button>
             </div>
             {(() => {
               const rows = filtered
-                .filter(r=> (!execFiltroStatus || r.status===execFiltroStatus) && (!execFiltroCC || r.centro_custo===execFiltroCC))
+                .filter(r=> (!execFiltroStatus || r.status===execFiltroStatus) && (!execFiltroCC || r.centro_custo===execFiltroCC) && (!execFiltroLtVencido || (r.lt_vencido && r.status!=='Entregue')))
                 .sort((a,b)=>(Number(b.valor_produtos)||0)-(Number(a.valor_produtos)||0))
               return (
                 <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:12,overflow:'hidden'}}>
