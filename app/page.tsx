@@ -702,12 +702,6 @@ function MonitoramentoInner() {
                       </td>
                     )}
 
-                    {/* Data de entrega */}
-                    <td style={{ padding:'8px 10px', whiteSpace:'nowrap' }}>
-                      {r.dt_entrega
-                        ? <span style={{ color:T.green, fontWeight:600, fontSize:12 }}>{fmt(r.dt_entrega)}</span>
-                        : <span style={{ color:T.text4 }}>—</span>}
-                    </td>
                     {/* Extra colunas Nota */}
                     {visibleCols.has('cnpj_cliente') && (
                       <td style={{ color:T.text2, fontSize:11, fontVariantNumeric:'tabular-nums', whiteSpace:'nowrap', padding:'8px 10px' }}>{r.destinatario_cnpj||'—'}</td>
