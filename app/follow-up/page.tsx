@@ -216,10 +216,45 @@ export default function FollowUp() {
 
         {/* FILTROS */}
         <div style={{ background:T.surface, border:`1px solid ${T.border}`, borderRadius:10, padding:'10px 14px', display:'flex', gap:10, alignItems:'center', flexWrap:'wrap' }}>
-          <select value={filtroCC} onChange={e=>setFiltroCC(e.target.value)} style={{ maxWidth:200 }}>
-            <option value="">C. de Custo (todos)</option>
-            {ccOpts.map(c=><option key={c}>{c}</option>)}
-          </select>
+          {/* Multi-select CC */}
+          <div style={{position:'relative'}}>
+            <button onClick={()=>setShowCCDrop(p=>!p)}
+              style={{padding:'6px 11px',fontSize:11,borderRadius:8,border:`1px solid ${showCCDrop?T.blue:T.border}`,
+                background:filtroCC.size>0?`${T.blue}10`:T.surface2,
+                color:filtroCC.size>0?T.blue:T.text2,cursor:'pointer',fontFamily:'inherit',
+                fontWeight:600,whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:5}}>
+              CC {filtroCC.size>0?`(${filtroCC.size} sel.)`:'(todos)'} ▾
+            </button>
+            {showCCDrop&&(
+              <>
+                <div style={{position:'fixed',inset:0,zIndex:190}} onClick={()=>setShowCCDrop(false)}/>
+                <div style={{position:'absolute',top:'110%',left:0,zIndex:200,background:T.surface,
+                  border:`1px solid ${T.border}`,borderRadius:10,boxShadow:'0 8px 24px rgba(0,0,0,.12)',
+                  minWidth:220,overflow:'hidden'}}>
+                  <div style={{padding:'8px 10px',borderBottom:`1px solid ${T.border}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                    <span style={{fontSize:11,fontWeight:700,color:T.text}}>Centro de Custo</span>
+                    <button onClick={()=>setFiltroCC(new Set())}
+                      style={{fontSize:10,padding:'2px 7px',borderRadius:5,border:`1px solid ${T.border}`,
+                        background:'none',color:T.text3,cursor:'pointer',fontFamily:'inherit'}}>Limpar</button>
+                  </div>
+                  <div style={{maxHeight:240,overflowY:'auto',padding:'6px 8px',display:'flex',flexDirection:'column',gap:2}}>
+                    {ccOpts.map(cc=>(
+                      <label key={cc} style={{display:'flex',alignItems:'center',gap:7,padding:'5px 7px',
+                        borderRadius:6,cursor:'pointer',
+                        background:filtroCC.has(cc)?`${T.blue}10`:'transparent',
+                        border:`1px solid ${filtroCC.has(cc)?`${T.blue}30`:'transparent'}`}}>
+                        <input type="checkbox" checked={filtroCC.has(cc)}
+                          onChange={()=>setFiltroCC(prev=>{const n=new Set(prev);n.has(cc)?n.delete(cc):n.add(cc);return n})}
+                          style={{accentColor:T.blue,cursor:'pointer',width:13,height:13,flexShrink:0}}/>
+                        <span style={{fontSize:11,fontWeight:filtroCC.has(cc)?600:400,
+                          color:filtroCC.has(cc)?T.blue:T.text2}}>{cc}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
           <select value={filtroTransp} onChange={e=>setFiltroTransp(e.target.value)} style={{ maxWidth:240 }}>
             <option value="">Transportadora (todas)</option>
             {trOpts.map(t=><option key={t} value={t}>{t.substring(0,32)}</option>)}
