@@ -75,7 +75,7 @@ export default function DashboardGestao() {
     setLoading(true)
     let _all: Entrega[] = []; let _from = 0
     while (true) {
-      const { data: _rows } = await supabase.from('v_monitoramento_completo').select('nf_numero,dt_emissao,filial,centro_custo,valor_produtos,transportador_nome,dt_previsao,lt_vencido,status,assistente,is_mock').range(_from, _from + 999)
+      const { data: _rows } = await supabase.from('v_monitoramento_completo').select('nf_numero,dt_emissao,filial,destinatario_cnpj,destinatario_nome,destinatario_fantasia,cidade_destino,uf_destino,pedido,centro_custo,valor_produtos,transportador_nome,dt_expedida,dt_previsao,dt_entrega,dt_lt_interno,lt_vencido,lt_transp_vencido,codigo_ocorrencia,ultima_ocorrencia,status,status_detalhado,assistente,is_mock').range(_from, _from + 999)
       if (!_rows || _rows.length === 0) break
       _all = _all.concat(_rows as unknown as Entrega[]); if (_rows.length < 1000) break; _from += 1000
     }
@@ -212,9 +212,9 @@ export default function DashboardGestao() {
       .slice(0,8)
   },[filtered])
 
-  // Notas reagendadas
+  // Notas reagendadas — codigo 108 = Reagendamento + status Reagendada
   const nfsReagendadas = useMemo(()=>
-    filtered.filter(r=>r.codigo_ocorrencia==='108')
+    filtered.filter(r=>r.status==='Reagendada'||r.codigo_ocorrencia==='108'||r.codigo_ocorrencia==='109')
       .sort((a,b)=>(Number(b.valor_produtos)||0)-(Number(a.valor_produtos)||0))
   ,[filtered])
 
