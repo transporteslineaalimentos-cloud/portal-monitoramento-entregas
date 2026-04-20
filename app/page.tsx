@@ -28,26 +28,42 @@ const moneyFull = (v: number | null) =>
 // ── Column definitions ──────────────────────────────────────────────────────
 type ColKey = 'emissao'|'cidade'|'ccusto'|'valor'|'volumes'|'romaneio'
   |'transportadora'|'expedida'|'previsao'|'lt_interno'
-  |'ocorrencia'|'dt_ocorr'|'dt_entrega'|'status_interno'|'assistente'
+  |'ocorrencia'|'dt_ocorr'|'dt_entrega'|'status_interno'|'followup_obs'|'assistente'
+  |'cnpj_cliente'|'razao_social'|'pedido_cliente'|'regional'|'data_agendada'
+  |'loja'|'voucher'|'protocolo'
 
 type ColDef = { key: ColKey; label: string; w: number; defaultOn: boolean; group: string }
 
 const ALL_COLS: ColDef[] = [
+  // ── Nota ──────────────────────────────────────────────────────────────────
   { key: 'emissao',        label: 'Emissão',           w: 76,  defaultOn: true,  group: 'Nota' },
+  { key: 'cnpj_cliente',   label: 'CNPJ Cliente',      w: 130, defaultOn: false, group: 'Nota' },
+  { key: 'razao_social',   label: 'Razão Social',      w: 175, defaultOn: false, group: 'Nota' },
   { key: 'cidade',         label: 'Cidade / UF',       w: 125, defaultOn: true,  group: 'Nota' },
+  { key: 'pedido_cliente', label: 'Pedido Cliente',    w: 100, defaultOn: false, group: 'Nota' },
   { key: 'ccusto',         label: 'C. Custo',          w: 110, defaultOn: true,  group: 'Nota' },
-  { key: 'valor',          label: 'Valor',             w: 95,  defaultOn: true,  group: 'Nota' },
-  { key: 'volumes',        label: 'Vol.',              w: 44,  defaultOn: false, group: 'Nota' },
+  { key: 'regional',       label: 'Regional',          w: 80,  defaultOn: false, group: 'Nota' },
+  { key: 'valor',          label: 'Valor NF',          w: 95,  defaultOn: true,  group: 'Nota' },
+  { key: 'volumes',        label: 'Volumes',           w: 60,  defaultOn: false, group: 'Nota' },
+  // ── Logística ─────────────────────────────────────────────────────────────
   { key: 'romaneio',       label: 'Romaneio',          w: 100, defaultOn: true,  group: 'Logística' },
-  { key: 'transportadora', label: 'Transportadora',    w: 128, defaultOn: true,  group: 'Logística' },
+  { key: 'transportadora', label: 'Transportador',     w: 128, defaultOn: true,  group: 'Logística' },
   { key: 'expedida',       label: 'Expedida',          w: 76,  defaultOn: false, group: 'Logística' },
+  { key: 'data_agendada',  label: 'Data Agendada',     w: 90,  defaultOn: false, group: 'Logística' },
   { key: 'previsao',       label: 'Previsão',          w: 76,  defaultOn: true,  group: 'Logística' },
   { key: 'lt_interno',     label: 'LT Interno',        w: 96,  defaultOn: true,  group: 'Logística' },
-  { key: 'ocorrencia',     label: 'Última Ocorrência', w: 175, defaultOn: false, group: 'Ocorrência' },
+  // ── Ocorrência ────────────────────────────────────────────────────────────
+  { key: 'ocorrencia',     label: 'Ocorrência',        w: 175, defaultOn: false, group: 'Ocorrência' },
   { key: 'dt_ocorr',       label: 'Dt. Ocorr.',        w: 74,  defaultOn: false, group: 'Ocorrência' },
   { key: 'dt_entrega',     label: 'Entrega',           w: 74,  defaultOn: false, group: 'Ocorrência' },
-  { key: 'status_interno', label: 'Status Interno',    w: 172, defaultOn: true,  group: 'Follow-up' },
-  { key: 'assistente',     label: 'Assistente',        w: 110, defaultOn: true,  group: 'Follow-up' },
+  // ── Follow-up ─────────────────────────────────────────────────────────────
+  { key: 'status_interno', label: 'Status Interno',    w: 150, defaultOn: true,  group: 'Follow-up' },
+  { key: 'followup_obs',   label: 'Observação FU',     w: 200, defaultOn: false, group: 'Follow-up' },
+  { key: 'assistente',     label: 'Responsável',       w: 110, defaultOn: true,  group: 'Follow-up' },
+  // ── Campos manuais (assistente) ───────────────────────────────────────────
+  { key: 'loja',           label: 'Loja',              w: 100, defaultOn: false, group: 'Registros' },
+  { key: 'voucher',        label: 'Voucher',           w: 100, defaultOn: false, group: 'Registros' },
+  { key: 'protocolo',      label: 'Protocolo',         w: 110, defaultOn: false, group: 'Registros' },
 ]
 
 const KPI_CONFIG = [
@@ -73,14 +89,25 @@ function MonitoramentoInner() {
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date())
   const [selectedNF, setSelectedNF]   = useState<Entrega | null>(null)
   const [followupNF, setFollowupNF]   = useState<Entrega | null>(null)
+  type ManualRec = { loja?: string; voucher?: string; protocolo?: string }
+  const [manualData, setManualData] = useState<Record<string, ManualRec>>({})
   // Abrir drawer automaticamente quando vem ?nf= da URL
   const _urlNfRef = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('nf') : null
   const [showColPicker, setShowColPicker] = useState(false)
 
   // Visible columns (stored in state, default from ColDef)
-  const [visibleCols, setVisibleCols] = useState<Set<ColKey>>(
-    () => new Set(ALL_COLS.filter(c => c.defaultOn).map(c => c.key))
-  )
+  const [visibleCols, setVisibleCols] = useState<Set<ColKey>>(()=>{
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('admin_cols')
+      if (saved) try { return new Set(JSON.parse(saved) as ColKey[]) } catch {}
+    }
+    return new Set(ALL_COLS.filter(c => c.defaultOn).map(c => c.key))
+  })
+  // Persist col selection
+  useEffect(()=>{
+    if (typeof window !== 'undefined')
+      localStorage.setItem('admin_cols', JSON.stringify([...visibleCols]))
+  },[visibleCols])
 
   // Filters
   const searchParams = useSearchParams()
@@ -152,6 +179,17 @@ function MonitoramentoInner() {
   }, [sortField, sortDir])
 
   useEffect(() => { load() }, [load])
+
+  // Carrega campos manuais (loja/voucher/protocolo) em modo leitura
+  useEffect(() => {
+    supabase.from('torre_nf_manual').select('nf_numero,loja,voucher,protocolo').then(({ data }) => {
+      if (!data) return
+      const map: Record<string, ManualRec> = {}
+      data.forEach((r: any) => { map[r.nf_numero] = { loja: r.loja||'', voucher: r.voucher||'', protocolo: r.protocolo||'' } })
+      setManualData(map)
+    })
+  }, [])
+
   // Quando dados carregam e temos NF específica na URL → abre drawer
   useEffect(() => {
     if (_urlNfRef && data.length > 0 && !selectedNF) {
@@ -422,12 +460,16 @@ function MonitoramentoInner() {
                   <div style={{
                     position:'absolute', top:'calc(100% + 6px)', right:0, zIndex:200,
                     background:T.surface, border:`1px solid ${T.border2}`,
-                    borderRadius:8, padding:'12px 16px', minWidth:280,
+                    borderRadius:8, padding:'12px 16px', minWidth:420,
                     boxShadow:'0 8px 32px rgba(0,0,0,0.3)',
                   }}>
                     <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
                       <span style={{ fontWeight:700, fontSize:13, color:T.text }}>Colunas visíveis</span>
                       <div style={{ display:'flex', gap:6 }}>
+                        <button className="btn-ghost" style={{ fontSize:10, padding:'3px 8px' }}
+                          onClick={()=>setVisibleCols(new Set(ALL_COLS.map(c=>c.key)))}>
+                          Todas
+                        </button>
                         <button className="btn-ghost" style={{ fontSize:10, padding:'3px 8px' }}
                           onClick={()=>setVisibleCols(new Set(ALL_COLS.filter(c=>c.defaultOn).map(c=>c.key)))}>
                           Padrão
@@ -443,11 +485,12 @@ function MonitoramentoInner() {
                         <div style={{ fontSize:10, fontWeight:700, color:T.text3, letterSpacing:'0.06em', marginBottom:6 }}>
                           {g.toUpperCase()}
                         </div>
+                        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:4 }}>
                         {ALL_COLS.filter(c=>c.group===g).map(c => (
                           <label key={c.key} style={{
-                            display:'flex', alignItems:'center', gap:8,
-                            padding:'5px 6px', borderRadius:5, cursor:'pointer',
-                            marginBottom:2,
+                            display:'flex', alignItems:'center', gap:7,
+                            padding:'5px 8px', borderRadius:6, cursor:'pointer',
+                            border:`1px solid ${visibleCols.has(c.key)?T.accent+'44':T.border}`,
                             background: visibleCols.has(c.key) ? `${T.accent}0f` : 'transparent',
                           }}>
                             <input type="checkbox" checked={visibleCols.has(c.key)}
@@ -458,8 +501,12 @@ function MonitoramentoInner() {
                             </span>
                           </label>
                         ))}
+                        </div>
                       </div>
                     ))}
+                    <div style={{ paddingTop:8, borderTop:`1px solid ${T.border}`, fontSize:11, color:T.text3, textAlign:'center', marginTop:6 }}>
+                      {visibleCols.size} de {ALL_COLS.length} colunas visíveis · salvo automaticamente
+                    </div>
                   </div>
                 )}
               </div>
@@ -501,8 +548,20 @@ function MonitoramentoInner() {
                   {visibleCols.has('ocorrencia')     && <Th field="ultima_ocorrencia"    label="Ocorrência"     w={175} />}
                   {visibleCols.has('dt_ocorr')       && <Th field="dt_ultima_ocorrencia" label="Dt. Ocorr."     w={74}  />}
                   {visibleCols.has('dt_entrega')     && <Th field="dt_entrega"           label="Entrega"        w={74}  />}
-                  {visibleCols.has('status_interno') && <Th field="followup_status"  label="Status Interno" w={172} />}
-                  {visibleCols.has('assistente')     && <Th field="assistente"       label="Assistente"    w={110} />}
+                  {/* Extra colunas Nota */}
+                  {visibleCols.has('cnpj_cliente')   && <Th field="destinatario_cnpj"  label="CNPJ Cliente"   w={130} />}
+                  {visibleCols.has('razao_social')   && <Th field="destinatario_nome"  label="Razão Social"   w={175} />}
+                  {visibleCols.has('pedido_cliente') && <Th field="pedido"             label="Pedido Cliente" w={100} />}
+                  {visibleCols.has('regional')       && <Th field="filial"             label="Regional"       w={80}  />}
+                  {visibleCols.has('data_agendada')  && <Th field="dt_previsao"        label="Data Agendada"  w={90}  />}
+                  {/* Follow-up */}
+                  {visibleCols.has('status_interno') && <Th field="followup_status"  label="Status Interno" w={150} />}
+                  {visibleCols.has('followup_obs')   && <Th field="followup_obs"     label="Observação FU"  w={200} />}
+                  {visibleCols.has('assistente')     && <Th field="assistente"       label="Responsável"    w={110} />}
+                  {/* Campos manuais */}
+                  {visibleCols.has('loja')           && <Th field=""                 label="Loja"           w={100} />}
+                  {visibleCols.has('voucher')        && <Th field=""                 label="Voucher"        w={100} />}
+                  {visibleCols.has('protocolo')      && <Th field=""                 label="Protocolo"      w={110} />}
                 </tr>
               </thead>
               <tbody>
@@ -649,9 +708,33 @@ function MonitoramentoInner() {
                         ? <span style={{ color:T.green, fontWeight:600, fontSize:12 }}>{fmt(r.dt_entrega)}</span>
                         : <span style={{ color:T.text4 }}>—</span>}
                     </td>
+                    {/* Extra colunas Nota */}
+                    {visibleCols.has('cnpj_cliente') && (
+                      <td style={{ color:T.text2, fontSize:11, fontVariantNumeric:'tabular-nums', whiteSpace:'nowrap', padding:'8px 10px' }}>{r.destinatario_cnpj||'—'}</td>
+                    )}
+                    {visibleCols.has('razao_social') && (
+                      <td style={{ color:T.text, fontSize:12, maxWidth:175, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', padding:'8px 10px' }} title={r.destinatario_nome||''}>{r.destinatario_nome||'—'}</td>
+                    )}
+                    {visibleCols.has('pedido_cliente') && (
+                      <td style={{ color:T.text2, fontSize:12, whiteSpace:'nowrap', padding:'8px 10px', fontVariantNumeric:'tabular-nums' }}>{r.pedido||'—'}</td>
+                    )}
+                    {visibleCols.has('regional') && (
+                      <td style={{ padding:'8px 10px' }}>
+                        <span style={{ fontSize:10, fontWeight:600, padding:'2px 6px', borderRadius:4,
+                          color:r.filial==='CHOCOLATE'?'#a78bfa':'#60a5fa',
+                          background:r.filial==='CHOCOLATE'?'rgba(167,139,250,.1)':'rgba(96,165,250,.1)' }}>
+                          {r.filial||'—'}
+                        </span>
+                      </td>
+                    )}
+                    {visibleCols.has('data_agendada') && (
+                      <td style={{ whiteSpace:'nowrap', padding:'8px 10px' }}>
+                        {r.dt_previsao ? <span style={{ color:T.yellow, fontWeight:500 }}>{fmt(r.dt_previsao)}</span> : <span style={{color:T.text4}}>—</span>}
+                      </td>
+                    )}
+                    {/* Follow-up */}
                     {visibleCols.has('status_interno') && (
                       <td style={{ padding:'6px 10px' }}>
-                        {/* Admin: read-only — só visualiza, clique abre histórico */}
                         {r.followup_status ? (
                           <button onClick={e=>{e.stopPropagation();setFollowupNF(r)}}
                             title={r.followup_obs||r.followup_status}
@@ -660,7 +743,7 @@ function MonitoramentoInner() {
                               background:'rgba(37,99,235,0.08)',
                               border:'1px solid rgba(37,99,235,0.28)',
                               color:'#2563eb',
-                              maxWidth:155, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
+                              maxWidth:145, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
                               display:'block', textAlign:'left', fontFamily:'var(--font-ui)', fontWeight:600,
                             }}>
                             📋 {r.followup_status}
@@ -670,8 +753,30 @@ function MonitoramentoInner() {
                         )}
                       </td>
                     )}
+                    {visibleCols.has('followup_obs') && (
+                      <td style={{ color:T.text2, fontSize:11, maxWidth:200, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', padding:'8px 10px' }}
+                        title={r.followup_obs||''}>
+                        {r.followup_obs||<span style={{color:T.text4}}>—</span>}
+                      </td>
+                    )}
                     {visibleCols.has('assistente') && (
-                      <td style={{ color:T.text2, fontSize:12, whiteSpace:'nowrap', padding:'8px 10px' }}>{r.assistente}</td>
+                      <td style={{ color:T.text2, fontSize:12, whiteSpace:'nowrap', padding:'8px 10px' }}>{r.assistente||'—'}</td>
+                    )}
+                    {/* Campos manuais — somente leitura */}
+                    {visibleCols.has('loja') && (
+                      <td style={{ color:manualData[r.nf_numero]?.loja?T.text:T.text4, fontSize:11, whiteSpace:'nowrap', padding:'8px 10px' }}>
+                        {manualData[r.nf_numero]?.loja||'—'}
+                      </td>
+                    )}
+                    {visibleCols.has('voucher') && (
+                      <td style={{ color:manualData[r.nf_numero]?.voucher?T.text:T.text4, fontSize:11, whiteSpace:'nowrap', padding:'8px 10px' }}>
+                        {manualData[r.nf_numero]?.voucher||'—'}
+                      </td>
+                    )}
+                    {visibleCols.has('protocolo') && (
+                      <td style={{ color:manualData[r.nf_numero]?.protocolo?T.text:T.text4, fontSize:11, whiteSpace:'nowrap', padding:'8px 10px' }}>
+                        {manualData[r.nf_numero]?.protocolo||'—'}
+                      </td>
                     )}
                   </tr>
                 ))}
