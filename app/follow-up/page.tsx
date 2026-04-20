@@ -55,6 +55,8 @@ export default function FollowUp() {
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date())
   const [selectedNF, setSelectedNF]   = useState<Entrega|null>(null)
   const [followupNF, setFollowupNF]   = useState<Entrega|null>(null)
+  // Admin (portal_admin) visualiza em modo leitura, não registra
+  const isAdmin = typeof window !== 'undefined' && !!sessionStorage.getItem('portal_admin')
 
   const getFirstDay = () => { const d=new Date(); return new Date(d.getFullYear(),d.getMonth(),1).toISOString().split('T')[0] }
   const getToday = () => new Date().toISOString().split('T')[0]
@@ -384,7 +386,7 @@ export default function FollowUp() {
       </MainWrapper>
 
       <OcorrenciasDrawer nf={selectedNF} onClose={()=>setSelectedNF(null)} />
-      <FollowupModal nf={followupNF} onClose={()=>setFollowupNF(null)} onSaved={load} />
+      <FollowupModal nf={followupNF} onClose={()=>setFollowupNF(null)} onSaved={load} readOnly={isAdmin} />
     </div>
   )
 }
