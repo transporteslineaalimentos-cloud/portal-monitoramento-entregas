@@ -209,7 +209,21 @@ function MonitoramentoInner() {
   }, [load])
 
   const filtered = useMemo(() => data.filter(r => {
-    if (filterStatus && r.status !== filterStatus) return false
+    if (filterStatus) {
+      // Agrupamentos: KPIs cobrem múltiplos status relacionados
+      const STATUS_GROUPS: Record<string, string[]> = {
+        'Agendado': ['Agendado', 'Agend. Conforme Cliente'],
+        'Entrega Programada': ['Entrega Programada'],
+        'Reagendada': ['Reagendada', 'Reagendamento Solicitado'],
+        'Pendente Agendamento': ['Pendente Agendamento', 'Aguardando Retorno Cliente'],
+      }
+      const group = STATUS_GROUPS[filterStatus]
+      if (group) {
+        if (!group.includes(r.status)) return false
+      } else {
+        if (r.status !== filterStatus) return false
+      }
+    }
     if (filterFilial && r.filial !== filterFilial) return false
     if (filterCC.size>0 && !filterCC.has(r.centro_custo||'')) return false
     if (filterTransp && !r.transportador_nome?.toLowerCase().includes(filterTransp.toLowerCase())) return false
@@ -242,10 +256,19 @@ function MonitoramentoInner() {
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
   const totalValor = filtered.reduce((s,r) => s+(Number(r.valor_produtos)||0), 0)
 
-  const kpis       = KPI_CONFIG.map(k => ({
+  // Agrupamentos de status para KPIs (mesmo mapeamento do filtro)
+  const KPI_STATUS_GROUPS: Record<string,string[]> = {
+    'Agendado': ['Agendado','Agend. Conforme Cliente'],
+    'Reagendada': ['Reagendada','Reagendamento Solicitado'],
+  }
+  const matchKpi = (r: Entrega, key: string) => {
+    const grp = KPI_STATUS_GROUPS[key]
+    return grp ? grp.includes(r.status) : r.status === key
+  }
+  const kpis = KPI_CONFIG.map(k => ({
     ...k,
-    count: filtered.filter(r => r.status===k.key).length,
-    valor: filtered.filter(r => r.status===k.key).reduce((s,r)=>s+(Number(r.valor_produtos)||0),0),
+    count: filtered.filter(r => matchKpi(r, k.key)).length,
+    valor: filtered.filter(r => matchKpi(r, k.key)).reduce((s,r)=>s+(Number(r.valor_produtos)||0),0),
   }))
 
   const ccOptions    = useMemo(()=>[...new Set(data.map(r=>r.centro_custo).filter(Boolean))].sort(),[data])
@@ -360,14 +383,14 @@ function MonitoramentoInner() {
         <div style={{ display:'grid', gridTemplateColumns:'repeat(6,1fr)', gap:8 }}>
           {kpis.map(k => (
             <div key={k.key}
-              onClick={() => setFilterStatus(filterStatus===k.key?'':k.key)}
+              onClick={() => setFilterStatus(filterStatus===k.key||(KPI_STATUS_GROUPS[k.key]||[]).includes(filterStatus)?'':k.key)}
               style={{
-                background: filterStatus===k.key ? k.bg : T.surface,
-                border: `1px solid ${filterStatus===k.key ? k.color+'44' : T.border}`,
+                background: filterStatus===k.key||(KPI_STATUS_GROUPS[k.key]||[]).includes(filterStatus) ? k.bg : T.surface,
+                border: `1px solid ${filterStatus===k.key||(KPI_STATUS_GROUPS[k.key]||[]).includes(filterStatus) ? k.color+'44' : T.border}`,
                 borderRadius: 8, padding:'12px 14px',
                 cursor:'pointer', userSelect:'none',
                 transition:'all 0.15s',
-                borderLeft: `3px solid ${filterStatus===k.key ? k.color : T.border}`,
+                borderLeft: `3px solid ${filterStatus===k.key||(KPI_STATUS_GROUPS[k.key]||[]).includes(filterStatus) ? k.color : T.border}`,
               }}>
               <div style={{ fontSize:10, fontWeight:600, color:T.text3, letterSpacing:'0.04em', marginBottom:6 }}>
                 {k.label.toUpperCase()}
@@ -375,7 +398,7 @@ function MonitoramentoInner() {
               <div style={{
                 fontFamily:'var(--font-head)', fontWeight:800,
                 fontSize:26, lineHeight:1,
-                color: filterStatus===k.key ? k.color : T.text,
+                color: filterStatus===k.key||(KPI_STATUS_GROUPS[k.key]||[]).includes(filterStatus) ? k.color : T.text,
                 letterSpacing:'-0.02em',
               }}>{k.count}</div>
               <div style={{ fontSize:11, color:T.text3, marginTop:4, fontVariantNumeric:'tabular-nums' }}>
@@ -398,7 +421,13 @@ function MonitoramentoInner() {
             </select>
             <select value={filterStatus} onChange={e=>{setFilterStatus(e.target.value);setPage(0)}}>
               <option value="">Status (todos)</option>
-              {['Pendente Expedição','Pendente Agendamento','Agendado','Entregue','Devolução','Nota Cancelada'].map(s=>(
+              {[
+                'Pendente Expedição','Pendente Agendamento',
+                'Agendado','Agend. Conforme Cliente','Entrega Programada',
+                'Reagendada','Reagendamento Solicitado','Aguardando Retorno Cliente',
+                'Pendente Baixa Entrega','NF com Ocorrência',
+                'Entregue','Devolução','Nota Cancelada','Troca de NF'
+              ].map(s=>(
                 <option key={s}>{s}</option>
               ))}
             </select>
