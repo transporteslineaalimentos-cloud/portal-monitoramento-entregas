@@ -428,7 +428,7 @@ export default function TorrePage() {
     let d=data
     if (filtroAtivo==='hoje') d=d.filter(r=>['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao)))
     else if (filtroAtivo==='__lt') d=d.filter(r=>r.lt_vencido&&r.status!=='Entregue')
-    else if (filtroAtivo==='Agendado') d=d.filter(r=>['Agendado','Entrega Programada'].includes(r.status))
+    else if (filtroAtivo==='Agendado') d=d.filter(r=>['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status))
     else if (filtroAtivo) d=d.filter(r=>r.status===filtroAtivo)
     if (filtroTransp) d=d.filter(r=>r.transportador_nome?.toLowerCase().includes(filtroTransp.toLowerCase()))
     if (filtroNF) d=d.filter(r=>r.nf_numero?.includes(filtroNF)||r.destinatario_fantasia?.toLowerCase().includes(filtroNF.toLowerCase())||r.destinatario_nome?.toLowerCase().includes(filtroNF.toLowerCase()))
@@ -454,13 +454,13 @@ export default function TorrePage() {
   const kpiCount = (id:KpiId) =>
     id==='hoje' ? baseParaKpi.filter(r=>['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao))).length
     : id==='__lt' ? baseParaKpi.filter(r=>r.lt_vencido&&r.status!=='Entregue').length
-    : id==='Agendado' ? baseParaKpi.filter(r=>['Agendado','Entrega Programada'].includes(r.status)).length
+    : id==='Agendado' ? baseParaKpi.filter(r=>['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status)).length
     : baseParaKpi.filter(r=>r.status===id).length
 
   const kpiValor = (id:KpiId) =>
     id==='hoje' ? baseParaKpi.filter(r=>['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao))).reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
     : id==='__lt' ? baseParaKpi.filter(r=>r.lt_vencido&&r.status!=='Entregue').reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
-    : id==='Agendado' ? baseParaKpi.filter(r=>['Agendado','Entrega Programada'].includes(r.status)).reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
+    : id==='Agendado' ? baseParaKpi.filter(r=>['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status)).reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
     : baseParaKpi.filter(r=>r.status===id).reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
 
   const totalAberto = baseParaKpi.filter(r=>r.status!=='Entregue').length
@@ -1225,7 +1225,7 @@ export default function TorrePage() {
         const STATUS_AG=['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada']
         const agdMap:Record<string,{valor:number;count:number}>={}
         const fmtDia=(d:string|null)=>d?format(new Date(d.slice(0,10)+' 12:00'),'dd/MM',{locale:ptBR}):'—'
-        data.filter(r=>STATUS_AG.includes(r.status)&&r.dt_previsao).forEach(r=>{
+        dashData.filter(r=>STATUS_AG.includes(r.status)&&r.dt_previsao).forEach(r=>{
           const d=fmtDia(r.dt_previsao); if(!agdMap[d]) agdMap[d]={valor:0,count:0}
           agdMap[d].valor+=Number(r.valor_produtos)||0; agdMap[d].count++
         })
