@@ -212,9 +212,9 @@ function MonitoramentoInner() {
     if (filterStatus) {
       // Agrupamentos: KPIs cobrem múltiplos status relacionados
       const STATUS_GROUPS: Record<string, string[]> = {
-        'Agendado': ['Agendado', 'Agend. Conforme Cliente'],
-        'Entrega Programada': ['Entrega Programada'],
+        'Agendado': ['Agendado', 'Reagendada', 'Agend. Conforme Cliente', 'Entrega Programada'],
         'Reagendada': ['Reagendada', 'Reagendamento Solicitado'],
+        'Entrega Programada': ['Entrega Programada'],
         'Pendente Agendamento': ['Pendente Agendamento', 'Aguardando Retorno Cliente'],
       }
       const group = STATUS_GROUPS[filterStatus]
@@ -258,8 +258,8 @@ function MonitoramentoInner() {
 
   // Agrupamentos de status para KPIs (mesmo mapeamento do filtro)
   const KPI_STATUS_GROUPS: Record<string,string[]> = {
-    'Agendado': ['Agendado','Agend. Conforme Cliente'],
-    'Reagendada': ['Reagendada','Reagendamento Solicitado'],
+    'Agendado': ['Agendado', 'Reagendada', 'Agend. Conforme Cliente', 'Entrega Programada'],
+    'Reagendada': ['Reagendada', 'Reagendamento Solicitado'],
   }
   const matchKpi = (r: Entrega, key: string) => {
     const grp = KPI_STATUS_GROUPS[key]
