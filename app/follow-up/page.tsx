@@ -69,7 +69,8 @@ export default function FollowUp() {
   })
   useEffect(() => { sessionStorage.setItem('followup_dateFrom', dateFrom) }, [dateFrom])
   useEffect(() => { sessionStorage.setItem('followup_dateTo', dateTo) }, [dateTo])
-  const [filtroCC,    setFiltroCC]    = useState('')
+  const [filtroCC, setFiltroCC] = useState<Set<string>>(new Set())
+  const [showCCDrop, setShowCCDrop] = useState(false)
   const [filtroTransp,setFiltroTransp]= useState('')
   const [sortField,   setSortField]   = useState('dt_previsao')
 
@@ -105,7 +106,7 @@ export default function FollowUp() {
     if (filtroAtivo==='hoje')    d = d.filter(r=>['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao)))
     else if (filtroAtivo==='__lt')    d = d.filter(r=>r.lt_vencido)
     else if (filtroAtivo)        d = d.filter(r=>r.status===filtroAtivo)
-    if (filtroCC)    d = d.filter(r=>r.centro_custo?.toLowerCase().includes(filtroCC.toLowerCase()))
+    if (filtroCC.size>0) d = d.filter(r=>filtroCC.has(r.centro_custo||''))
     if (filtroTransp)d = d.filter(r=>r.transportador_nome?.toLowerCase().includes(filtroTransp.toLowerCase()))
     if (dateFrom) { const f=new Date(dateFrom); f.setHours(0,0,0,0); d=d.filter(r=>r.dt_emissao&&new Date(r.dt_emissao)>=f) }
     if (dateTo)   { const t=new Date(dateTo); t.setHours(23,59,59,999); d=d.filter(r=>r.dt_emissao&&new Date(r.dt_emissao)<=t) }

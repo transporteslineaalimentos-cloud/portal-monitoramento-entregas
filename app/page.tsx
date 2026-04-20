@@ -85,7 +85,8 @@ function MonitoramentoInner() {
   // Filters
   const searchParams = useSearchParams()
   const [filterStatus, setFilterStatus] = useState(()=>searchParams.get('status')||'')
-  const [filterCC,     setFilterCC]     = useState(()=>searchParams.get('cc')||'')
+  const [filterCC, setFilterCC] = useState<Set<string>>(new Set())
+  const [showCCDrop, setShowCCDrop] = useState(false)
   const [filterTransp, setFilterTransp] = useState(()=>searchParams.get('transp')||'')
   const [filterAssist, setFilterAssist] = useState(()=>searchParams.get('assistente')||'')
   const [filterFilial, setFilterFilial] = useState(()=>searchParams.get('filial')||'')
@@ -172,7 +173,7 @@ function MonitoramentoInner() {
   const filtered = useMemo(() => data.filter(r => {
     if (filterStatus && r.status !== filterStatus) return false
     if (filterFilial && r.filial !== filterFilial) return false
-    if (filterCC && !r.centro_custo?.toLowerCase().includes(filterCC.toLowerCase())) return false
+    if (filterCC.size>0 && !filterCC.has(r.centro_custo||'')) return false
     if (filterTransp && !r.transportador_nome?.toLowerCase().includes(filterTransp.toLowerCase())) return false
     if (filterAssist && r.assistente !== filterAssist) return false
     if (filterNF && !r.nf_numero?.includes(filterNF)) return false
@@ -228,10 +229,10 @@ function MonitoramentoInner() {
   }
 
   const clearFilters = () => {
-    setFilterStatus(''); setFilterFilial(''); setFilterCC(''); setFilterTransp('')
+    setFilterStatus(''); setFilterFilial(''); setFilterCC(new Set()); setFilterTransp('')
     setFilterAssist(''); setFilterNF(''); setFilterRomaneio(''); setFilterMesAnt(''); setFilterOcorrCod(''); setDateFrom(''); setDateTo(''); setPage(0)
   }
-  const hasFilter = !!(filterStatus||filterFilial||filterCC||filterTransp||filterAssist||filterNF||filterRomaneio||filterMesAnt||filterOcorrCod||dateFrom||dateTo)
+  const hasFilter = !!(filterStatus||filterFilial||filterCC.size>0||filterTransp||filterAssist||filterNF||filterRomaneio||filterMesAnt||filterOcorrCod||dateFrom||dateTo)
 
   const exportXLSX = () => {
     const rows = filtered.map(r => ({
@@ -363,10 +364,45 @@ function MonitoramentoInner() {
                 <option key={s}>{s}</option>
               ))}
             </select>
-            <select value={filterCC} onChange={e=>{setFilterCC(e.target.value);setPage(0)}}>
-              <option value="">C. de Custo (todos)</option>
-              {ccOptions.map(c=><option key={c}>{c}</option>)}
-            </select>
+            {/* Multi-select CC */}
+            <div style={{position:'relative'}}>
+              <button onClick={()=>setShowCCDrop(p=>!p)}
+                style={{padding:'5px 10px',fontSize:12,borderRadius:8,border:`1px solid ${showCCDrop?'#2563eb':'#e2e8f0'}`,
+                  background:filterCC.size>0?'rgba(37,99,235,.08)':'#fff',
+                  color:filterCC.size>0?'#2563eb':'#64748b',cursor:'pointer',fontFamily:'inherit',
+                  fontWeight:600,whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:5}}>
+                C. Custo {filterCC.size>0?`(${filterCC.size} sel.)`:'(todos)'} ▾
+              </button>
+              {showCCDrop&&(
+                <>
+                  <div style={{position:'fixed',inset:0,zIndex:190}} onClick={()=>setShowCCDrop(false)}/>
+                  <div style={{position:'absolute',top:'110%',left:0,zIndex:200,background:'#fff',
+                    border:'1px solid #e2e8f0',borderRadius:10,boxShadow:'0 8px 24px rgba(0,0,0,.1)',
+                    minWidth:220,overflow:'hidden'}}>
+                    <div style={{padding:'8px 10px',borderBottom:'1px solid #e2e8f0',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                      <span style={{fontSize:11,fontWeight:700,color:'#1e293b'}}>Centro de Custo</span>
+                      <button onClick={()=>{setFilterCC(new Set());setPage(0)}}
+                        style={{fontSize:10,padding:'2px 7px',borderRadius:5,border:'1px solid #e2e8f0',
+                          background:'none',color:'#94a3b8',cursor:'pointer',fontFamily:'inherit'}}>Limpar</button>
+                    </div>
+                    <div style={{maxHeight:240,overflowY:'auto',padding:'6px 8px',display:'flex',flexDirection:'column',gap:2}}>
+                      {ccOptions.map(cc=>(
+                        <label key={cc} style={{display:'flex',alignItems:'center',gap:7,padding:'5px 7px',
+                          borderRadius:6,cursor:'pointer',
+                          background:filterCC.has(cc)?'rgba(37,99,235,.08)':'transparent',
+                          border:`1px solid ${filterCC.has(cc)?'rgba(37,99,235,.25)':'transparent'}`}}>
+                          <input type="checkbox" checked={filterCC.has(cc)}
+                            onChange={()=>{setFilterCC(prev=>{const n=new Set(prev);n.has(cc)?n.delete(cc):n.add(cc);return n});setPage(0)}}
+                            style={{accentColor:'#2563eb',cursor:'pointer',width:13,height:13,flexShrink:0}}/>
+                          <span style={{fontSize:11,fontWeight:filterCC.has(cc)?600:400,
+                            color:filterCC.has(cc)?'#2563eb':'#64748b'}}>{cc}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
             <select value={filterTransp} onChange={e=>{setFilterTransp(e.target.value);setPage(0)}}>
               <option value="">Transportadora (todas)</option>
               {transpOpts.map(t=><option key={t} value={t}>{t.substring(0,30)}</option>)}
