@@ -1,10 +1,10 @@
 'use client'
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
-import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid } from 'recharts'
+import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid, ComposedChart, Line, LabelList } from 'recharts'
 import { supabase, type Entrega } from '@/lib/supabase'
 import { useTheme } from '@/components/ThemeProvider'
 import { getTheme } from '@/lib/theme'
-import { format, isToday, parseISO } from 'date-fns'
+import { format, isToday, parseISO, startOfWeek, endOfWeek, addWeeks, isWithinInterval, subMonths, startOfMonth } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import OcorrenciasDrawer from '@/components/OcorrenciasDrawer'
 import FollowupModal from '@/components/FollowupModal'
@@ -1153,76 +1153,133 @@ export default function TorrePage() {
         </>)}
 {/* DASHBOARD SECTION */}
       {activeSection==='dashboard'&&(()=>{
-        // Excluir NFs sem CC dos gráficos — essas pertencem a "todas" e distorceriam os dados da assistente
+        // Excluir NFs sem CC dos gráficos — pertencem a "todas" as assistentes e distorceriam os dados
         const SEM_CC_VALS = ['','-','não mapeado','nao mapeado']
         const dashData      = data.filter(r=>!SEM_CC_VALS.includes((r.centro_custo||'').toLowerCase().trim()))
+
+        // ── Dados base ──────────────────────────────────────────
+        const now = new Date()
+        const start_m = startOfMonth(now)
+        const prev_m  = startOfMonth(subMonths(now, 1))
+
         const entregues     = dashData.filter(r=>r.status==='Entregue')
-        const emAberto      = dashData.filter(r=>r.status!=='Entregue')
+        const emAberto      = dashData.filter(r=>r.status!=='Entregue'&&!['Nota Cancelada','Troca de NF'].includes(r.status))
         const ltVenc        = dashData.filter(r=>r.lt_vencido&&r.status!=='Entregue')
         const comOcorr      = dashData.filter(r=>r.status==='NF com Ocorrência')
+        const reagendadas   = dashData.filter(r=>r.codigo_ocorrencia==='108')
+        const devolucoes    = dashData.filter(r=>r.status==='Devolução')
         const hojeD         = dashData.filter(r=>['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao)))
+        const pendAgend     = dashData.filter(r=>r.status==='Pendente Agendamento')
         const totalValorNFs = dashData.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
-        const valorAberto   = emAberto.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
-        const valorEntregue = entregues.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
-        const txEntrega     = dashData.length>0 ? Math.round(entregues.length/data.length*100) : 0
+        const txEntrega     = dashData.length>0 ? Math.round(entregues.length/dashData.length*100) : 0
+        const txColor       = txEntrega>=80?'#22c55e':txEntrega>=60?'#f59e0b':'#ef4444'
 
-        const statusDist = Object.entries(
-          dashData.reduce((acc: Record<string,number>,r)=>{ acc[r.status]=(acc[r.status]||0)+1; return acc; },{} as Record<string,number>)
-        ).sort((a,b)=>(b[1] as number)-(a[1] as number)).slice(0,7).map(([name,value])=>({name:(name as string).replace('Aguardando Retorno Cliente','Ag. Retorno').replace('Reagendamento Solicitado','Reagend. Solicit.').replace('Agend. Conforme Cliente','Ag. Conf. Cliente').replace('Pendente Agendamento','Pend. Agend.').replace('Pendente Baixa Entrega','Pend. Baixa'),value}))
+        const nfsMesPassado = dashData.filter(r=>{
+          if(!r.dt_emissao) return false
+          const em=new Date(r.dt_emissao)
+          return em>=prev_m&&em<start_m&&!['Entregue','Nota Cancelada','Troca de NF'].includes(r.status)
+        }).sort((a,b)=>(Number(b.valor_produtos)||0)-(Number(a.valor_produtos)||0))
 
-        const diasArr = Array.from({length:14},(_,i)=>{
-          const d=new Date(); d.setDate(d.getDate()-(13-i))
-          const key=d.toISOString().slice(0,10)
-          const label=d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})
-          const cnt=entregues.filter(r=>r.dt_entrega&&r.dt_entrega.slice(0,10)===key).length
-          return {label,cnt}
-        })
+        const nfsOcorrDev = data.filter(r=>
+          (r.status==='Devolução'&&!['79','113'].includes(r.codigo_ocorrencia||'')) ||
+          ['106','109','110','111','116','120','61'].includes(r.codigo_ocorrencia||'')
+        ).sort((a,b)=>(Number(b.valor_produtos)||0)-(Number(a.valor_produtos)||0))
 
-        const transpRank = Object.entries(
-          emAberto.reduce((acc: Record<string,number>,r)=>{ const k=(r.transportador_nome||'Sem info').slice(0,18); acc[k]=(acc[k]||0)+1; return acc; },{} as Record<string,number>)
-        ).sort((a,b)=>(b[1] as number)-(a[1] as number)).slice(0,6).map(([name,value])=>({name: name as string,value: value as number}))
+        // ── Status Geral (donut) ─────────────────────────────────
+        const statusMap: Record<string,{count:number;valor:number}> = {}
+        dashData.forEach(r=>{ const s=r.status||'Outro'; if(!statusMap[s]) statusMap[s]={count:0,valor:0}; statusMap[s].count++; statusMap[s].valor+=Number(r.valor_produtos)||0 })
+        const statusData = Object.entries(statusMap).map(([status,v])=>({status,...v})).sort((a,b)=>b.valor-a.valor)
 
-        const mesesMap: Record<string,number> = {}
-        dashData.forEach(r=>{ if(!r.dt_emissao) return; const mk=r.dt_emissao.slice(0,7); mesesMap[mk]=(mesesMap[mk]||0)+1 })
-        const meses=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
-        const mesesArr = Object.entries(mesesMap).sort((a,b)=>a[0].localeCompare(b[0])).slice(-5).map(([k,cnt])=>{
-          const [ano,mes]=k.split('-')
-          return {label:meses[Number(mes)-1]+'/'+ano.slice(2),cnt}
-        })
-
-        const pieData=[
-          {name:'Em Aberto',value:emAberto.length,color:'#f97316'},
-          {name:'Entregues',value:entregues.length,color:'#22c55e'},
-        ]
-
-        const SC: Record<string,string> = {
-          'Entregue':'#22c55e','Agendado':'#3b82f6','Ag. Conf. Cliente':'#6366f1',
-          'Reagendada':'#eab308','Ag. Retorno':'#f59e0b','Reagend. Solicit.':'#d97706',
-          'Entrega Programada':'#06b6d4','Pend. Baixa':'#f97316',
-          'NF com Ocorrência':'#ef4444','Devolução':'#dc2626','Pend. Agend.':'#ca8a04',
+        const STATUS_COLORS_D: Record<string,string> = {
+          'Entregue':'#22c55e','Pendente Agendamento':'#f59e0b','Agendado':'#3b82f6',
+          'NF com Ocorrência':'#ef4444','Devolução':'#dc2626','Aguardando Retorno Cliente':'#8b5cf6',
+          'Reagendada':'#eab308','Agend. Conforme Cliente':'#06b6d4','Entrega Programada':'#0ea5e9',
+          'Pendente Baixa Entrega':'#f97316','Nota Cancelada':'#94a3b8','Troca de NF':'#64748b',
+          'Reagendamento Solicitado':'#d97706',
         }
 
-        const Card = ({label,value,sub,color,icon}:{label:string,value:string|number,sub:string,color:string,icon:string}) => (
-          <div style={{background:T.surface,border:'1px solid '+T.border,borderRadius:14,padding:'18px 20px',boxShadow:T.shadow,position:'relative',overflow:'hidden',minWidth:0}}>
-            <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:color,borderRadius:'14px 14px 0 0'}}/>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
-              <div>
-                <div style={{fontSize:10,fontWeight:700,color:T.text3,letterSpacing:'.1em',textTransform:'uppercase',marginBottom:8}}>{label}</div>
-                <div style={{fontSize:26,fontWeight:800,color:T.text,letterSpacing:'-.03em',lineHeight:1}}>{value}</div>
-                <div style={{fontSize:11,color:T.text3,marginTop:5}}>{sub}</div>
-              </div>
-              <div style={{fontSize:24,opacity:.15}}>{icon}</div>
+        // ── Previsão Semanal ─────────────────────────────────────
+        const WEEKS=['S-2','S-1','S0','S+1','S+2','S+3']
+        const wkOf=(d:Date)=>{
+          const rm=startOfWeek(now,{weekStartsOn:1}),dm=startOfWeek(d,{weekStartsOn:1})
+          const w=Math.round((dm.getTime()-rm.getTime())/(7*86400000))
+          if(w<-2||w>3) return null
+          return w===-2?'S-2':w===-1?'S-1':w===0?'S0':w===1?'S+1':w===2?'S+2':'S+3'
+        }
+        const isPast=(s:string)=>s==='S-2'||s==='S-1'
+        const wk:Record<string,{valor:number;count:number}>={}
+        WEEKS.forEach(w=>{wk[w]={valor:0,count:0}})
+        data.forEach(r=>{
+          if(r.dt_entrega&&r.status==='Entregue'){
+            const l=wkOf(new Date(r.dt_entrega.slice(0,10)+' 12:00'))
+            if(l&&isPast(l)&&wk[l]){wk[l].valor+=Number(r.valor_produtos)||0;wk[l].count++}
+          }
+          if(r.dt_previsao){
+            const l=wkOf(new Date(r.dt_previsao.slice(0,10)+' 12:00'))
+            if(l&&!isPast(l)&&wk[l]){wk[l].valor+=Number(r.valor_produtos)||0;wk[l].count++}
+          }
+        })
+        const semanalData=WEEKS.map(s=>({semana:s,...wk[s]}))
+
+        // ── Aguardando Entrega por Dia ───────────────────────────
+        const STATUS_AG=['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada']
+        const agdMap:Record<string,{valor:number;count:number}>={}
+        const fmtDia=(d:string|null)=>d?format(new Date(d.slice(0,10)+' 12:00'),'dd/MM',{locale:ptBR}):'—'
+        data.filter(r=>STATUS_AG.includes(r.status)&&r.dt_previsao).forEach(r=>{
+          const d=fmtDia(r.dt_previsao); if(!agdMap[d]) agdMap[d]={valor:0,count:0}
+          agdMap[d].valor+=Number(r.valor_produtos)||0; agdMap[d].count++
+        })
+        const agendDia=Object.entries(agdMap).sort((a,b)=>a[0].localeCompare(b[0])).slice(0,14).map(([dia,v])=>({dia,...v}))
+
+        // ── Notas Entregues S-1 ──────────────────────────────────
+        const s1start=startOfWeek(addWeeks(now,-1),{weekStartsOn:1})
+        const s1end=endOfWeek(addWeeks(now,-1),{weekStartsOn:1})
+        const entS1Map:Record<string,{dia:string;valor:number;count:number}>={}
+        data.filter(r=>r.status==='Entregue'&&r.dt_entrega)
+          .filter(r=>isWithinInterval(new Date(r.dt_entrega.slice(0,10)+' 12:00'),{start:s1start,end:s1end}))
+          .forEach(r=>{
+            const iso=r.dt_entrega.slice(0,10)
+            const label=fmtDia(r.dt_entrega)
+            if(!entS1Map[iso]) entS1Map[iso]={dia:label,valor:0,count:0}
+            entS1Map[iso].valor+=Number(r.valor_produtos)||0; entS1Map[iso].count++
+          })
+        const entregS1=Object.keys(entS1Map).sort().map(iso=>entS1Map[iso])
+
+        const moneyK=(v:number)=>v>=1000000?`R$${(v/1000000).toFixed(1)}M`:v>=1000?`R$${Math.round(v/1000)}K`:`R$${v.toFixed(0)}`
+
+        // ── Card helper ──────────────────────────────────────────
+        const DCard=({label,value,sub,color,icon,onClick}:{label:string;value:string|number;sub:string;color:string;icon:string;onClick?:()=>void})=>(
+          <div onClick={onClick}
+            style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,padding:'14px 16px',
+              boxShadow:T.shadow,cursor:onClick?'pointer':'default',transition:'transform .12s',
+              borderLeft:`3px solid ${color}`}}
+            onMouseEnter={e=>{if(onClick)(e.currentTarget as HTMLElement).style.transform='translateY(-1px)'}}
+            onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.transform='translateY(0)'}}>
+            <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6}}>
+              <span style={{fontSize:16}}>{icon}</span>
+              <span style={{fontSize:10,fontWeight:700,color:T.text3,letterSpacing:'.1em',textTransform:'uppercase'}}>{label}</span>
             </div>
+            <div style={{fontSize:26,fontWeight:800,color,letterSpacing:'-.03em',lineHeight:1}}>{value}</div>
+            <div style={{fontSize:11,color:T.text3,marginTop:4}}>{sub}</div>
           </div>
         )
 
-        const ltBorderColor = ltVenc.length>0 ? 'rgba(239,68,68,.4)' : T.border
-        const ocBorderColor = comOcorr.length>0 ? 'rgba(239,68,68,.3)' : T.border
-        const txColor = txEntrega>=80 ? '#22c55e' : txEntrega>=60 ? '#f59e0b' : '#ef4444'
+        // ── GCard (gráfico) helper ───────────────────────────────
+        const GCard=({title,sub,children,accent='#3b82f6'}:{title:string;sub?:string;children:React.ReactNode;accent?:string})=>(
+          <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:14,
+            padding:'18px 20px 14px',boxShadow:T.shadow,display:'flex',flexDirection:'column',gap:10}}>
+            <div style={{borderLeft:`3px solid ${accent}`,paddingLeft:10}}>
+              <div style={{fontSize:12,fontWeight:700,color:T.text}}>{title}</div>
+              {sub&&<div style={{fontSize:10.5,color:T.text3,marginTop:2}}>{sub}</div>}
+            </div>
+            {children}
+          </div>
+        )
 
         return (
           <div style={{display:'flex',flexDirection:'column',gap:20,paddingBottom:32}}>
 
+            {/* Header */}
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:8}}>
               <div>
                 <h1 style={{margin:0,fontSize:20,fontWeight:800,color:T.text,letterSpacing:'-.03em'}}>Dashboard</h1>
@@ -1233,172 +1290,224 @@ export default function TorrePage() {
               </div>
             </div>
 
-            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(165px,1fr))',gap:12}}>
-              <Card label="Total Carteira"   value={data.length}       sub={money(totalValorNFs)}  color={T.accentBlu} icon="📦"/>
-              <Card label="Em Aberto"        value={emAberto.length}   sub={money(valorAberto)}    color="#f97316"     icon="🔄"/>
-              <Card label="Entregues"        value={entregues.length}  sub={money(valorEntregue)}  color="#22c55e"     icon="✅"/>
-              <Card label="Tx. Entrega"      value={txEntrega+'%'}     sub={entregues.length+' de '+data.length} color={txColor} icon="📊"/>
-              <Card label="LT Vencidos"      value={ltVenc.length}     sub={money(ltVenc.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0))} color={ltVenc.length>0?'#ef4444':T.green} icon="⏰"/>
-              <Card label="Entrega Hoje"     value={hojeD.length}      sub={money(hojeD.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0))} color="#06b6d4" icon="🚚"/>
-              <Card label="Com Ocorrência"   value={comOcorr.length}   sub={money(comOcorr.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0))} color={comOcorr.length>0?'#ef4444':T.green} icon="⚡"/>
-              <Card label="Pend. Agendamento" value={data.filter(r=>r.status==='Pendente Agendamento').length} sub="aguardando" color="#ca8a04" icon="📅"/>
+            {/* KPIs — linha 1 */}
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',gap:10}}>
+              <DCard label="Total Carteira"    value={data.length}         sub={moneyK(totalValorNFs)}  color={T.accentBlu} icon="📦"/>
+              <DCard label="Em Aberto"         value={emAberto.length}     sub={moneyK(emAberto.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0))} color="#f97316" icon="🔄"/>
+              <DCard label="Entregues"         value={entregues.length}    sub={moneyK(entregues.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0))} color="#22c55e" icon="✅"/>
+              <DCard label="Tx. Entrega"       value={txEntrega+'%'}       sub={entregues.length+' de '+data.length} color={txColor} icon="📊"/>
+              <DCard label="Pend. Agendamento" value={pendAgend.length}    sub={moneyK(pendAgend.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0))} color="#ca8a04" icon="📅"/>
+              <DCard label="Entrega Hoje"      value={hojeD.length}        sub={moneyK(hojeD.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0))} color="#06b6d4" icon="🚚"/>
+              <DCard label="LT Vencidos"       value={ltVenc.length}       sub={moneyK(ltVenc.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0))} color={ltVenc.length>0?'#ef4444':T.green} icon="⏰"/>
+              <DCard label="Com Ocorrência"    value={comOcorr.length}     sub={moneyK(comOcorr.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0))} color={comOcorr.length>0?'#ef4444':T.green} icon="⚡"/>
             </div>
 
-            <div style={{display:'grid',gridTemplateColumns:'1fr 300px',gap:16}}>
-              <div style={{background:T.surface,border:'1px solid '+T.border,borderRadius:14,padding:'20px 20px 12px',boxShadow:T.shadow}}>
-                <div style={{fontSize:12,fontWeight:700,color:T.text,marginBottom:2}}>Entregas — últimos 14 dias</div>
-                <div style={{fontSize:11,color:T.text3,marginBottom:14}}>Quantidade de NFs entregues por dia</div>
-                <ResponsiveContainer width="100%" height={175}>
-                  <AreaChart data={diasArr} margin={{top:4,right:8,bottom:0,left:-22}}>
+            {/* Linha 2: Status Geral + Previsão Semanal */}
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1.5fr',gap:16}}>
+
+              {/* Status Geral */}
+              <GCard title="Status Geral" sub={moneyK(totalValorNFs)} accent="#f97316">
+                <div style={{display:'flex',gap:16,alignItems:'center'}}>
+                  <div style={{position:'relative',flexShrink:0}}>
+                    <ResponsiveContainer width={130} height={130}>
+                      <PieChart>
+                        <Pie data={statusData} dataKey="count" cx="50%" cy="50%"
+                          innerRadius={36} outerRadius={58} paddingAngle={2} strokeWidth={0}>
+                          {statusData.map(e=><Cell key={e.status} fill={STATUS_COLORS_D[e.status]||T.text3}/>)}
+                        </Pie>
+                        <Tooltip contentStyle={{background:T.surface2,border:'1px solid '+T.border,borderRadius:8,fontSize:11,color:T.text}}/>
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',textAlign:'center',pointerEvents:'none'}}>
+                      <div style={{fontSize:17,fontWeight:800,color:T.text}}>{data.length}</div>
+                      <div style={{fontSize:8,color:T.text3,letterSpacing:'.08em',fontWeight:600}}>NFs</div>
+                    </div>
+                  </div>
+                  <div style={{flex:1,display:'flex',flexDirection:'column',gap:5,overflowY:'auto',maxHeight:150}}>
+                    {statusData.map(s=>(
+                      <div key={s.status} onClick={()=>setSelectedNF(data.find(r=>r.status===s.status)||null)}
+                        style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:6,
+                          padding:'3px 6px',borderRadius:6,cursor:'pointer',transition:'background .1s'}}
+                        onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background=isDark?'rgba(255,255,255,.04)':'rgba(0,0,0,.03)'}
+                        onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background='transparent'}>
+                        <div style={{display:'flex',alignItems:'center',gap:6,minWidth:0}}>
+                          <div style={{width:7,height:7,borderRadius:2,background:STATUS_COLORS_D[s.status]||T.text3,flexShrink:0}}/>
+                          <span style={{fontSize:10.5,color:T.text2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.status}</span>
+                        </div>
+                        <span style={{fontSize:11,fontWeight:700,color:T.text,flexShrink:0}}>{s.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </GCard>
+
+              {/* Previsão Semanal */}
+              <GCard title="Previsão de Entregas — Semanal" accent={T.accentBlu}>
+                <ResponsiveContainer width="100%" height={185}>
+                  <ComposedChart data={semanalData} margin={{left:6,right:34,top:28,bottom:4}}>
                     <defs>
-                      <linearGradient id="gEnt" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#22c55e" stopOpacity={0.3}/>
-                        <stop offset="100%" stopColor="#22c55e" stopOpacity={0}/>
+                      <linearGradient id="gSemTorre" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={T.accentBlu} stopOpacity={0.45}/>
+                        <stop offset="100%" stopColor={T.accentBlu} stopOpacity={0.06}/>
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke={isDark?'#1e3452':'#e2e8f0'} vertical={false}/>
-                    <XAxis dataKey="label" tick={{fontSize:9,fill:T.text3}} axisLine={false} tickLine={false}/>
-                    <YAxis tick={{fontSize:9,fill:T.text3}} axisLine={false} tickLine={false} allowDecimals={false}/>
-                    <Tooltip contentStyle={{background:T.surface2,border:'1px solid '+T.border,borderRadius:8,fontSize:11,color:T.text}} formatter={(v:any)=>[v+' NFs','Entregues']}/>
-                    <Area type="monotone" dataKey="cnt" stroke="#22c55e" strokeWidth={2} fill="url(#gEnt)" dot={{r:3,fill:'#22c55e',strokeWidth:0}}/>
-                  </AreaChart>
+                    <CartesianGrid strokeDasharray="3 4" stroke={isDark?'#1e3452':'#e2e8f0'} vertical={false}/>
+                    <XAxis dataKey="semana" tick={{fontSize:11,fill:T.text2,fontWeight:600}} axisLine={false} tickLine={false}/>
+                    <YAxis yAxisId="val" tick={{fontSize:9,fill:T.text3}} tickFormatter={moneyK} axisLine={false} tickLine={false}/>
+                    <YAxis yAxisId="cnt" orientation="right" tick={{fontSize:9,fill:T.text3}} axisLine={false} tickLine={false}/>
+                    <Tooltip contentStyle={{background:T.surface2,border:'1px solid '+T.border,borderRadius:8,fontSize:11,color:T.text}}/>
+                    <Bar yAxisId="val" dataKey="valor" name="Valor" fill={'url(#gSemTorre)'} radius={[6,6,0,0]} maxBarSize={48}>
+                      <LabelList dataKey="valor" position="insideTop" formatter={(v:any)=>Number(v)>0?moneyK(Number(v)):''} style={{fontSize:9,fill:T.text,fontWeight:600}}/>
+                    </Bar>
+                    <Line yAxisId="cnt" type="monotone" dataKey="count" name="NFs" stroke={T.accent} strokeWidth={2.5}
+                      dot={{fill:T.accent,r:5,stroke:T.surface,strokeWidth:2}} activeDot={{r:7,stroke:T.surface,strokeWidth:2}}>
+                      <LabelList dataKey="count" position="top" offset={12} formatter={(v:any)=>Number(v)>0?`${v} NFs`:''} style={{fontSize:10,fontWeight:800,fill:T.accent}}/>
+                    </Line>
+                  </ComposedChart>
                 </ResponsiveContainer>
-              </div>
-
-              <div style={{background:T.surface,border:'1px solid '+T.border,borderRadius:14,padding:'20px',boxShadow:T.shadow,display:'flex',flexDirection:'column'}}>
-                <div style={{fontSize:12,fontWeight:700,color:T.text,marginBottom:2}}>Carteira por Situação</div>
-                <div style={{fontSize:11,color:T.text3,marginBottom:4}}>Em aberto vs entregues</div>
-                <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                  <ResponsiveContainer width="100%" height={140}>
-                    <PieChart>
-                      <Pie data={pieData} cx="50%" cy="50%" innerRadius={38} outerRadius={62} paddingAngle={3} dataKey="value" strokeWidth={0}>
-                        {pieData.map((e,i)=><Cell key={i} fill={e.color}/>)}
-                      </Pie>
-                      <Tooltip contentStyle={{background:T.surface2,border:'1px solid '+T.border,borderRadius:8,fontSize:11,color:T.text}}/>
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <div style={{display:'flex',gap:16,justifyContent:'center'}}>
-                  {pieData.map(p=>(
-                    <div key={p.name} style={{display:'flex',alignItems:'center',gap:5}}>
-                      <div style={{width:8,height:8,borderRadius:'50%',background:p.color}}/>
-                      <span style={{fontSize:10,color:T.text3}}>{p.name}</span>
-                      <span style={{fontSize:11,fontWeight:700,color:T.text}}>{p.value}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              </GCard>
             </div>
 
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:16}}>
-              <div style={{background:T.surface,border:'1px solid '+T.border,borderRadius:14,padding:'20px 20px 12px',boxShadow:T.shadow}}>
-                <div style={{fontSize:12,fontWeight:700,color:T.text,marginBottom:2}}>Top Transportadoras</div>
-                <div style={{fontSize:11,color:T.text3,marginBottom:14}}>NFs em aberto</div>
-                <ResponsiveContainer width="100%" height={175}>
-                  <BarChart data={transpRank} layout="vertical" margin={{top:0,right:12,bottom:0,left:0}}>
-                    <XAxis type="number" tick={{fontSize:9,fill:T.text3}} axisLine={false} tickLine={false}/>
-                    <YAxis type="category" dataKey="name" tick={{fontSize:9,fill:T.text3}} axisLine={false} tickLine={false} width={85}/>
-                    <Tooltip contentStyle={{background:T.surface2,border:'1px solid '+T.border,borderRadius:8,fontSize:11,color:T.text}} formatter={(v:any)=>[v+' NFs','']}/>
-                    <Bar dataKey="value" radius={[0,4,4,0]} maxBarSize={16}>
-                      {transpRank.map((_,i)=><Cell key={i} fill={['#3b82f6','#6366f1','#8b5cf6','#a855f7','#06b6d4','#0891b2'][i%6]}/>)}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div style={{background:T.surface,border:'1px solid '+T.border,borderRadius:14,padding:'20px 20px 12px',boxShadow:T.shadow}}>
-                <div style={{fontSize:12,fontWeight:700,color:T.text,marginBottom:2}}>Distribuição por Status</div>
-                <div style={{fontSize:11,color:T.text3,marginBottom:14}}>Top 7 status da carteira</div>
-                <ResponsiveContainer width="100%" height={175}>
-                  <BarChart data={statusDist} layout="vertical" margin={{top:0,right:12,bottom:0,left:0}}>
-                    <XAxis type="number" tick={{fontSize:9,fill:T.text3}} axisLine={false} tickLine={false}/>
-                    <YAxis type="category" dataKey="name" tick={{fontSize:9,fill:T.text3}} axisLine={false} tickLine={false} width={95}/>
-                    <Tooltip contentStyle={{background:T.surface2,border:'1px solid '+T.border,borderRadius:8,fontSize:11,color:T.text}} formatter={(v:any)=>[v+' NFs','']}/>
-                    <Bar dataKey="value" radius={[0,4,4,0]} maxBarSize={16}>
-                      {statusDist.map((entry,i)=><Cell key={i} fill={SC[entry.name]||STATUS_COLOR[entry.name]||T.text3}/>)}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div style={{background:T.surface,border:'1px solid '+T.border,borderRadius:14,padding:'20px 20px 12px',boxShadow:T.shadow}}>
-                <div style={{fontSize:12,fontWeight:700,color:T.text,marginBottom:2}}>Volume por Mês</div>
-                <div style={{fontSize:11,color:T.text3,marginBottom:14}}>Últimos meses de emissão</div>
-                <ResponsiveContainer width="100%" height={175}>
-                  <BarChart data={mesesArr} margin={{top:0,right:8,bottom:0,left:-22}}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={isDark?'#1e3452':'#e2e8f0'} vertical={false}/>
-                    <XAxis dataKey="label" tick={{fontSize:11,fill:T.text3}} axisLine={false} tickLine={false}/>
-                    <YAxis tick={{fontSize:9,fill:T.text3}} axisLine={false} tickLine={false} allowDecimals={false}/>
-                    <Tooltip contentStyle={{background:T.surface2,border:'1px solid '+T.border,borderRadius:8,fontSize:11,color:T.text}} formatter={(v:any)=>[v+' NFs','Emitidas']}/>
-                    <Bar dataKey="cnt" fill="#f97316" radius={[4,4,0,0]} maxBarSize={44}/>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
+            {/* Linha 3: Aguardando Entrega por Dia + Notas Entregues S-1 */}
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
-              <div style={{background:T.surface,border:'1px solid '+ltBorderColor,borderRadius:14,padding:'20px',boxShadow:T.shadow}}>
-                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
-                  <span style={{fontSize:16}}>⏰</span>
-                  <div>
-                    <div style={{fontSize:12,fontWeight:700,color:ltVenc.length>0?'#ef4444':T.text}}>LT Vencidos</div>
-                    <div style={{fontSize:10,color:T.text3}}>{ltVenc.length} NFs com lead time excedido</div>
-                  </div>
-                </div>
-                {ltVenc.length===0 ? (
-                  <div style={{textAlign:'center',padding:'16px 0',color:T.green,fontSize:13,fontWeight:600}}>✅ Nenhum LT vencido</div>
-                ) : (
-                  <div style={{display:'flex',flexDirection:'column',gap:5,maxHeight:190,overflowY:'auto'}}>
-                    {ltVenc.slice(0,8).map(r=>(
-                      <div key={r.nf_numero} style={{display:'flex',justifyContent:'space-between',alignItems:'center',
-                        padding:'7px 10px',background:isDark?'rgba(239,68,68,.06)':'rgba(239,68,68,.04)',
-                        border:'1px solid rgba(239,68,68,.15)',borderRadius:8}}>
-                        <div>
-                          <span style={{fontWeight:700,color:'#ef4444',fontSize:12}}>NF {r.nf_numero}</span>
-                          <span style={{fontSize:10,color:T.text3,marginLeft:8}}>{(r.destinatario_fantasia||r.destinatario_nome||'').slice(0,22)}</span>
-                        </div>
-                        <div style={{textAlign:'right'}}>
-                          <div style={{fontSize:11,fontWeight:600,color:T.text}}>{money(Number(r.valor_produtos)||0)}</div>
-                          <div style={{fontSize:10,color:T.text3}}>{(r.transportador_nome||'').slice(0,18)}</div>
-                        </div>
-                      </div>
-                    ))}
-                    {ltVenc.length>8&&<div style={{fontSize:11,color:T.text3,textAlign:'center',padding:4}}>+{ltVenc.length-8} mais</div>}
-                  </div>
-                )}
-              </div>
+              <GCard title="Aguardando Entrega por Dia" sub={moneyK(agendDia.reduce((s,r)=>s+r.valor,0))} accent={T.accentBlu}>
+                {agendDia.length===0
+                  ? <div style={{textAlign:'center',padding:24,color:T.text3,fontSize:12}}>✓ Nenhuma entrega agendada</div>
+                  : <ResponsiveContainer width="100%" height={165}>
+                      <ComposedChart data={agendDia} margin={{left:4,right:26,top:22,bottom:4}}>
+                        <defs>
+                          <linearGradient id="gAgdDia" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor={T.accentBlu} stopOpacity={0.5}/>
+                            <stop offset="100%" stopColor={T.accentBlu} stopOpacity={0.08}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 4" stroke={isDark?'#1e3452':'#e2e8f0'} vertical={false}/>
+                        <XAxis dataKey="dia" tick={{fontSize:9,fill:T.text2,fontWeight:600}} axisLine={false} tickLine={false}/>
+                        <YAxis yAxisId="val" tick={{fontSize:9,fill:T.text3}} tickFormatter={moneyK} axisLine={false} tickLine={false}/>
+                        <YAxis yAxisId="cnt" orientation="right" tick={{fontSize:9,fill:T.text3}} axisLine={false} tickLine={false}/>
+                        <Tooltip contentStyle={{background:T.surface2,border:'1px solid '+T.border,borderRadius:8,fontSize:11,color:T.text}}/>
+                        <Bar yAxisId="val" dataKey="valor" name="Valor" fill="url(#gAgdDia)" radius={[5,5,0,0]} maxBarSize={40}>
+                          <LabelList dataKey="valor" position="top" formatter={(v:any)=>moneyK(Number(v))} style={{fontSize:9,fill:T.text2,fontWeight:600}}/>
+                        </Bar>
+                        <Line yAxisId="cnt" type="monotone" dataKey="count" name="NFs" stroke={T.accent} strokeWidth={2.5}
+                          dot={{fill:T.accent,r:4,stroke:T.surface,strokeWidth:2}} activeDot={{r:6,stroke:T.surface,strokeWidth:2}}>
+                          <LabelList dataKey="count" position="top" offset={10} style={{fontSize:10,fontWeight:800,fill:T.accent}}/>
+                        </Line>
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                }
+              </GCard>
 
-              <div style={{background:T.surface,border:'1px solid '+ocBorderColor,borderRadius:14,padding:'20px',boxShadow:T.shadow}}>
-                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
-                  <span style={{fontSize:16}}>⚡</span>
-                  <div>
-                    <div style={{fontSize:12,fontWeight:700,color:comOcorr.length>0?'#ef4444':T.text}}>NFs com Ocorrência</div>
-                    <div style={{fontSize:10,color:T.text3}}>{comOcorr.length} notas pendentes de ação</div>
-                  </div>
-                </div>
-                {comOcorr.length===0 ? (
-                  <div style={{textAlign:'center',padding:'16px 0',color:T.green,fontSize:13,fontWeight:600}}>✅ Sem ocorrências pendentes</div>
-                ) : (
-                  <div style={{display:'flex',flexDirection:'column',gap:5,maxHeight:190,overflowY:'auto'}}>
-                    {comOcorr.slice(0,8).map(r=>(
-                      <div key={r.nf_numero} style={{display:'flex',justifyContent:'space-between',alignItems:'center',
-                        padding:'7px 10px',background:isDark?'rgba(239,68,68,.06)':'rgba(239,68,68,.04)',
-                        border:'1px solid rgba(239,68,68,.15)',borderRadius:8}}>
-                        <div>
-                          <span style={{fontWeight:700,color:'#ef4444',fontSize:12}}>NF {r.nf_numero}</span>
-                          <span style={{fontSize:10,color:T.text3,marginLeft:8}}>{(r.destinatario_fantasia||r.destinatario_nome||'').slice(0,22)}</span>
-                        </div>
-                        <div style={{textAlign:'right'}}>
-                          <div style={{fontSize:11,fontWeight:600,color:T.text}}>{money(Number(r.valor_produtos)||0)}</div>
-                          <div style={{fontSize:10,color:'#f59e0b'}}>{(r.ultima_ocorrencia||'').slice(0,24)}</div>
-                        </div>
-                      </div>
-                    ))}
-                    {comOcorr.length>8&&<div style={{fontSize:11,color:T.text3,textAlign:'center',padding:4}}>+{comOcorr.length-8} mais</div>}
-                  </div>
-                )}
-              </div>
+              <GCard title="Notas Entregues — Semana Passada (S-1)" sub={`${entregS1.reduce((s,r)=>s+r.count,0)} NFs entregues`} accent="#22c55e">
+                {entregS1.length===0
+                  ? <div style={{textAlign:'center',padding:24,color:T.text3,fontSize:12}}>Sem entregas na semana passada</div>
+                  : <ResponsiveContainer width="100%" height={165}>
+                      <BarChart data={entregS1} margin={{top:22,right:8,bottom:4,left:-22}}>
+                        <CartesianGrid strokeDasharray="3 4" stroke={isDark?'#1e3452':'#e2e8f0'} vertical={false}/>
+                        <XAxis dataKey="dia" tick={{fontSize:10,fill:T.text2,fontWeight:600}} axisLine={false} tickLine={false}/>
+                        <YAxis tick={{fontSize:9,fill:T.text3}} axisLine={false} tickLine={false} allowDecimals={false}/>
+                        <Tooltip contentStyle={{background:T.surface2,border:'1px solid '+T.border,borderRadius:8,fontSize:11,color:T.text}} formatter={(v:any)=>[v+' NFs','Entregues']}/>
+                        <Bar dataKey="count" name="count" fill="#22c55e" radius={[5,5,0,0]} maxBarSize={44}>
+                          <LabelList dataKey="count" position="top" formatter={(v:any)=>v+' NFs'} style={{fontSize:9.5,fontWeight:700,fill:'#22c55e'}}/>
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                }
+              </GCard>
             </div>
+
+            {/* Linha 4: Ocorrências/Devoluções + Reagendadas */}
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+              <GCard title={`Notas com Ocorrência / Devolução`} sub={`${nfsOcorrDev.length} NFs`} accent="#ef4444">
+                {nfsOcorrDev.length===0
+                  ? <div style={{textAlign:'center',padding:24,color:T.green,fontSize:12,fontWeight:600}}>✅ Sem ocorrências/devoluções</div>
+                  : <div style={{display:'flex',flexDirection:'column',gap:5,maxHeight:220,overflowY:'auto'}}>
+                      {nfsOcorrDev.slice(0,10).map(r=>(
+                        <div key={r.nf_numero} onClick={()=>setSelectedNF(r)}
+                          style={{display:'flex',justifyContent:'space-between',alignItems:'center',
+                            padding:'7px 10px',background:isDark?'rgba(239,68,68,.06)':'rgba(239,68,68,.04)',
+                            border:'1px solid rgba(239,68,68,.15)',borderRadius:8,cursor:'pointer',transition:'opacity .1s'}}
+                          onMouseEnter={e=>(e.currentTarget as HTMLElement).style.opacity='.75'}
+                          onMouseLeave={e=>(e.currentTarget as HTMLElement).style.opacity='1'}>
+                          <div>
+                            <span style={{fontWeight:700,color:'#ef4444',fontSize:12}}>NF {r.nf_numero}</span>
+                            <span style={{fontSize:10,color:T.text3,marginLeft:8}}>{(r.destinatario_fantasia||r.destinatario_nome||'').slice(0,22)}</span>
+                          </div>
+                          <div style={{textAlign:'right'}}>
+                            <div style={{fontSize:11,fontWeight:600,color:T.text}}>{moneyK(Number(r.valor_produtos)||0)}</div>
+                            <div style={{fontSize:10,color:'#f59e0b'}}>{(r.ultima_ocorrencia||r.status||'').slice(0,24)}</div>
+                          </div>
+                        </div>
+                      ))}
+                      {nfsOcorrDev.length>10&&<div style={{fontSize:11,color:T.text3,textAlign:'center',padding:4}}>+{nfsOcorrDev.length-10} mais</div>}
+                    </div>
+                }
+              </GCard>
+
+              <GCard title="Notas Reagendadas" sub={`${reagendadas.length} NFs`} accent="#eab308">
+                {reagendadas.length===0
+                  ? <div style={{textAlign:'center',padding:24,color:T.green,fontSize:12,fontWeight:600}}>✅ Nenhuma nota reagendada</div>
+                  : <div style={{display:'flex',flexDirection:'column',gap:5,maxHeight:220,overflowY:'auto'}}>
+                      {reagendadas.slice(0,10).map(r=>(
+                        <div key={r.nf_numero} onClick={()=>setSelectedNF(r)}
+                          style={{display:'flex',justifyContent:'space-between',alignItems:'center',
+                            padding:'7px 10px',background:isDark?'rgba(234,179,8,.05)':'rgba(234,179,8,.04)',
+                            border:'1px solid rgba(234,179,8,.2)',borderRadius:8,cursor:'pointer',transition:'opacity .1s'}}
+                          onMouseEnter={e=>(e.currentTarget as HTMLElement).style.opacity='.75'}
+                          onMouseLeave={e=>(e.currentTarget as HTMLElement).style.opacity='1'}>
+                          <div>
+                            <span style={{fontWeight:700,color:'#eab308',fontSize:12}}>NF {r.nf_numero}</span>
+                            <span style={{fontSize:10,color:T.text3,marginLeft:8}}>{(r.destinatario_fantasia||r.destinatario_nome||'').slice(0,22)}</span>
+                          </div>
+                          <div style={{textAlign:'right'}}>
+                            <div style={{fontSize:11,fontWeight:600,color:T.text}}>{moneyK(Number(r.valor_produtos)||0)}</div>
+                            <div style={{fontSize:10,color:T.accentBlu}}>{fmt(r.dt_previsao)}</div>
+                          </div>
+                        </div>
+                      ))}
+                      {reagendadas.length>10&&<div style={{fontSize:11,color:T.text3,textAlign:'center',padding:4}}>+{reagendadas.length-10} mais</div>}
+                    </div>
+                }
+              </GCard>
+            </div>
+
+            {/* Linha 5: Mês Passado em Aberto */}
+            {nfsMesPassado.length>0&&(
+              <GCard title={`Notas do Mês Passado em Aberto · ${format(prev_m,'MMMM/yyyy',{locale:ptBR})}`}
+                sub={`${nfsMesPassado.length} NFs · ${moneyK(nfsMesPassado.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0))}`}
+                accent="#7c3aed">
+                <div style={{overflowX:'auto',maxHeight:280,overflowY:'auto'}}>
+                  <table style={{width:'100%',borderCollapse:'collapse',fontSize:11.5}}>
+                    <thead>
+                      <tr style={{borderBottom:`1px solid ${T.border}`}}>
+                        {['NF','Emissão','Destinatário','Cidade · UF','Transportador','Valor','Status'].map(h=>(
+                          <th key={h} style={{textAlign:h==='Valor'?'right':'left',padding:'7px 10px',fontSize:9.5,color:T.text3,letterSpacing:'.1em',fontWeight:700,whiteSpace:'nowrap'}}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {nfsMesPassado.slice(0,15).map((r,i)=>(
+                        <tr key={i} onClick={()=>setSelectedNF(r)}
+                          style={{borderBottom:`1px solid ${T.borderLo}`,cursor:'pointer',transition:'opacity .1s'}}
+                          onMouseEnter={e=>(e.currentTarget as HTMLElement).style.opacity='.7'}
+                          onMouseLeave={e=>(e.currentTarget as HTMLElement).style.opacity='1'}>
+                          <td style={{padding:'8px 10px',fontWeight:700,color:'#7c3aed',fontFamily:'var(--font-mono)',fontSize:12}}>{r.nf_numero}</td>
+                          <td style={{padding:'8px 10px',color:T.text3,whiteSpace:'nowrap'}}>{fmt(r.dt_emissao)}</td>
+                          <td style={{padding:'8px 10px',color:T.text,maxWidth:160,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.destinatario_fantasia||r.destinatario_nome||'—'}</td>
+                          <td style={{padding:'8px 10px',color:T.text3,whiteSpace:'nowrap'}}>{r.cidade_destino}·{r.uf_destino}</td>
+                          <td style={{padding:'8px 10px',color:T.text2,maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{(r.transportador_nome||'—').split(' ').slice(0,2).join(' ')}</td>
+                          <td style={{padding:'8px 10px',textAlign:'right',fontWeight:700,color:T.text,whiteSpace:'nowrap'}}>{moneyK(Number(r.valor_produtos)||0)}</td>
+                          <td style={{padding:'8px 10px'}}>
+                            <span style={{fontSize:10,padding:'2px 7px',borderRadius:4,background:`${STATUS_COLORS_D[r.status]||T.text3}18`,color:STATUS_COLORS_D[r.status]||T.text3,fontWeight:600,whiteSpace:'nowrap'}}>{r.status}</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {nfsMesPassado.length>15&&<div style={{fontSize:11,color:T.text3,textAlign:'center',padding:8}}>+{nfsMesPassado.length-15} mais</div>}
+                </div>
+              </GCard>
+            )}
 
           </div>
         )

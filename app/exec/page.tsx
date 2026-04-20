@@ -105,7 +105,8 @@ function ExecPage() {
   const [ocorrencias, setOcorrencias] = useState<Ocorrencia[]>([])
   const [loadingOcorr, setLoadingOcorr] = useState(false)
   const [showAllOcorr, setShowAllOcorr] = useState(false)
-  const [ccFiltro,  setCcFiltro]  = useState('(Todos)')
+  const [ccFiltros, setCcFiltros] = useState<Set<string>>(new Set())
+  const [showCCDrop, setShowCCDrop]  = useState(false)
   const [isDark, setIsDark] = useState(true)
   const C = isDark ? DARK : LIGHT
   const getFirstDay = () => { const d=new Date(); return new Date(d.getFullYear(),d.getMonth(),1).toISOString().split('T')[0] }
@@ -169,13 +170,13 @@ function ExecPage() {
 
   const filtered = useMemo(() => {
     let d = data
-    if (ccFiltro!=='(Todos)') d = d.filter(r=>r.centro_custo===ccFiltro)
+    if (ccFiltros.size>0) d = d.filter(r=>ccFiltros.has(r.centro_custo||''))
     if (dateFrom) { const f=new Date(dateFrom); f.setHours(0,0,0,0); d=d.filter(r=>r.dt_emissao&&new Date(r.dt_emissao)>=f) }
     if (dateTo)   { const t=new Date(dateTo); t.setHours(23,59,59,999); d=d.filter(r=>r.dt_emissao&&new Date(r.dt_emissao)<=t) }
     return d
-  }, [data,ccFiltro,dateFrom,dateTo])
+  }, [data,ccFiltros,dateFrom,dateTo])
 
-  const ccList = useMemo(()=>['(Todos)',...new Set(data.map(r=>r.centro_custo).filter(Boolean))].sort(),[data])
+  const ccList = useMemo(()=>[...new Set(data.map(r=>r.centro_custo).filter(Boolean))].sort(),[data])
   const totalValor = filtered.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
   const totalNFs   = filtered.length
   const entregues  = filtered.filter(r=>r.status==='Entregue')
@@ -305,28 +306,33 @@ function ExecPage() {
 
   const semanalData = useMemo(()=>{
     const WEEKS=['S-2','S-1','S0','S+1','S+2','S+3']
+    // Retorna exatamente o rótulo da semana, ou null se estiver fora do range S-2..S+3
     const wkOf=(d:Date)=>{
       const rm=startOfWeek(now,{weekStartsOn:1}), dm=startOfWeek(d,{weekStartsOn:1})
       const w=Math.round((dm.getTime()-rm.getTime())/(7*86400000))
-      return w<=-2?'S-2':w===-1?'S-1':w===0?'S0':w===1?'S+1':w===2?'S+2':'S+3'
+      // IMPORTANTE: w===-2 (exatamente) — não w<=-2 que agruparia todos os meses anteriores em S-2
+      if(w<-2||w>3) return null
+      return w===-2?'S-2':w===-1?'S-1':w===0?'S0':w===1?'S+1':w===2?'S+2':'S+3'
     }
     const isPast=(s:string)=>s==='S-2'||s==='S-1'
     const wk:Record<string,{valor:number;count:number}>={}
     WEEKS.forEach(w=>{wk[w]={valor:0,count:0}})
-    filtered.forEach(r=>{
+    // Usa data real (dt_data original, sem filtro de período) para classificar semanas
+    // para isso precisamos iterar sobre data completa, não filtered (que já tem filtro de datas)
+    data.filter(r=>!r.is_mock).forEach(r=>{
       // Semanas passadas: contar NFs entregues pelo dt_entrega real
       if(r.dt_entrega && r.status==='Entregue'){
         const l=wkOf(new Date(r.dt_entrega.slice(0,10)+' 12:00'))
-        if(isPast(l)&&wk[l]){wk[l].valor+=Number(r.valor_produtos)||0;wk[l].count++}
+        if(l && isPast(l) && wk[l]){wk[l].valor+=Number(r.valor_produtos)||0;wk[l].count++}
       }
       // Semanas atuais/futuras: contar agendamentos pelo dt_previsao
       if(r.dt_previsao){
         const l=wkOf(new Date(r.dt_previsao.slice(0,10)+' 12:00'))
-        if(!isPast(l)&&wk[l]){wk[l].valor+=Number(r.valor_produtos)||0;wk[l].count++}
+        if(l && !isPast(l) && wk[l]){wk[l].valor+=Number(r.valor_produtos)||0;wk[l].count++}
       }
     })
     return WEEKS.map(s=>({semana:s,...wk[s]}))
-  },[filtered])
+  },[data])
 
   const agendDia = useMemo(()=>{
     const m:Record<string,{valor:number;count:number}>={}
@@ -519,12 +525,46 @@ function ExecPage() {
       <main style={{padding:'22px 32px 40px',maxWidth:1500,margin:'0 auto'}}>
 
         {/* ── FILTROS ─────────────────────────────────────────────────── */}
-        <div style={{display:'flex',gap:10,alignItems:'center',marginBottom:18,flexWrap:'wrap',background:C.surface,backgroundImage:C.gradCard,border:`1px solid ${C.border}`,borderRadius:12,padding:'12px 16px',boxShadow:C.shadow}}>
-          <div style={{display:'flex',alignItems:'center',gap:8,paddingRight:10,borderRight:`1px solid ${C.border}`}}>
-            <span style={{fontSize:9.5,fontWeight:700,color:C.text3,letterSpacing:'.12em',textTransform:'uppercase'}}>Canal</span>
-            <select value={ccFiltro} onChange={e=>setCcFiltro(e.target.value)} style={{minWidth:170,fontWeight:600}}>
-              {ccList.map(c=><option key={c}>{c}</option>)}
-            </select>
+        <div style={{display:'flex',gap:10,alignItems:'center',marginBottom:16,flexWrap:'wrap',background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:'10px 14px'}}>
+          {/* Multi-select CC */}
+          <div style={{position:'relative'}}>
+            <button
+              onClick={()=>setShowCCDrop(p=>!p)}
+              style={{padding:'6px 12px',fontSize:11,borderRadius:8,border:`1px solid ${showCCDrop?C.blue:C.border}`,
+                background:ccFiltros.size>0?`${C.blue}12`:C.surface,
+                color:ccFiltros.size>0?C.blue:C.text2,cursor:'pointer',fontFamily:'inherit',fontWeight:600,
+                whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:5}}>
+              C. Custo {ccFiltros.size>0?`(${ccFiltros.size} sel.)`:'(todos)'} ▾
+            </button>
+            {showCCDrop&&(
+              <>
+                <div style={{position:'fixed',inset:0,zIndex:190}} onClick={()=>setShowCCDrop(false)}/>
+                <div style={{position:'absolute',top:'110%',left:0,zIndex:200,background:C.surface,
+                  border:`1px solid ${C.border}`,borderRadius:10,boxShadow:'0 8px 24px rgba(0,0,0,.12)',
+                  minWidth:220,overflow:'hidden'}}>
+                  <div style={{padding:'8px 10px',borderBottom:`1px solid ${C.border}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                    <span style={{fontSize:11,fontWeight:700,color:C.text}}>Centro de Custo</span>
+                    <button onClick={()=>setCcFiltros(new Set())}
+                      style={{fontSize:10,padding:'2px 7px',borderRadius:5,border:`1px solid ${C.border}`,
+                        background:'none',color:C.text3,cursor:'pointer',fontFamily:'inherit'}}>Limpar</button>
+                  </div>
+                  <div style={{maxHeight:240,overflowY:'auto',padding:'6px 8px',display:'flex',flexDirection:'column',gap:2}}>
+                    {ccList.map(cc=>(
+                      <label key={cc} style={{display:'flex',alignItems:'center',gap:7,padding:'5px 7px',
+                        borderRadius:6,cursor:'pointer',
+                        background:ccFiltros.has(cc)?`${C.blue}10`:'transparent',
+                        border:`1px solid ${ccFiltros.has(cc)?`${C.blue}30`:'transparent'}`}}>
+                        <input type="checkbox" checked={ccFiltros.has(cc)}
+                          onChange={()=>setCcFiltros(prev=>{const n=new Set(prev);n.has(cc)?n.delete(cc):n.add(cc);return n})}
+                          style={{accentColor:C.blue,cursor:'pointer',width:13,height:13,flexShrink:0}}/>
+                        <span style={{fontSize:11,fontWeight:ccFiltros.has(cc)?600:400,
+                          color:ccFiltros.has(cc)?C.blue:C.text2}}>{cc}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Período */}

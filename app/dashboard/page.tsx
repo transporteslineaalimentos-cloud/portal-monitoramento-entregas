@@ -68,7 +68,8 @@ export default function DashboardGestao() {
   })
   useEffect(() => { sessionStorage.setItem('dashboard_dateFrom', dateFrom) }, [dateFrom])
   useEffect(() => { sessionStorage.setItem('dashboard_dateTo', dateTo) }, [dateTo])
-  const [filterCC, setFilterCC] = useState('(Todos)')
+  const [filterCC, setFilterCC] = useState<Set<string>>(new Set())
+  const [showCCDrop, setShowCCDrop] = useState(false)
   const now = new Date()
 
   const load = useCallback(async () => {
@@ -88,7 +89,7 @@ export default function DashboardGestao() {
 
   const filtered = useMemo(() => {
     let d = data
-    if (filterCC!=='(Todos)')  d = d.filter(r => r.centro_custo===filterCC)
+    if (filterCC.size>0) d = d.filter(r => filterCC.has(r.centro_custo||''))
     if (dateFrom || dateTo) {
       if (dateFrom) { const f=new Date(dateFrom); f.setHours(0,0,0,0); d=d.filter(r=>r.dt_emissao&&new Date(r.dt_emissao)>=f) }
       if (dateTo)   { const t=new Date(dateTo); t.setHours(23,59,59,999); d=d.filter(r=>r.dt_emissao&&new Date(r.dt_emissao)<=t) }
@@ -108,7 +109,7 @@ export default function DashboardGestao() {
     router.push(`/?${q}`)
   }
 
-  const ccOpts = useMemo(()=>['(Todos)',...new Set(data.map(r=>r.centro_custo).filter(Boolean))].sort(),[data])
+  const ccOpts = useMemo(()=>[...new Set(data.map(r=>r.centro_custo).filter(Boolean))].sort(),[data])
   const totalValor = filtered.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
   const totalNFs   = filtered.length
   const now_m = startOfMonth(now)
@@ -339,9 +340,53 @@ export default function DashboardGestao() {
               {(dateFrom||dateTo)&&<button onClick={()=>{setDateFrom('');setDateTo('');setPeriodo('today')}}
                 style={{fontSize:10,padding:'3px 8px',borderRadius:5,border:`1px solid ${T.border}`,background:'transparent',color:T.text3,cursor:'pointer',fontFamily:'inherit'}}>✕</button>}
             </div>
-            <select value={filterCC} onChange={e=>setFilterCC(e.target.value)} style={{width:'auto',minWidth:160}}>
-              {ccOpts.map(c=><option key={c}>{c}</option>)}
-            </select>
+            {/* Multi-select CC */}
+            <div style={{position:'relative'}}>
+              <button onClick={()=>setShowCCDrop(p=>!p)}
+                style={{padding:'5px 11px',fontSize:11,borderRadius:8,
+                  border:`1px solid ${showCCDrop?T.blue:T.border}`,
+                  background:filterCC.size>0?`${T.blue}10`:T.surface2,
+                  color:filterCC.size>0?T.blue:T.text2,
+                  cursor:'pointer',fontFamily:'inherit',fontWeight:600,
+                  whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:5}}>
+                Canal {filterCC.size>0?`(${filterCC.size} sel.)`:'(todos)'} ▾
+              </button>
+              {showCCDrop&&(
+                <>
+                  <div style={{position:'fixed',inset:0,zIndex:190}} onClick={()=>setShowCCDrop(false)}/>
+                  <div style={{position:'absolute',top:'110%',left:0,zIndex:200,
+                    background:T.surface,border:`1px solid ${T.border}`,
+                    borderRadius:10,boxShadow:'0 8px 24px rgba(0,0,0,.15)',
+                    minWidth:230,overflow:'hidden'}}>
+                    <div style={{padding:'8px 10px',borderBottom:`1px solid ${T.border}`,
+                      display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                      <span style={{fontSize:11,fontWeight:700,color:T.text}}>Centro de Custo / Canal</span>
+                      <button onClick={()=>setFilterCC(new Set())}
+                        style={{fontSize:10,padding:'2px 7px',borderRadius:5,
+                          border:`1px solid ${T.border}`,background:'none',
+                          color:T.text3,cursor:'pointer',fontFamily:'inherit'}}>Limpar</button>
+                    </div>
+                    <div style={{maxHeight:260,overflowY:'auto',padding:'6px 8px',
+                      display:'flex',flexDirection:'column',gap:2}}>
+                      {ccOpts.map(cc=>(
+                        <label key={cc} style={{display:'flex',alignItems:'center',gap:7,
+                          padding:'5px 8px',borderRadius:6,cursor:'pointer',
+                          background:filterCC.has(cc)?`${T.blue}10`:'transparent',
+                          border:`1px solid ${filterCC.has(cc)?`${T.blue}30`:'transparent'}`}}>
+                          <input type="checkbox" checked={filterCC.has(cc)}
+                            onChange={()=>setFilterCC(prev=>{
+                              const n=new Set(prev);n.has(cc)?n.delete(cc):n.add(cc);return n
+                            })}
+                            style={{accentColor:T.blue,cursor:'pointer',width:13,height:13,flexShrink:0}}/>
+                          <span style={{fontSize:11,fontWeight:filterCC.has(cc)?600:400,
+                            color:filterCC.has(cc)?T.blue:T.text2}}>{cc}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
             <button className="btn-ghost" style={{padding:'5px 9px'}} onClick={load}>⟳</button>
           </div>
         </div>
@@ -350,7 +395,7 @@ export default function DashboardGestao() {
         <div style={{display:'grid',gridTemplateColumns:'repeat(6,1fr)',gap:8}}>
           <KpiCard label="NF c/ Ocorrência" value={filtered.filter(r=>r.status==='NF com Ocorrência').length}   color="#dc2626" sub={money(filtered.filter(r=>r.status==='NF com Ocorrência').reduce((s,r)=>s+(Number(r.valor_produtos)||0),0))} navParams={{status:'NF com Ocorrência'}}/>
           <KpiCard label="Pend. Agendamento" value={filtered.filter(r=>r.status==='Pendente Agendamento').length} color="#ca8a04" sub={money(filtered.filter(r=>r.status==='Pendente Agendamento').reduce((s,r)=>s+(Number(r.valor_produtos)||0),0))} navParams={{status:'Pendente Agendamento'}}/>
-          <KpiCard label="Agendados"         value={filtered.filter(r=>['Agendado','Entrega Programada'].includes(r.status)).length} color="#3b82f6" sub={money(filtered.filter(r=>['Agendado','Entrega Programada'].includes(r.status)).reduce((s,r)=>s+(Number(r.valor_produtos)||0),0))} navParams={{status:'Agendado'}}/>
+          <KpiCard label="Agendados"         value={filtered.filter(r=>['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status)).length} color="#3b82f6" sub={money(filtered.filter(r=>['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status)).reduce((s,r)=>s+(Number(r.valor_produtos)||0),0))} navParams={{status:'Agendado'}}/>
           <KpiCard label="Entregues"         value={filtered.filter(r=>r.status==='Entregue').length}            color="#22c55e" sub={money(filtered.filter(r=>r.status==='Entregue').reduce((s,r)=>s+(Number(r.valor_produtos)||0),0))} navParams={{status:'Entregue'}}/>
           <KpiCard label="LT Vencidos"       value={ltVencidos.length}                                           color="#dc2626" sub={money(ltVencidos.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0))}/>
           <KpiCard label="Mês Ant. em Aberto" value={nfsMesPassadoAberto.length}                                 color="#7c3aed" sub={money(nfsMesPassadoAberto.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0))} navParams={{mes_passado:'1'}}/>

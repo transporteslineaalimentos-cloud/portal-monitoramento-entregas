@@ -112,7 +112,8 @@ function MonitoramentoInner() {
   // Filters
   const searchParams = useSearchParams()
   const [filterStatus, setFilterStatus] = useState(()=>searchParams.get('status')||'')
-  const [filterCC,     setFilterCC]     = useState(()=>searchParams.get('cc')||'')
+  const [filterCC, setFilterCC] = useState<Set<string>>(new Set())
+  const [showCCDrop, setShowCCDrop] = useState(false)
   const [filterTransp, setFilterTransp] = useState(()=>searchParams.get('transp')||'')
   const [filterAssist, setFilterAssist] = useState(()=>searchParams.get('assistente')||'')
   const [filterFilial, setFilterFilial] = useState(()=>searchParams.get('filial')||'')
@@ -208,9 +209,23 @@ function MonitoramentoInner() {
   }, [load])
 
   const filtered = useMemo(() => data.filter(r => {
-    if (filterStatus && r.status !== filterStatus) return false
+    if (filterStatus) {
+      // Agrupamentos: KPIs cobrem múltiplos status relacionados
+      const STATUS_GROUPS: Record<string, string[]> = {
+        'Agendado': ['Agendado', 'Reagendada', 'Agend. Conforme Cliente', 'Entrega Programada'],
+        'Reagendada': ['Reagendada', 'Reagendamento Solicitado'],
+        'Entrega Programada': ['Entrega Programada'],
+        'Pendente Agendamento': ['Pendente Agendamento', 'Aguardando Retorno Cliente'],
+      }
+      const group = STATUS_GROUPS[filterStatus]
+      if (group) {
+        if (!group.includes(r.status)) return false
+      } else {
+        if (r.status !== filterStatus) return false
+      }
+    }
     if (filterFilial && r.filial !== filterFilial) return false
-    if (filterCC && !r.centro_custo?.toLowerCase().includes(filterCC.toLowerCase())) return false
+    if (filterCC.size>0 && !filterCC.has(r.centro_custo||'')) return false
     if (filterTransp && !r.transportador_nome?.toLowerCase().includes(filterTransp.toLowerCase())) return false
     if (filterAssist && r.assistente !== filterAssist) return false
     if (filterNF && !r.nf_numero?.includes(filterNF)) return false
@@ -241,10 +256,19 @@ function MonitoramentoInner() {
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
   const totalValor = filtered.reduce((s,r) => s+(Number(r.valor_produtos)||0), 0)
 
-  const kpis       = KPI_CONFIG.map(k => ({
+  // Agrupamentos de status para KPIs (mesmo mapeamento do filtro)
+  const KPI_STATUS_GROUPS: Record<string,string[]> = {
+    'Agendado': ['Agendado', 'Reagendada', 'Agend. Conforme Cliente', 'Entrega Programada'],
+    'Reagendada': ['Reagendada', 'Reagendamento Solicitado'],
+  }
+  const matchKpi = (r: Entrega, key: string) => {
+    const grp = KPI_STATUS_GROUPS[key]
+    return grp ? grp.includes(r.status) : r.status === key
+  }
+  const kpis = KPI_CONFIG.map(k => ({
     ...k,
-    count: filtered.filter(r => r.status===k.key).length,
-    valor: filtered.filter(r => r.status===k.key).reduce((s,r)=>s+(Number(r.valor_produtos)||0),0),
+    count: filtered.filter(r => matchKpi(r, k.key)).length,
+    valor: filtered.filter(r => matchKpi(r, k.key)).reduce((s,r)=>s+(Number(r.valor_produtos)||0),0),
   }))
 
   const ccOptions    = useMemo(()=>[...new Set(data.map(r=>r.centro_custo).filter(Boolean))].sort(),[data])
@@ -266,10 +290,10 @@ function MonitoramentoInner() {
   }
 
   const clearFilters = () => {
-    setFilterStatus(''); setFilterFilial(''); setFilterCC(''); setFilterTransp('')
+    setFilterStatus(''); setFilterFilial(''); setFilterCC(new Set()); setFilterTransp('')
     setFilterAssist(''); setFilterNF(''); setFilterRomaneio(''); setFilterMesAnt(''); setFilterOcorrCod(''); setDateFrom(''); setDateTo(''); setPage(0)
   }
-  const hasFilter = !!(filterStatus||filterFilial||filterCC||filterTransp||filterAssist||filterNF||filterRomaneio||filterMesAnt||filterOcorrCod||dateFrom||dateTo)
+  const hasFilter = !!(filterStatus||filterFilial||filterCC.size>0||filterTransp||filterAssist||filterNF||filterRomaneio||filterMesAnt||filterOcorrCod||dateFrom||dateTo)
 
   const exportXLSX = () => {
     const rows = filtered.map(r => ({
@@ -359,14 +383,14 @@ function MonitoramentoInner() {
         <div style={{ display:'grid', gridTemplateColumns:'repeat(6,1fr)', gap:8 }}>
           {kpis.map(k => (
             <div key={k.key}
-              onClick={() => setFilterStatus(filterStatus===k.key?'':k.key)}
+              onClick={() => setFilterStatus(filterStatus===k.key||(KPI_STATUS_GROUPS[k.key]||[]).includes(filterStatus)?'':k.key)}
               style={{
-                background: filterStatus===k.key ? k.bg : T.surface,
-                border: `1px solid ${filterStatus===k.key ? k.color+'44' : T.border}`,
+                background: filterStatus===k.key||(KPI_STATUS_GROUPS[k.key]||[]).includes(filterStatus) ? k.bg : T.surface,
+                border: `1px solid ${filterStatus===k.key||(KPI_STATUS_GROUPS[k.key]||[]).includes(filterStatus) ? k.color+'44' : T.border}`,
                 borderRadius: 8, padding:'12px 14px',
                 cursor:'pointer', userSelect:'none',
                 transition:'all 0.15s',
-                borderLeft: `3px solid ${filterStatus===k.key ? k.color : T.border}`,
+                borderLeft: `3px solid ${filterStatus===k.key||(KPI_STATUS_GROUPS[k.key]||[]).includes(filterStatus) ? k.color : T.border}`,
               }}>
               <div style={{ fontSize:10, fontWeight:600, color:T.text3, letterSpacing:'0.04em', marginBottom:6 }}>
                 {k.label.toUpperCase()}
@@ -374,7 +398,7 @@ function MonitoramentoInner() {
               <div style={{
                 fontFamily:'var(--font-head)', fontWeight:800,
                 fontSize:26, lineHeight:1,
-                color: filterStatus===k.key ? k.color : T.text,
+                color: filterStatus===k.key||(KPI_STATUS_GROUPS[k.key]||[]).includes(filterStatus) ? k.color : T.text,
                 letterSpacing:'-0.02em',
               }}>{k.count}</div>
               <div style={{ fontSize:11, color:T.text3, marginTop:4, fontVariantNumeric:'tabular-nums' }}>
@@ -397,14 +421,55 @@ function MonitoramentoInner() {
             </select>
             <select value={filterStatus} onChange={e=>{setFilterStatus(e.target.value);setPage(0)}}>
               <option value="">Status (todos)</option>
-              {['Pendente Expedição','Pendente Agendamento','Agendado','Entregue','Devolução','Nota Cancelada'].map(s=>(
+              {[
+                'Pendente Expedição','Pendente Agendamento',
+                'Agendado','Agend. Conforme Cliente','Entrega Programada',
+                'Reagendada','Reagendamento Solicitado','Aguardando Retorno Cliente',
+                'Pendente Baixa Entrega','NF com Ocorrência',
+                'Entregue','Devolução','Nota Cancelada','Troca de NF'
+              ].map(s=>(
                 <option key={s}>{s}</option>
               ))}
             </select>
-            <select value={filterCC} onChange={e=>{setFilterCC(e.target.value);setPage(0)}}>
-              <option value="">C. de Custo (todos)</option>
-              {ccOptions.map(c=><option key={c}>{c}</option>)}
-            </select>
+            {/* Multi-select CC */}
+            <div style={{position:'relative'}}>
+              <button onClick={()=>setShowCCDrop(p=>!p)}
+                style={{padding:'5px 10px',fontSize:12,borderRadius:8,border:`1px solid ${showCCDrop?'#2563eb':'#e2e8f0'}`,
+                  background:filterCC.size>0?'rgba(37,99,235,.08)':'#fff',
+                  color:filterCC.size>0?'#2563eb':'#64748b',cursor:'pointer',fontFamily:'inherit',
+                  fontWeight:600,whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:5}}>
+                C. Custo {filterCC.size>0?`(${filterCC.size} sel.)`:'(todos)'} ▾
+              </button>
+              {showCCDrop&&(
+                <>
+                  <div style={{position:'fixed',inset:0,zIndex:190}} onClick={()=>setShowCCDrop(false)}/>
+                  <div style={{position:'absolute',top:'110%',left:0,zIndex:200,background:'#fff',
+                    border:'1px solid #e2e8f0',borderRadius:10,boxShadow:'0 8px 24px rgba(0,0,0,.1)',
+                    minWidth:220,overflow:'hidden'}}>
+                    <div style={{padding:'8px 10px',borderBottom:'1px solid #e2e8f0',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                      <span style={{fontSize:11,fontWeight:700,color:'#1e293b'}}>Centro de Custo</span>
+                      <button onClick={()=>{setFilterCC(new Set());setPage(0)}}
+                        style={{fontSize:10,padding:'2px 7px',borderRadius:5,border:'1px solid #e2e8f0',
+                          background:'none',color:'#94a3b8',cursor:'pointer',fontFamily:'inherit'}}>Limpar</button>
+                    </div>
+                    <div style={{maxHeight:240,overflowY:'auto',padding:'6px 8px',display:'flex',flexDirection:'column',gap:2}}>
+                      {ccOptions.map(cc=>(
+                        <label key={cc} style={{display:'flex',alignItems:'center',gap:7,padding:'5px 7px',
+                          borderRadius:6,cursor:'pointer',
+                          background:filterCC.has(cc)?'rgba(37,99,235,.08)':'transparent',
+                          border:`1px solid ${filterCC.has(cc)?'rgba(37,99,235,.25)':'transparent'}`}}>
+                          <input type="checkbox" checked={filterCC.has(cc)}
+                            onChange={()=>{setFilterCC(prev=>{const n=new Set(prev);n.has(cc)?n.delete(cc):n.add(cc);return n});setPage(0)}}
+                            style={{accentColor:'#2563eb',cursor:'pointer',width:13,height:13,flexShrink:0}}/>
+                          <span style={{fontSize:11,fontWeight:filterCC.has(cc)?600:400,
+                            color:filterCC.has(cc)?'#2563eb':'#64748b'}}>{cc}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
             <select value={filterTransp} onChange={e=>{setFilterTransp(e.target.value);setPage(0)}}>
               <option value="">Transportadora (todas)</option>
               {transpOpts.map(t=><option key={t} value={t}>{t.substring(0,30)}</option>)}
@@ -534,34 +599,31 @@ function MonitoramentoInner() {
                   <Th field="nf_numero"        label="NF"          w={68}  sticky left={0}   />
                   <Th field="filial"            label="Filial"      w={72}  sticky left={68}  />
                   <Th field="destinatario_nome" label="Destinatário" w={162} sticky left={140} />
-                  {/* Dynamic */}
+                  {/* Colunas na mesma ordem do ALL_COLS — sincronizado com tbody */}
                   {visibleCols.has('emissao')        && <Th field="dt_emissao"          label="Emissão"        w={76}  />}
-                  {visibleCols.has('cidade')         && <Th field="cidade_destino"       label="Cidade / UF"    w={125} />}
-                  {visibleCols.has('ccusto')         && <Th field="centro_custo"         label="C. Custo"       w={110} />}
-                  {visibleCols.has('valor')          && <Th field="valor_produtos"       label="Valor"          w={95}  />}
-                  {visibleCols.has('volumes')        && <Th field="volumes"              label="Vol."           w={44}  />}
-                  {visibleCols.has('romaneio')       && <Th field="tem_romaneio"         label="Romaneio"       w={100} />}
-                  {visibleCols.has('transportadora') && <Th field="transportador_nome"   label="Transportadora" w={128} />}
-                  {visibleCols.has('expedida')       && <Th field="dt_expedida"          label="Expedida"       w={76}  />}
-                  {visibleCols.has('previsao')       && <Th field="dt_previsao"          label="Previsão"       w={76}  />}
-                  {visibleCols.has('lt_interno')     && <Th field="dt_lt_interno"        label="LT Interno"     w={96}  />}
-                  {visibleCols.has('ocorrencia')     && <Th field="ultima_ocorrencia"    label="Ocorrência"     w={175} />}
-                  {visibleCols.has('dt_ocorr')       && <Th field="dt_ultima_ocorrencia" label="Dt. Ocorr."     w={74}  />}
-                  {visibleCols.has('dt_entrega')     && <Th field="dt_entrega"           label="Entrega"        w={74}  />}
-                  {/* Extra colunas Nota */}
-                  {visibleCols.has('cnpj_cliente')   && <Th field="destinatario_cnpj"  label="CNPJ Cliente"   w={130} />}
-                  {visibleCols.has('razao_social')   && <Th field="destinatario_nome"  label="Razão Social"   w={175} />}
-                  {visibleCols.has('pedido_cliente') && <Th field="pedido"             label="Pedido Cliente" w={100} />}
-                  {visibleCols.has('regional')       && <Th field="filial"             label="Regional"       w={80}  />}
-                  {visibleCols.has('data_agendada')  && <Th field="dt_previsao"        label="Data Agendada"  w={90}  />}
-                  {/* Follow-up */}
-                  {visibleCols.has('status_interno') && <Th field="followup_status"  label="Status Interno" w={150} />}
-                  {visibleCols.has('followup_obs')   && <Th field="followup_obs"     label="Observação FU"  w={200} />}
-                  {visibleCols.has('assistente')     && <Th field="assistente"       label="Responsável"    w={110} />}
-                  {/* Campos manuais */}
-                  {visibleCols.has('loja')           && <Th field=""                 label="Loja"           w={100} />}
-                  {visibleCols.has('voucher')        && <Th field=""                 label="Voucher"        w={100} />}
-                  {visibleCols.has('protocolo')      && <Th field=""                 label="Protocolo"      w={110} />}
+                  {visibleCols.has('cnpj_cliente')   && <Th field="destinatario_cnpj"   label="CNPJ Cliente"   w={130} />}
+                  {visibleCols.has('razao_social')   && <Th field="destinatario_nome"   label="Razão Social"   w={175} />}
+                  {visibleCols.has('cidade')         && <Th field="cidade_destino"      label="Cidade / UF"    w={125} />}
+                  {visibleCols.has('pedido_cliente') && <Th field="pedido"              label="Pedido Cliente" w={100} />}
+                  {visibleCols.has('ccusto')         && <Th field="centro_custo"        label="C. Custo"       w={110} />}
+                  {visibleCols.has('regional')       && <Th field="filial"              label="Regional"       w={80}  />}
+                  {visibleCols.has('valor')          && <Th field="valor_produtos"      label="Valor NF"       w={95}  />}
+                  {visibleCols.has('volumes')        && <Th field="volumes"             label="Vol."           w={60}  />}
+                  {visibleCols.has('romaneio')       && <Th field="tem_romaneio"        label="Romaneio"       w={100} />}
+                  {visibleCols.has('transportadora') && <Th field="transportador_nome"  label="Transportador"  w={128} />}
+                  {visibleCols.has('expedida')       && <Th field="dt_expedida"         label="Expedida"       w={76}  />}
+                  {visibleCols.has('data_agendada')  && <Th field="dt_previsao"         label="Data Agendada"  w={90}  />}
+                  {visibleCols.has('previsao')       && <Th field="dt_previsao"         label="Previsão"       w={76}  />}
+                  {visibleCols.has('lt_interno')     && <Th field="dt_lt_interno"       label="LT Interno"     w={96}  />}
+                  {visibleCols.has('ocorrencia')     && <Th field="ultima_ocorrencia"   label="Ocorrência"     w={175} />}
+                  {visibleCols.has('dt_ocorr')       && <Th field="dt_ultima_ocorrencia" label="Dt. Ocorr."    w={74}  />}
+                  {visibleCols.has('dt_entrega')     && <Th field="dt_entrega"          label="Entrega"        w={74}  />}
+                  {visibleCols.has('status_interno') && <Th field="followup_status"     label="Status Interno" w={150} />}
+                  {visibleCols.has('followup_obs')   && <Th field="followup_obs"        label="Observação FU"  w={200} />}
+                  {visibleCols.has('assistente')     && <Th field="assistente"          label="Responsável"    w={110} />}
+                  {visibleCols.has('loja')           && <Th field=""                    label="Loja"           w={100} />}
+                  {visibleCols.has('voucher')        && <Th field=""                    label="Voucher"        w={100} />}
+                  {visibleCols.has('protocolo')      && <Th field=""                    label="Protocolo"      w={110} />}
                 </tr>
               </thead>
               <tbody>
@@ -604,14 +666,23 @@ function MonitoramentoInner() {
                       </span>
                     </StickyTd>
 
-                    {/* ── Dynamic cells ── */}
+                    {/* ── Dynamic cells — MESMA ORDEM do ALL_COLS e thead ── */}
                     {visibleCols.has('emissao') && (
                       <td style={{ color:T.text2, whiteSpace:'nowrap', padding:'8px 10px' }}>{fmt(r.dt_emissao)}</td>
+                    )}
+                    {visibleCols.has('cnpj_cliente') && (
+                      <td style={{ color:T.text2, fontSize:11, fontVariantNumeric:'tabular-nums', whiteSpace:'nowrap', padding:'8px 10px' }}>{r.destinatario_cnpj||'—'}</td>
+                    )}
+                    {visibleCols.has('razao_social') && (
+                      <td style={{ color:T.text, fontSize:12, maxWidth:175, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', padding:'8px 10px' }} title={r.destinatario_nome||''}>{r.destinatario_nome||'—'}</td>
                     )}
                     {visibleCols.has('cidade') && (
                       <td style={{ color:T.text2, whiteSpace:'nowrap', fontSize:12, padding:'8px 10px' }}>
                         {r.cidade_destino?`${r.cidade_destino} · ${r.uf_destino}`:'—'}
                       </td>
+                    )}
+                    {visibleCols.has('pedido_cliente') && (
+                      <td style={{ color:T.text2, fontSize:12, whiteSpace:'nowrap', padding:'8px 10px', fontVariantNumeric:'tabular-nums' }}>{r.pedido||'—'}</td>
                     )}
                     {visibleCols.has('ccusto') && (
                       <td style={{ padding:'8px 10px' }}>
@@ -621,6 +692,15 @@ function MonitoramentoInner() {
                               {r.centro_custo}
                             </span>
                           : <span style={{ color:T.text4 }}>—</span>}
+                      </td>
+                    )}
+                    {visibleCols.has('regional') && (
+                      <td style={{ padding:'8px 10px' }}>
+                        <span style={{ fontSize:10, fontWeight:600, padding:'2px 6px', borderRadius:4,
+                          color:r.filial==='CHOCOLATE'?'#a78bfa':'#60a5fa',
+                          background:r.filial==='CHOCOLATE'?'rgba(167,139,250,.1)':'rgba(96,165,250,.1)' }}>
+                          {r.filial||'—'}
+                        </span>
                       </td>
                     )}
                     {visibleCols.has('valor') && (
@@ -653,6 +733,11 @@ function MonitoramentoInner() {
                         {r.dt_expedida?fmt(r.dt_expedida):'—'}
                       </td>
                     )}
+                    {visibleCols.has('data_agendada') && (
+                      <td style={{ whiteSpace:'nowrap', padding:'8px 10px' }}>
+                        {r.dt_previsao ? <span style={{ color:T.yellow, fontWeight:500 }}>{fmt(r.dt_previsao)}</span> : <span style={{color:T.text4}}>—</span>}
+                      </td>
+                    )}
                     {visibleCols.has('previsao') && (
                       <td style={{ whiteSpace:'nowrap', padding:'8px 10px' }}>
                         {r.dt_previsao
@@ -664,7 +749,6 @@ function MonitoramentoInner() {
                     )}
                     {visibleCols.has('lt_interno') && (
                       <>
-                        {/* LT TOTAL — meta empresa (a partir do pedido) */}
                         <td style={{ whiteSpace:'nowrap', padding:'8px 10px' }}>
                           {r.dt_lt_total
                             ? <span style={{ color:r.lt_total_vencido?T.red:T.green, fontWeight:r.lt_total_vencido?700:500, fontSize:12 }}
@@ -673,7 +757,6 @@ function MonitoramentoInner() {
                               </span>
                             : <span style={{ color:T.text4 }}>—</span>}
                         </td>
-                        {/* LT TRANSPORTE — nível de serviço da transportadora */}
                         <td style={{ whiteSpace:'nowrap', padding:'8px 10px' }}>
                           {r.dt_lt_transp
                             ? <span style={{ color:r.lt_transp_vencido?T.red:T.green, fontWeight:r.lt_transp_vencido?700:500, fontSize:12 }}
@@ -701,32 +784,6 @@ function MonitoramentoInner() {
                         {fmt(r.dt_entrega)}
                       </td>
                     )}
-
-                    {/* Extra colunas Nota */}
-                    {visibleCols.has('cnpj_cliente') && (
-                      <td style={{ color:T.text2, fontSize:11, fontVariantNumeric:'tabular-nums', whiteSpace:'nowrap', padding:'8px 10px' }}>{r.destinatario_cnpj||'—'}</td>
-                    )}
-                    {visibleCols.has('razao_social') && (
-                      <td style={{ color:T.text, fontSize:12, maxWidth:175, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', padding:'8px 10px' }} title={r.destinatario_nome||''}>{r.destinatario_nome||'—'}</td>
-                    )}
-                    {visibleCols.has('pedido_cliente') && (
-                      <td style={{ color:T.text2, fontSize:12, whiteSpace:'nowrap', padding:'8px 10px', fontVariantNumeric:'tabular-nums' }}>{r.pedido||'—'}</td>
-                    )}
-                    {visibleCols.has('regional') && (
-                      <td style={{ padding:'8px 10px' }}>
-                        <span style={{ fontSize:10, fontWeight:600, padding:'2px 6px', borderRadius:4,
-                          color:r.filial==='CHOCOLATE'?'#a78bfa':'#60a5fa',
-                          background:r.filial==='CHOCOLATE'?'rgba(167,139,250,.1)':'rgba(96,165,250,.1)' }}>
-                          {r.filial||'—'}
-                        </span>
-                      </td>
-                    )}
-                    {visibleCols.has('data_agendada') && (
-                      <td style={{ whiteSpace:'nowrap', padding:'8px 10px' }}>
-                        {r.dt_previsao ? <span style={{ color:T.yellow, fontWeight:500 }}>{fmt(r.dt_previsao)}</span> : <span style={{color:T.text4}}>—</span>}
-                      </td>
-                    )}
-                    {/* Follow-up */}
                     {visibleCols.has('status_interno') && (
                       <td style={{ padding:'6px 10px' }}>
                         {r.followup_status ? (
@@ -756,7 +813,6 @@ function MonitoramentoInner() {
                     {visibleCols.has('assistente') && (
                       <td style={{ color:T.text2, fontSize:12, whiteSpace:'nowrap', padding:'8px 10px' }}>{r.assistente||'—'}</td>
                     )}
-                    {/* Campos manuais — somente leitura */}
                     {visibleCols.has('loja') && (
                       <td style={{ color:manualData[r.nf_numero]?.loja?T.text:T.text4, fontSize:11, whiteSpace:'nowrap', padding:'8px 10px' }}>
                         {manualData[r.nf_numero]?.loja||'—'}
