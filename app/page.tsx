@@ -688,7 +688,8 @@ function MonitoramentoInner() {
                   {visibleCols.has('expedida')       && <Th field="dt_expedida"         label="Expedida"       w={76}  />}
                   {visibleCols.has('data_agendada')  && <Th field="dt_previsao"         label="Data Agendada"  w={90}  />}
                   {visibleCols.has('previsao')       && <Th field="dt_previsao"         label="Previsão"       w={76}  />}
-                  {visibleCols.has('lt_interno')     && <Th field="dt_lt_interno"       label="LT Interno"     w={96}  />}
+                  {visibleCols.has('lt_interno')     && <Th field="dt_lt_interno"       label="LT Empresa"     w={96}  />}
+                  {visibleCols.has('lt_interno')     && <Th field="dt_lt_transp"        label="LT Transporte"  w={96}  />}
                   {visibleCols.has('ocorrencia')     && <Th field="ultima_ocorrencia"   label="Ocorrência"     w={175} />}
                   {visibleCols.has('dt_ocorr')       && <Th field="dt_ultima_ocorrencia" label="Dt. Ocorr."    w={74}  />}
                   {visibleCols.has('dt_entrega')     && <Th field="dt_entrega"          label="Entrega"        w={74}  />}
