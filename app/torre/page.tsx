@@ -583,11 +583,13 @@ export default function TorrePage() {
   /* ── Estilo para inputs escuros ─────────────────────────────── */
   const darkInput:React.CSSProperties={background:T.surface2,border:`1px solid ${T.border}`,borderRadius:8,color:T.text,outline:'none',fontFamily:'inherit'}
 
-  /* ── KPIs: exatamente 3 ─────────────────────────────────────── */
-  const ltCount=kpiCount('__lt')
-  const ltValor=kpiValor('__lt')
-  const ocCount=kpiCount('NF com Ocorrência')
-  const ocValor=kpiValor('NF com Ocorrência')
+  /* ── KPIs: 3 cartões — Total Aberto (pend.agend+pend.baixa) / Pend.Agendamento / Entrega Hoje */
+  const kpiAbertoPendCount = baseParaKpi.filter(r=>['Pendente Agendamento','Pendente Baixa Entrega'].includes(r.status)).length
+  const kpiAbertoPendValor = baseParaKpi.filter(r=>['Pendente Agendamento','Pendente Baixa Entrega'].includes(r.status)).reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
+  const kpiPendAgendCount  = kpiCount('Pendente Agendamento')
+  const kpiPendAgendValor  = kpiValor('Pendente Agendamento')
+  const kpiHojeCount       = kpiCount('hoje')
+  const kpiHojeValor       = kpiValor('hoje')
 
   /* ── Chips: todos os status ─────────────────────────────────── */
   const CHIPS: KpiId[] = ['hoje','Pendente Agendamento','Aguardando Retorno Cliente','Reagendamento Solicitado','Agendado','Reagendada','Agend. Conforme Cliente','Pendente Baixa Entrega','NF com Ocorrência','__lt','Entregue']
@@ -731,93 +733,81 @@ export default function TorrePage() {
         {/* ── 3 KPIs Destacados ───────────────────────── */}
         <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10}}>
 
-          {/* KPI 1 — Total em Aberto */}
-          <div onClick={()=>{setFiltroAtivo(null);setActiveSection('notas')}}
-            style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:16,
-              padding:'12px 16px 10px',cursor:'pointer',position:'relative',overflow:'hidden',
-              boxShadow:T.shadow,transition:'all .2s'}}
-            onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.borderColor=T.accentBlu;(e.currentTarget as HTMLElement).style.boxShadow=T.glow}}
-            onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.borderColor=T.border;(e.currentTarget as HTMLElement).style.boxShadow=T.shadow}}>
-            <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:isDark?`linear-gradient(90deg,${T.accentBlu},rgba(59,130,246,.2),transparent)`:`linear-gradient(90deg,${T.accentBlu},rgba(37,99,235,.15),transparent)`,borderRadius:'16px 16px 0 0'}}/>
-            <div style={{position:'absolute',bottom:-4,right:10,fontSize:72,fontWeight:900,color:T.accentBlu,opacity:.04,lineHeight:1,letterSpacing:'-.04em',userSelect:'none'}}>∑</div>
-            <div style={{fontSize:10,fontWeight:800,color:T.text3,letterSpacing:'.12em',textTransform:'uppercase',marginBottom:16,display:'flex',alignItems:'center',gap:6}}>
-              <span style={{width:6,height:6,borderRadius:'50%',background:T.accentBlu,display:'inline-block',boxShadow:`0 0 6px ${T.accentBlu}`}}/>
-              Total em Aberto
-            </div>
-            <div style={{fontSize:36,fontWeight:900,color:T.text,lineHeight:1,fontVariantNumeric:'tabular-nums',letterSpacing:'-.04em',marginBottom:4}}>
-              {totalAberto}
-            </div>
-            <div style={{fontSize:13,color:T.text2,fontWeight:600}}>{money(totalValorAberto)}</div>
-          </div>
-
-          {/* KPI 2 — LT Vencidos (URGÊNCIA MÁXIMA) */}
+          {/* KPI 1 — Total em Aberto (Pend. Agendamento + Pend. Baixa Entrega) */}
           {(()=>{
-            const active=filtroAtivo==='__lt'
+            const active = filtroAtivo === 'Pendente Agendamento' || filtroAtivo === 'Pendente Baixa Entrega'
             return (
-              <div onClick={()=>{setFiltroAtivo(active?null:'__lt');setActiveSection('notas')}}
-                style={{background:active?(isDark?'rgba(239,68,68,.07)':'rgba(220,38,38,.04)'):T.surface,
-                  border:`1px solid ${active?(isDark?'rgba(239,68,68,.55)':'rgba(220,38,38,.35)'):T.border}`,borderRadius:16,
+              <div onClick={()=>{setFiltroAtivo(null);setActiveSection('notas')}}
+                style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:16,
                   padding:'12px 16px 10px',cursor:'pointer',position:'relative',overflow:'hidden',
-                  boxShadow:active?(isDark?`0 0 0 1px rgba(239,68,68,.25), 0 12px 40px rgba(239,68,68,.2), ${T.shadow}`:`0 0 0 1px rgba(220,38,38,.15), 0 4px 16px rgba(220,38,38,.08), ${T.shadow}`):T.shadow,
-                  transition:'all .2s'}}
-                onMouseEnter={e=>{if(!active){(e.currentTarget as HTMLElement).style.borderColor=isDark?'rgba(239,68,68,.45)':'rgba(220,38,38,.3)';(e.currentTarget as HTMLElement).style.boxShadow=`0 0 0 1px rgba(239,68,68,.15), ${T.shadow}`}}}
-                onMouseLeave={e=>{if(!active){(e.currentTarget as HTMLElement).style.borderColor=T.border;(e.currentTarget as HTMLElement).style.boxShadow=T.shadow}}}>
-                <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:'linear-gradient(90deg,#ef4444,rgba(239,68,68,.3),transparent)',borderRadius:'16px 16px 0 0'}}/>
-                {ltCount>0&&<div style={{position:'absolute',inset:0,background:isDark?'radial-gradient(ellipse 80% 50% at 20% 0%, rgba(239,68,68,.1) 0%, transparent 70%)':'none',pointerEvents:'none'}}/>}
-                <div style={{position:'absolute',bottom:-4,right:10,fontSize:72,fontWeight:900,color:'#ef4444',opacity:.05,lineHeight:1,letterSpacing:'-.04em',userSelect:'none'}}>!</div>
-                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
-                  <span style={{fontSize:10,fontWeight:800,color:'#ef4444',letterSpacing:'.12em',textTransform:'uppercase'}}>LT Vencidos</span>
-                  {ltCount>0&&(
-                    <span style={{fontSize:9,fontWeight:800,color:'#ef4444',background:'rgba(239,68,68,.18)',
-                      border:'1px solid rgba(239,68,68,.35)',padding:'2px 8px',borderRadius:10,letterSpacing:'.08em',
-                      animation:'blink 1.8s ease-in-out infinite'}}>ALERTA</span>
-                  )}
+                  boxShadow:T.shadow,transition:'all .2s'}}
+                onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.borderColor=T.accentBlu;(e.currentTarget as HTMLElement).style.boxShadow=T.glow}}
+                onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.borderColor=T.border;(e.currentTarget as HTMLElement).style.boxShadow=T.shadow}}>
+                <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:isDark?`linear-gradient(90deg,${T.accentBlu},rgba(59,130,246,.2),transparent)`:`linear-gradient(90deg,${T.accentBlu},rgba(37,99,235,.15),transparent)`,borderRadius:'16px 16px 0 0'}}/>
+                <div style={{position:'absolute',bottom:-4,right:10,fontSize:72,fontWeight:900,color:T.accentBlu,opacity:.04,lineHeight:1,letterSpacing:'-.04em',userSelect:'none'}}>∑</div>
+                <div style={{fontSize:10,fontWeight:800,color:T.text3,letterSpacing:'.12em',textTransform:'uppercase',marginBottom:16,display:'flex',alignItems:'center',gap:6}}>
+                  <span style={{width:6,height:6,borderRadius:'50%',background:T.accentBlu,display:'inline-block',boxShadow:`0 0 6px ${T.accentBlu}`}}/>
+                  Total em Aberto
                 </div>
-                <div style={{fontSize:36,fontWeight:900,color:'#ef4444',lineHeight:1,fontVariantNumeric:'tabular-nums',letterSpacing:'-.04em',marginBottom:4,
-                  textShadow:isDark&&ltCount>0?'0 0 28px rgba(239,68,68,.55)':'none'}}>
-                  {ltCount}
+                <div style={{fontSize:36,fontWeight:900,color:T.text,lineHeight:1,fontVariantNumeric:'tabular-nums',letterSpacing:'-.04em',marginBottom:4}}>
+                  {kpiAbertoPendCount}
                 </div>
-                <div style={{fontSize:13,color:'rgba(239,68,68,.6)',fontWeight:600}}>{money(ltValor)}</div>
+                <div style={{fontSize:13,color:T.text2,fontWeight:600}}>{money(kpiAbertoPendValor)}</div>
+                <div style={{fontSize:10,color:T.text3,marginTop:5}}>Pend. Agendamento + Pend. Baixa</div>
               </div>
             )
           })()}
 
-          {/* KPI 3 — NF c/ Ocorrência + mini bar chart */}
+          {/* KPI 2 — Pendente Agendamento */}
           {(()=>{
-            const active=filtroAtivo==='NF com Ocorrência'
-            const numColor=active?'#f97316':T.text
-            const labelC=active?'#f97316':T.text3
-            const bars=[0.4,0.65,0.5,0.8,0.55,0.7,ocCount>0?1:0.3]
-            const barW=22,barGap=4,barMaxH=18
+            const active=filtroAtivo==='Pendente Agendamento'
+            const cor='#ca8a04'
             return (
-              <div onClick={()=>{setFiltroAtivo(active?null:'NF com Ocorrência');setActiveSection('notas')}}
-                style={{background:active?(isDark?'rgba(249,115,22,.06)':'rgba(234,108,10,.04)'):T.surface,
-                  border:`1px solid ${active?(isDark?'rgba(249,115,22,.55)':'rgba(234,108,10,.4)'):T.border}`,borderRadius:16,
-                  padding:'12px 16px 0',cursor:'pointer',position:'relative',overflow:'hidden',
-                  boxShadow:active?(isDark?`0 0 0 1px rgba(249,115,22,.2), 0 12px 40px rgba(249,115,22,.15), ${T.shadow}`:`0 0 0 1px rgba(234,108,10,.15), 0 4px 12px rgba(234,108,10,.08), ${T.shadow}`):T.shadow,
-                  transition:'all .2s',display:'flex',flexDirection:'column'}}
-                onMouseEnter={e=>{if(!active){(e.currentTarget as HTMLElement).style.borderColor='rgba(249,115,22,.4)';(e.currentTarget as HTMLElement).style.boxShadow=`0 0 0 1px rgba(249,115,22,.12), ${T.shadow}`}}}
+              <div onClick={()=>{setFiltroAtivo(active?null:'Pendente Agendamento');setActiveSection('notas')}}
+                style={{background:active?(isDark?'rgba(202,138,4,.07)':'rgba(202,138,4,.04)'):T.surface,
+                  border:`1px solid ${active?(isDark?'rgba(202,138,4,.55)':'rgba(202,138,4,.35)'):T.border}`,borderRadius:16,
+                  padding:'12px 16px 10px',cursor:'pointer',position:'relative',overflow:'hidden',
+                  boxShadow:active?`0 0 0 1px rgba(202,138,4,.2), 0 8px 24px rgba(202,138,4,.12), ${T.shadow}`:T.shadow,
+                  transition:'all .2s'}}
+                onMouseEnter={e=>{if(!active){(e.currentTarget as HTMLElement).style.borderColor='rgba(202,138,4,.4)';(e.currentTarget as HTMLElement).style.boxShadow=`0 0 0 1px rgba(202,138,4,.15), ${T.shadow}`}}}
                 onMouseLeave={e=>{if(!active){(e.currentTarget as HTMLElement).style.borderColor=T.border;(e.currentTarget as HTMLElement).style.boxShadow=T.shadow}}}>
-                <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:`linear-gradient(90deg,#f97316,rgba(249,115,22,.25),transparent)`,borderRadius:'16px 16px 0 0'}}/>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:10,fontWeight:800,color:labelC,letterSpacing:'.12em',textTransform:'uppercase',marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
-                    <span style={{width:6,height:6,borderRadius:'50%',background:'#f97316',display:'inline-block',boxShadow:active?'0 0 6px #f97316':'none'}}/>
-                    NF com Ocorrência
-                  </div>
-                  <div style={{fontSize:36,fontWeight:900,color:numColor,lineHeight:1,fontVariantNumeric:'tabular-nums',letterSpacing:'-.04em',marginBottom:4}}>
-                    {ocCount}
-                  </div>
-                  <div style={{fontSize:13,color:active?'rgba(249,115,22,.65)':T.text2,fontWeight:600,marginBottom:6}}>{money(ocValor)}</div>
+                <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:`linear-gradient(90deg,${cor},rgba(202,138,4,.25),transparent)`,borderRadius:'16px 16px 0 0'}}/>
+                <div style={{position:'absolute',bottom:-4,right:10,fontSize:72,fontWeight:900,color:cor,opacity:.05,lineHeight:1,letterSpacing:'-.04em',userSelect:'none'}}>📅</div>
+                <div style={{fontSize:10,fontWeight:800,color:active?cor:T.text3,letterSpacing:'.12em',textTransform:'uppercase',marginBottom:16,display:'flex',alignItems:'center',gap:6}}>
+                  <span style={{width:6,height:6,borderRadius:'50%',background:cor,display:'inline-block',boxShadow:active?`0 0 6px ${cor}`:'none'}}/>
+                  Pend. Agendamento
                 </div>
-                {/* Mini bar chart — 7 colunas */}
-                <div style={{display:'flex',alignItems:'flex-end',gap:barGap+'px',paddingBottom:8,paddingTop:2,opacity:.5,marginTop:'auto'}}>
-                  {bars.map((h,i)=>(
-                    <div key={i} style={{width:barW+'px',height:Math.max(4,h*barMaxH)+'px',borderRadius:'3px 3px 0 0',flexShrink:0,
-                      background:i===bars.length-1
-                        ?`linear-gradient(180deg,#f97316,rgba(249,115,22,.45))`
-                        :`linear-gradient(180deg,rgba(249,115,22,.35),rgba(249,115,22,.08))`}}/>
-                  ))}
+                <div style={{fontSize:36,fontWeight:900,color:active?cor:T.text,lineHeight:1,fontVariantNumeric:'tabular-nums',letterSpacing:'-.04em',marginBottom:4}}>
+                  {kpiPendAgendCount}
                 </div>
+                <div style={{fontSize:13,color:active?`rgba(202,138,4,.7)`:T.text2,fontWeight:600}}>{money(kpiPendAgendValor)}</div>
+              </div>
+            )
+          })()}
+
+          {/* KPI 3 — Entrega Hoje */}
+          {(()=>{
+            const active=filtroAtivo==='hoje'
+            const cor='#16a34a'
+            return (
+              <div onClick={()=>{setFiltroAtivo(active?null:'hoje');setActiveSection('notas')}}
+                style={{background:active?(isDark?'rgba(22,163,74,.07)':'rgba(22,163,74,.04)'):T.surface,
+                  border:`1px solid ${active?(isDark?'rgba(22,163,74,.55)':'rgba(22,163,74,.35)'):T.border}`,borderRadius:16,
+                  padding:'12px 16px 10px',cursor:'pointer',position:'relative',overflow:'hidden',
+                  boxShadow:active?`0 0 0 1px rgba(22,163,74,.2), 0 8px 24px rgba(22,163,74,.12), ${T.shadow}`:T.shadow,
+                  transition:'all .2s'}}
+                onMouseEnter={e=>{if(!active){(e.currentTarget as HTMLElement).style.borderColor='rgba(22,163,74,.4)';(e.currentTarget as HTMLElement).style.boxShadow=`0 0 0 1px rgba(22,163,74,.15), ${T.shadow}`}}}
+                onMouseLeave={e=>{if(!active){(e.currentTarget as HTMLElement).style.borderColor=T.border;(e.currentTarget as HTMLElement).style.boxShadow=T.shadow}}}>
+                <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:`linear-gradient(90deg,${cor},rgba(22,163,74,.25),transparent)`,borderRadius:'16px 16px 0 0'}}/>
+                <div style={{position:'absolute',bottom:-4,right:10,fontSize:72,fontWeight:900,color:cor,opacity:.05,lineHeight:1,letterSpacing:'-.04em',userSelect:'none'}}>🚚</div>
+                <div style={{fontSize:10,fontWeight:800,color:active?cor:T.text3,letterSpacing:'.12em',textTransform:'uppercase',marginBottom:16,display:'flex',alignItems:'center',gap:6}}>
+                  <span style={{width:6,height:6,borderRadius:'50%',background:cor,display:'inline-block',boxShadow:active?`0 0 6px ${cor}`:'none'}}/>
+                  Entrega Hoje
+                </div>
+                <div style={{fontSize:36,fontWeight:900,color:active?cor:T.text,lineHeight:1,fontVariantNumeric:'tabular-nums',letterSpacing:'-.04em',marginBottom:4}}>
+                  {kpiHojeCount}
+                </div>
+                <div style={{fontSize:13,color:active?`rgba(22,163,74,.7)`:T.text2,fontWeight:600}}>{money(kpiHojeValor)}</div>
               </div>
             )
           })()}
