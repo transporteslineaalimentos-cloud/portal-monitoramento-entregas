@@ -4,6 +4,7 @@ import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveCo
 import { supabase, type Entrega } from '@/lib/supabase'
 import { useTheme } from '@/components/ThemeProvider'
 import { getTheme } from '@/lib/theme'
+import * as XLSX from 'xlsx'
 import { format, isToday, parseISO, startOfWeek, endOfWeek, addWeeks, isWithinInterval, subMonths, startOfMonth } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import OcorrenciasDrawer from '@/components/OcorrenciasDrawer'
@@ -323,6 +324,7 @@ export default function TorrePage() {
   const [dateTo, setDateTo] = useState(getToday)
   const [filtroTransp, setFiltroTransp] = useState('')
   const [filtroNF, setFiltroNF] = useState('')
+  const [filtroAgendadaEm, setFiltroAgendadaEm] = useState('')
   const [sortField, setSortField] = useState('dt_previsao')
 
   const topRef = useRef<HTMLDivElement>(null)
@@ -425,7 +427,9 @@ export default function TorrePage() {
   }, [user, load])
 
   const filtered = useMemo(()=>{
-    let d=data
+    // Minhas Notas: excluir NFs sem CC válido (essas ficam apenas na aba Sem Centro de Custo)
+    const SEM_CC_SET = ['', '-', 'não mapeado', 'nao mapeado']
+    let d=data.filter(r=>!SEM_CC_SET.includes((r.centro_custo||'').toLowerCase().trim()))
     if (filtroAtivo==='hoje') d=d.filter(r=>['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao)))
     else if (filtroAtivo==='__lt') d=d.filter(r=>r.lt_vencido&&r.status!=='Entregue')
     else if (filtroAtivo==='Agendado') d=d.filter(r=>['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status))
@@ -434,13 +438,17 @@ export default function TorrePage() {
     if (filtroNF) d=d.filter(r=>r.nf_numero?.includes(filtroNF)||r.destinatario_fantasia?.toLowerCase().includes(filtroNF.toLowerCase())||r.destinatario_nome?.toLowerCase().includes(filtroNF.toLowerCase()))
     if (dateFrom) { const f=new Date(dateFrom); f.setHours(0,0,0,0); d=d.filter(r=>r.dt_emissao&&new Date(r.dt_emissao)>=f) }
     if (dateTo) { const t=new Date(dateTo); t.setHours(23,59,59,999); d=d.filter(r=>r.dt_emissao&&new Date(r.dt_emissao)<=t) }
+    if (filtroAgendadaEm) {
+      const STATUS_AGEND=['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada']
+      d=d.filter(r=>STATUS_AGEND.includes(r.status)&&r.dt_previsao&&r.dt_previsao.slice(0,10)===filtroAgendadaEm)
+    }
     return [...d].sort((a,b)=>{
       if (sortField==='dt_previsao') { if(!a.dt_previsao&&!b.dt_previsao) return 0; if(!a.dt_previsao) return 1; if(!b.dt_previsao) return -1; return new Date(a.dt_previsao).getTime()-new Date(b.dt_previsao).getTime() }
       if (sortField==='dt_emissao') return new Date(b.dt_emissao||0).getTime()-new Date(a.dt_emissao||0).getTime()
       if (sortField==='valor_produtos') return (Number(b.valor_produtos)||0)-(Number(a.valor_produtos)||0)
       return (a.status||'').localeCompare(b.status||'')
     })
-  },[data,filtroAtivo,filtroTransp,filtroNF,sortField,dateFrom,dateTo])
+  },[data,filtroAtivo,filtroTransp,filtroNF,sortField,dateFrom,dateTo,filtroAgendadaEm])
 
   const baseParaKpi = useMemo(()=>{
     let d=data
@@ -507,12 +515,52 @@ export default function TorrePage() {
   }
 
   const exportExcel=()=>{
-    const rows=(activeSection==='sem-cc'?nfsSemCC:filtered).map(r=>({'NF':r.nf_numero,'Pedido':r.pedido||'','Filial':r.filial,'Emissão':r.dt_emissao?.slice(0,10)||'','Destinatário':r.destinatario_fantasia||r.destinatario_nome||'','Cidade':r.cidade_destino||'','UF':r.uf_destino||'','C. Custo':r.centro_custo||'','Valor':Number(r.valor_produtos)||0,'Transportadora':r.transportador_nome||'','Expedida':r.dt_expedida?.slice(0,10)||'','Previsão':r.dt_previsao||'','LT Interno':r.dt_lt_interno?.slice(0,10)||'','Ocorrência':r.ultima_ocorrencia||'','Status':r.status||'','Follow-up':r.followup_obs||''}))
+    const srcData = activeSection==='sem-cc' ? nfsSemCC : filtered
+    const rows = srcData.map(r=>{
+      const row: Record<string,unknown> = {}
+      // Fixas sempre
+      row['NF']     = r.nf_numero
+      row['Filial'] = r.filial
+      // Dinâmicas — mesma ordem do COL_DEFS/thead
+      if (show('emissao'))        row['Emissão']         = r.dt_emissao?.slice(0,10)||''
+      if (show('destinatario'))   row['Destinatário']    = r.destinatario_fantasia||r.destinatario_nome||''
+      if (show('razao_social'))   row['Razão Social']    = r.destinatario_nome||''
+      if (show('cidade'))         row['Cidade / UF']     = r.cidade_destino ? `${r.cidade_destino} / ${r.uf_destino}` : ''
+      if (show('pedido'))         row['Pedido']          = r.pedido||''
+      if (show('cc'))             row['C. Custo']        = r.centro_custo||''
+      if (show('regional'))       row['Regional']        = r.filial||''
+      if (show('valor'))          row['Valor (R$)']      = Number(r.valor_produtos)||0
+      if (show('volumes'))        row['Volumes']         = r.volumes||''
+      if (show('transportadora')) row['Transportadora']  = r.transportador_nome||''
+      if (show('expedida'))       row['Expedida']        = r.dt_expedida?.slice(0,10)||''
+      if (show('previsao'))       row['Data Agendada']   = r.dt_previsao?.slice(0,10)||''
+      if (show('lt'))             { row['LT Dias']=r.lt_dias||''; row['LT Limite']=r.dt_lt_interno?.slice(0,10)||''; row['LT Vencido']=r.lt_vencido?'Sim':'Não' }
+      if (show('ocorrencia'))     row['Ocorrência']      = r.ultima_ocorrencia||''
+      if (show('dt_entrega'))     row['Dt. Entrega']     = r.dt_entrega?.slice(0,10)||''
+      if (show('status_interno')) row['Status Interno']  = r.followup_status||''
+      if (show('obs'))            row['Obs. Follow-up']  = r.followup_obs||''
+      if (show('loja'))           row['Loja']            = manualData[r.nf_numero]?.loja||''
+      if (show('voucher'))        row['Voucher']         = manualData[r.nf_numero]?.voucher||''
+      if (show('protocolo'))      row['Protocolo']       = manualData[r.nf_numero]?.protocolo||''
+      row['Status'] = r.status||''
+      return row
+    })
     if(rows.length===0) return
-    const headers=Object.keys(rows[0])
-    const csvLines=[headers.join(';'),...rows.map(r=>headers.map(h=>{const v=(r as Record<string,unknown>)[h];const s=String(v??'').replace(/;/g,',');return `"${s}"`}).join(';'))]
-    const blob=new Blob(['﻿'+csvLines.join('\n')],{type:'text/csv;charset=utf-8'})
-    const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`notas_${new Date().toISOString().slice(0,10)}.csv`;a.click();URL.revokeObjectURL(url)
+    const ws = XLSX.utils.json_to_sheet(rows)
+    // Formatar coluna Valor (R$) como número contábil
+    const range = XLSX.utils.decode_range(ws['!ref']||'A1')
+    const headers = Object.keys(rows[0])
+    const valIdx = headers.indexOf('Valor (R$)')
+    if (valIdx>=0) {
+      for (let row=range.s.r+1; row<=range.e.r; row++) {
+        const cell = ws[XLSX.utils.encode_cell({r:row,c:valIdx})]
+        if (cell) { cell.t='n'; cell.z='#,##0.00' }
+      }
+    }
+    ws['!cols'] = headers.map(h=>({wch:Math.max(h.length+2,12)}))
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Torre')
+    XLSX.writeFile(wb, `torre_${format(new Date(),'dd-MM-yyyy')}.xlsx`)
   }
 
 
@@ -827,6 +875,24 @@ export default function TorrePage() {
             <option value=''>Transportadora</option>
             {trOpts.map(t=><option key={t} value={t}>{t}</option>)}
           </select>
+
+          {/* Filtro Agendada em */}
+          <div style={{display:'flex',alignItems:'center',gap:6,
+            background:filtroAgendadaEm?`rgba(37,99,235,.07)`:T.surface2,
+            border:`1px solid ${filtroAgendadaEm?'rgba(37,99,235,.35)':T.border}`,
+            borderRadius:8,padding:'5px 10px',flexShrink:0}}>
+            <span style={{fontSize:11,fontWeight:600,color:filtroAgendadaEm?'#2563eb':T.text3,whiteSpace:'nowrap'}}>📅 Agendada em</span>
+            <input type="date" value={filtroAgendadaEm}
+              onChange={e=>setFiltroAgendadaEm(e.target.value)}
+              style={{padding:'3px 4px',background:'transparent',border:'none',
+                color:filtroAgendadaEm?'#2563eb':T.text,fontSize:12,outline:'none',
+                cursor:'pointer',fontFamily:'inherit'}}/>
+            {filtroAgendadaEm&&(
+              <button onClick={()=>setFiltroAgendadaEm('')}
+                style={{border:'none',background:'none',cursor:'pointer',
+                  color:T.text3,fontSize:13,padding:'0 2px',lineHeight:1,fontFamily:'inherit'}}>✕</button>
+            )}
+          </div>
 
           {/* Intervalo de datas */}
           <div style={{display:'flex',alignItems:'center',gap:6,background:T.surface2,border:`1px solid ${T.border}`,borderRadius:8,padding:'5px 10px',flexShrink:0}}>
