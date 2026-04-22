@@ -497,11 +497,30 @@ export default function OcorrenciasDrawer({ nf, onClose, onTranspEdited }: {
               {/* Trilho vertical */}
               <div style={{ position: 'absolute', left: 14, top: 16, bottom: 16, width: 2, background: T.border, borderRadius: 2 }} />
 
-              {ocorrs.map((o, i) => {
+              {(()=>{
+                // Mesma lógica de prioridade da view:
+                // Grupo 0 = finais (sempre vencem) | Grupo 1 = resto, ganha mais recente por data de ocorrência
+                const FINAIS = ['01','107','123','124','112','25','80','23','115','111']
+                const prioridade = (o: Ocorrencia) => {
+                  if ((o.status_ocorrencia||'') === 'cancelada') return 99
+                  if (FINAIS.includes(o.codigo_ocorrencia)) return 0
+                  return 1
+                }
+                const dataOcorreu = (o: Ocorrencia): number => {
+                  const d = o.payload_raw?.OCORRENCIA?.OCORREU_DATA || o.data_ocorrencia
+                  if (d) return new Date(d).getTime()
+                  return new Date(o.created_at).getTime()
+                }
+                // Ordenar cópia para encontrar o "vencedor" (mais recente por regra)
+                const sorted = [...ocorrs].filter(x=>(x.status_ocorrencia||'')!=='cancelada').sort((a,b)=>{
+                  const pa = prioridade(a), pb = prioridade(b)
+                  if (pa !== pb) return pa - pb
+                  return dataOcorreu(b) - dataOcorreu(a)
+                })
+                const vencedorId = sorted[0]?.id
+                return ocorrs.map((o, i) => {
                 const isCancelada = (o.status_ocorrencia||'') === 'cancelada'
-                // isLast = primeira ocorrência NÃO cancelada
-                const primeiraAtiva = ocorrs.findIndex(x=>(x.status_ocorrencia||'')!=='cancelada')
-                const isLast = i === primeiraAtiva && !isCancelada
+                const isLast = o.id === vencedorId && !isCancelada
                 const color = COD_COLOR(o.codigo_ocorrencia)
                 const sub = getSubtipo(o.subtipo)
                 const ocData = o.payload_raw?.OCORRENCIA?.OCORREU_DATA
@@ -573,7 +592,9 @@ export default function OcorrenciasDrawer({ nf, onClose, onTranspEdited }: {
                     </div>
                   </div>
                 )
-              })}
+              })
+              })()
+            }
             </div>
           )}
           </div>}
