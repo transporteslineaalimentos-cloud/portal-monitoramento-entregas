@@ -428,7 +428,7 @@ export default function TorrePage() {
     let d=data
     if (filtroAtivo==='hoje') d=d.filter(r=>['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao)))
     else if (filtroAtivo==='__lt') d=d.filter(r=>r.lt_vencido&&r.status!=='Entregue')
-    else if (filtroAtivo==='Agendado') d=d.filter(r=>['Agendado','Entrega Programada'].includes(r.status))
+    else if (filtroAtivo==='Agendado') d=d.filter(r=>['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status))
     else if (filtroAtivo) d=d.filter(r=>r.status===filtroAtivo)
     if (filtroTransp) d=d.filter(r=>r.transportador_nome?.toLowerCase().includes(filtroTransp.toLowerCase()))
     if (filtroNF) d=d.filter(r=>r.nf_numero?.includes(filtroNF)||r.destinatario_fantasia?.toLowerCase().includes(filtroNF.toLowerCase())||r.destinatario_nome?.toLowerCase().includes(filtroNF.toLowerCase()))
@@ -454,13 +454,13 @@ export default function TorrePage() {
   const kpiCount = (id:KpiId) =>
     id==='hoje' ? baseParaKpi.filter(r=>['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao))).length
     : id==='__lt' ? baseParaKpi.filter(r=>r.lt_vencido&&r.status!=='Entregue').length
-    : id==='Agendado' ? baseParaKpi.filter(r=>['Agendado','Entrega Programada'].includes(r.status)).length
+    : id==='Agendado' ? baseParaKpi.filter(r=>['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status)).length
     : baseParaKpi.filter(r=>r.status===id).length
 
   const kpiValor = (id:KpiId) =>
     id==='hoje' ? baseParaKpi.filter(r=>['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao))).reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
     : id==='__lt' ? baseParaKpi.filter(r=>r.lt_vencido&&r.status!=='Entregue').reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
-    : id==='Agendado' ? baseParaKpi.filter(r=>['Agendado','Entrega Programada'].includes(r.status)).reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
+    : id==='Agendado' ? baseParaKpi.filter(r=>['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status)).reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
     : baseParaKpi.filter(r=>r.status===id).reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
 
   const totalAberto = baseParaKpi.filter(r=>r.status!=='Entregue').length
@@ -470,13 +470,13 @@ export default function TorrePage() {
   const tableW = useMemo(() => COL_DEFS.filter(col => visibleCols.has(col.id)).reduce((s,col)=>s+col.w,0), [visibleCols])
 
   const nfsSemCC = useMemo(()=>{
+    // Sem CC mostra TODAS as NFs sem CC, sem filtro de data
+    // O objetivo é que nenhuma NF fique sem dono — datas antigas também precisam de CC
     let d = data.filter(r=>{ const cc=(r.centro_custo||'').trim(); return !cc||cc===''||cc==='-'||cc==='Não mapeado' })
     if (filtroTransp) d=d.filter(r=>r.transportador_nome?.toLowerCase().includes(filtroTransp.toLowerCase()))
     if (filtroNF) d=d.filter(r=>r.nf_numero?.includes(filtroNF)||r.destinatario_fantasia?.toLowerCase().includes(filtroNF.toLowerCase())||r.destinatario_nome?.toLowerCase().includes(filtroNF.toLowerCase()))
-    if (dateFrom) { const f=new Date(dateFrom); f.setHours(0,0,0,0); d=d.filter(r=>r.dt_emissao&&new Date(r.dt_emissao)>=f) }
-    if (dateTo)   { const t=new Date(dateTo);   t.setHours(23,59,59,999); d=d.filter(r=>r.dt_emissao&&new Date(r.dt_emissao)<=t) }
-    return d
-  },[data,filtroTransp,filtroNF,dateFrom,dateTo])
+    return d.sort((a,b)=>(Number(b.valor_produtos)||0)-(Number(a.valor_produtos)||0))
+  },[data,filtroTransp,filtroNF])
 
 
 
@@ -1153,24 +1153,28 @@ export default function TorrePage() {
         </>)}
 {/* DASHBOARD SECTION */}
       {activeSection==='dashboard'&&(()=>{
+        // Excluir NFs sem CC dos gráficos — pertencem a "todas" as assistentes e distorceriam os dados
+        const SEM_CC_VALS = ['','-','não mapeado','nao mapeado']
+        const dashData      = data.filter(r=>!SEM_CC_VALS.includes((r.centro_custo||'').toLowerCase().trim()))
+
         // ── Dados base ──────────────────────────────────────────
         const now = new Date()
         const start_m = startOfMonth(now)
         const prev_m  = startOfMonth(subMonths(now, 1))
 
-        const entregues     = data.filter(r=>r.status==='Entregue')
-        const emAberto      = data.filter(r=>r.status!=='Entregue'&&!['Nota Cancelada','Troca de NF'].includes(r.status))
-        const ltVenc        = data.filter(r=>r.lt_vencido&&r.status!=='Entregue')
-        const comOcorr      = data.filter(r=>r.status==='NF com Ocorrência')
-        const reagendadas   = data.filter(r=>r.codigo_ocorrencia==='108')
-        const devolucoes    = data.filter(r=>r.status==='Devolução')
-        const hojeD         = data.filter(r=>['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao)))
-        const pendAgend     = data.filter(r=>r.status==='Pendente Agendamento')
-        const totalValorNFs = data.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
-        const txEntrega     = data.length>0 ? Math.round(entregues.length/data.length*100) : 0
+        const entregues     = dashData.filter(r=>r.status==='Entregue')
+        const emAberto      = dashData.filter(r=>r.status!=='Entregue'&&!['Nota Cancelada','Troca de NF'].includes(r.status))
+        const ltVenc        = dashData.filter(r=>r.lt_vencido&&r.status!=='Entregue')
+        const comOcorr      = dashData.filter(r=>r.status==='NF com Ocorrência')
+        const reagendadas   = dashData.filter(r=>r.codigo_ocorrencia==='108')
+        const devolucoes    = dashData.filter(r=>r.status==='Devolução')
+        const hojeD         = dashData.filter(r=>['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao)))
+        const pendAgend     = dashData.filter(r=>r.status==='Pendente Agendamento')
+        const totalValorNFs = dashData.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)
+        const txEntrega     = dashData.length>0 ? Math.round(entregues.length/dashData.length*100) : 0
         const txColor       = txEntrega>=80?'#22c55e':txEntrega>=60?'#f59e0b':'#ef4444'
 
-        const nfsMesPassado = data.filter(r=>{
+        const nfsMesPassado = dashData.filter(r=>{
           if(!r.dt_emissao) return false
           const em=new Date(r.dt_emissao)
           return em>=prev_m&&em<start_m&&!['Entregue','Nota Cancelada','Troca de NF'].includes(r.status)
@@ -1183,7 +1187,7 @@ export default function TorrePage() {
 
         // ── Status Geral (donut) ─────────────────────────────────
         const statusMap: Record<string,{count:number;valor:number}> = {}
-        data.forEach(r=>{ const s=r.status||'Outro'; if(!statusMap[s]) statusMap[s]={count:0,valor:0}; statusMap[s].count++; statusMap[s].valor+=Number(r.valor_produtos)||0 })
+        dashData.forEach(r=>{ const s=r.status||'Outro'; if(!statusMap[s]) statusMap[s]={count:0,valor:0}; statusMap[s].count++; statusMap[s].valor+=Number(r.valor_produtos)||0 })
         const statusData = Object.entries(statusMap).map(([status,v])=>({status,...v})).sort((a,b)=>b.valor-a.valor)
 
         const STATUS_COLORS_D: Record<string,string> = {
@@ -1221,7 +1225,7 @@ export default function TorrePage() {
         const STATUS_AG=['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada']
         const agdMap:Record<string,{valor:number;count:number}>={}
         const fmtDia=(d:string|null)=>d?format(new Date(d.slice(0,10)+' 12:00'),'dd/MM',{locale:ptBR}):'—'
-        data.filter(r=>STATUS_AG.includes(r.status)&&r.dt_previsao).forEach(r=>{
+        dashData.filter(r=>STATUS_AG.includes(r.status)&&r.dt_previsao).forEach(r=>{
           const d=fmtDia(r.dt_previsao); if(!agdMap[d]) agdMap[d]={valor:0,count:0}
           agdMap[d].valor+=Number(r.valor_produtos)||0; agdMap[d].count++
         })
@@ -1279,7 +1283,7 @@ export default function TorrePage() {
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:8}}>
               <div>
                 <h1 style={{margin:0,fontSize:20,fontWeight:800,color:T.text,letterSpacing:'-.03em'}}>Dashboard</h1>
-                <div style={{fontSize:12,color:T.text3,marginTop:3}}>{user.nome} · {user.centros_custo.join(', ')} · {data.length} notas</div>
+                <div style={{fontSize:12,color:T.text3,marginTop:3}}>{user.nome} · {user.centros_custo.join(', ')} · {dashData.length} notas</div>
               </div>
               <div style={{fontSize:11,color:T.text3,background:T.surface,border:'1px solid '+T.border,borderRadius:8,padding:'6px 12px'}}>
                 Atualizado às {lastUpdate.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}
@@ -1311,7 +1315,7 @@ export default function TorrePage() {
                           innerRadius={36} outerRadius={58} paddingAngle={2} strokeWidth={0}>
                           {statusData.map(e=><Cell key={e.status} fill={STATUS_COLORS_D[e.status]||T.text3}/>)}
                         </Pie>
-                        <Tooltip contentStyle={{background:T.surface2,border:'1px solid '+T.border,borderRadius:8,fontSize:11,color:T.text}}/>
+                        <Tooltip contentStyle={{background:T.surface2,border:'1px solid '+T.border,borderRadius:8,fontSize:11,color:T.text}} formatter={(v:any,name?:any)=>[v+' NFs',name]}/>
                       </PieChart>
                     </ResponsiveContainer>
                     <div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',textAlign:'center',pointerEvents:'none'}}>
@@ -1351,7 +1355,10 @@ export default function TorrePage() {
                     <XAxis dataKey="semana" tick={{fontSize:11,fill:T.text2,fontWeight:600}} axisLine={false} tickLine={false}/>
                     <YAxis yAxisId="val" tick={{fontSize:9,fill:T.text3}} tickFormatter={moneyK} axisLine={false} tickLine={false}/>
                     <YAxis yAxisId="cnt" orientation="right" tick={{fontSize:9,fill:T.text3}} axisLine={false} tickLine={false}/>
-                    <Tooltip contentStyle={{background:T.surface2,border:'1px solid '+T.border,borderRadius:8,fontSize:11,color:T.text}}/>
+                    <Tooltip contentStyle={{background:T.surface2,border:'1px solid '+T.border,borderRadius:8,fontSize:11,color:T.text}} formatter={(value:any, name?:any) => {
+                            if (name==='Valor') return [new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:0,maximumFractionDigits:0}).format(Number(value)), 'Valor']
+                            return [value+' NFs', name]
+                          }}/>
                     <Bar yAxisId="val" dataKey="valor" name="Valor" fill={'url(#gSemTorre)'} radius={[6,6,0,0]} maxBarSize={48}>
                       <LabelList dataKey="valor" position="insideTop" formatter={(v:any)=>Number(v)>0?moneyK(Number(v)):''} style={{fontSize:9,fill:T.text,fontWeight:600}}/>
                     </Bar>
@@ -1381,7 +1388,13 @@ export default function TorrePage() {
                         <XAxis dataKey="dia" tick={{fontSize:9,fill:T.text2,fontWeight:600}} axisLine={false} tickLine={false}/>
                         <YAxis yAxisId="val" tick={{fontSize:9,fill:T.text3}} tickFormatter={moneyK} axisLine={false} tickLine={false}/>
                         <YAxis yAxisId="cnt" orientation="right" tick={{fontSize:9,fill:T.text3}} axisLine={false} tickLine={false}/>
-                        <Tooltip contentStyle={{background:T.surface2,border:'1px solid '+T.border,borderRadius:8,fontSize:11,color:T.text}}/>
+                        <Tooltip
+                          contentStyle={{background:T.surface2,border:'1px solid '+T.border,borderRadius:8,fontSize:11,color:T.text}}
+                          formatter={(value:any, name?:any) => {
+                            if (name==='Valor') return [new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:0,maximumFractionDigits:0}).format(Number(value)), 'Valor']
+                            return [value+' NFs', name]
+                          }}
+                        />
                         <Bar yAxisId="val" dataKey="valor" name="Valor" fill="url(#gAgdDia)" radius={[5,5,0,0]} maxBarSize={40}>
                           <LabelList dataKey="valor" position="top" formatter={(v:any)=>moneyK(Number(v))} style={{fontSize:9,fill:T.text2,fontWeight:600}}/>
                         </Bar>
