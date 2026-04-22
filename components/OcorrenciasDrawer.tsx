@@ -11,6 +11,7 @@ type Ocorrencia = {
   id: string; nf_numero: string; codigo_ocorrencia: string; descricao_ocorrencia: string
   subtipo: string; data_ocorrencia: string | null; data_entrega: string | null; observacao: string | null
   created_at: string; payload_raw: Record<string, any>
+  status_ocorrencia?: string | null; fonte?: string | null
 }
 
 const fmt = (d: string | null) => {
@@ -198,7 +199,7 @@ export default function OcorrenciasDrawer({ nf, onClose, onTranspEdited }: {
     setLoading(true)
     const { data } = await supabase
       .from('v_todas_ocorrencias')
-      .select('id,nf_numero,codigo_ocorrencia,descricao_ocorrencia,subtipo,data_ocorrencia,data_entrega,observacao,created_at,payload_raw')
+      .select('id,nf_numero,codigo_ocorrencia,descricao_ocorrencia,subtipo,data_ocorrencia,data_entrega,observacao,created_at,payload_raw,status_ocorrencia,fonte')
       .eq('nf_numero', nf.nf_numero)
       .order('created_at', { ascending: false })
     setOcorrs((data as unknown as Ocorrencia[]) || [])
@@ -497,7 +498,10 @@ export default function OcorrenciasDrawer({ nf, onClose, onTranspEdited }: {
               <div style={{ position: 'absolute', left: 14, top: 16, bottom: 16, width: 2, background: T.border, borderRadius: 2 }} />
 
               {ocorrs.map((o, i) => {
-                const isLast = i === 0
+                const isCancelada = (o.status_ocorrencia||'') === 'cancelada'
+                // isLast = primeira ocorrência NÃO cancelada
+                const primeiraAtiva = ocorrs.findIndex(x=>(x.status_ocorrencia||'')!=='cancelada')
+                const isLast = i === primeiraAtiva && !isCancelada
                 const color = COD_COLOR(o.codigo_ocorrencia)
                 const sub = getSubtipo(o.subtipo)
                 const ocData = o.payload_raw?.OCORRENCIA?.OCORREU_DATA
@@ -520,9 +524,10 @@ export default function OcorrenciasDrawer({ nf, onClose, onTranspEdited }: {
                     {/* Card */}
                     <div style={{
                       flex: 1,
-                      background: isLast ? `${color}0e` : T.surface2,
-                      border: `1px solid ${isLast ? `${color}50` : T.border}`,
+                      background: isCancelada ? T.surface2 : isLast ? `${color}0e` : T.surface2,
+                      border: `1px solid ${isCancelada ? T.border : isLast ? `${color}50` : T.border}`,
                       borderRadius: 8, padding: '10px 14px',
+                      opacity: isCancelada ? 0.5 : 1,
                     }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
                         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
@@ -532,6 +537,11 @@ export default function OcorrenciasDrawer({ nf, onClose, onTranspEdited }: {
                           {isLast && (
                             <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 3, background: color, color: '#fff' }}>
                               MAIS RECENTE
+                            </span>
+                          )}
+                          {isCancelada && (
+                            <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 3, background: '#ef4444', color: '#fff' }}>
+                              CANCELADA
                             </span>
                           )}
                           <span style={{
