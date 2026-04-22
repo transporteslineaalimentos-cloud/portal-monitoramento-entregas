@@ -1315,7 +1315,7 @@ export default function TorrePage() {
                           innerRadius={36} outerRadius={58} paddingAngle={2} strokeWidth={0}>
                           {statusData.map(e=><Cell key={e.status} fill={STATUS_COLORS_D[e.status]||T.text3}/>)}
                         </Pie>
-                        <Tooltip contentStyle={{background:T.surface2,border:'1px solid '+T.border,borderRadius:8,fontSize:11,color:T.text}} formatter={(v:any,name:string)=>[v+' NFs',name]}/>
+                        <Tooltip contentStyle={{background:T.surface2,border:'1px solid '+T.border,borderRadius:8,fontSize:11,color:T.text}} formatter={(v:any,name?:any)=>[v+' NFs',name]}/>
                       </PieChart>
                     </ResponsiveContainer>
                     <div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',textAlign:'center',pointerEvents:'none'}}>
@@ -1355,7 +1355,7 @@ export default function TorrePage() {
                     <XAxis dataKey="semana" tick={{fontSize:11,fill:T.text2,fontWeight:600}} axisLine={false} tickLine={false}/>
                     <YAxis yAxisId="val" tick={{fontSize:9,fill:T.text3}} tickFormatter={moneyK} axisLine={false} tickLine={false}/>
                     <YAxis yAxisId="cnt" orientation="right" tick={{fontSize:9,fill:T.text3}} axisLine={false} tickLine={false}/>
-                    <Tooltip contentStyle={{background:T.surface2,border:'1px solid '+T.border,borderRadius:8,fontSize:11,color:T.text}} formatter={(value:any, name:string) => {
+                    <Tooltip contentStyle={{background:T.surface2,border:'1px solid '+T.border,borderRadius:8,fontSize:11,color:T.text}} formatter={(value:any, name?:any) => {
                             if (name==='Valor') return [new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:0,maximumFractionDigits:0}).format(Number(value)), 'Valor']
                             return [value+' NFs', name]
                           }}/>
@@ -1390,7 +1390,7 @@ export default function TorrePage() {
                         <YAxis yAxisId="cnt" orientation="right" tick={{fontSize:9,fill:T.text3}} axisLine={false} tickLine={false}/>
                         <Tooltip
                           contentStyle={{background:T.surface2,border:'1px solid '+T.border,borderRadius:8,fontSize:11,color:T.text}}
-                          formatter={(value:any, name:string) => {
+                          formatter={(value:any, name?:any) => {
                             if (name==='Valor') return [new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:0,maximumFractionDigits:0}).format(Number(value)), 'Valor']
                             return [value+' NFs', name]
                           }}
