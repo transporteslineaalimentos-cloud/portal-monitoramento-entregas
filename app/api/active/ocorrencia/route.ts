@@ -103,7 +103,12 @@ export async function POST(req: NextRequest) {
     const result = await resp.json()
     const item = Array.isArray(result) ? result[0] : result
 
-    if (item?.Erro === false) {
+    // Duplicata de ocorrência de entrega = já foi processada com sucesso antes
+    // O Active bloqueia o reenvio mas a ocorrência já existe — tratar como sucesso
+    const isDuplicataEntrega = item?.Erro === true && 
+      (item?.Mensagem || '').toLowerCase().includes('outra ocorrência de entrega')
+
+    if (item?.Erro === false || isDuplicataEntrega) {
       // ── Salvar imediatamente no banco para refletir no portal em tempo real ──
       // Monta payload_raw no mesmo formato que o webhook do Active enviaria,
       // para que a view v_monitoramento_entregas processe corretamente.
