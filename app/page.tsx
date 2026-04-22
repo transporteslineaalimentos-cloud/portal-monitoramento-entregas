@@ -114,6 +114,7 @@ function MonitoramentoInner() {
   const [filterStatus, setFilterStatus] = useState(()=>searchParams.get('status')||'')
   const [filterCC, setFilterCC] = useState<Set<string>>(new Set())
   const [showCCDrop, setShowCCDrop] = useState(false)
+  const [filterAgendadaEm, setFilterAgendadaEm] = useState('')
   const [filterTransp, setFilterTransp] = useState(()=>searchParams.get('transp')||'')
   const [filterAssist, setFilterAssist] = useState(()=>searchParams.get('assistente')||'')
   const [filterFilial, setFilterFilial] = useState(()=>searchParams.get('filial')||'')
@@ -226,6 +227,13 @@ function MonitoramentoInner() {
     }
     if (filterFilial && r.filial !== filterFilial) return false
     if (filterCC.size>0 && !filterCC.has(r.centro_custo||'')) return false
+    // Filtro de data de agendamento (dt_previsao)
+    if (filterAgendadaEm) {
+      const STATUS_AGEND = ['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada']
+      if (!STATUS_AGEND.includes(r.status)) return false
+      if (!r.dt_previsao) return false
+      if (r.dt_previsao.slice(0,10) !== filterAgendadaEm) return false
+    }
     if (filterTransp && !r.transportador_nome?.toLowerCase().includes(filterTransp.toLowerCase())) return false
     if (filterAssist && r.assistente !== filterAssist) return false
     if (filterNF && !r.nf_numero?.includes(filterNF)) return false
@@ -250,7 +258,7 @@ function MonitoramentoInner() {
     }
     // (period pills removed — only dateFrom/dateTo used)
     return true
-  }), [data, filterStatus, filterFilial, filterCC, filterTransp, filterAssist, filterNF, filterRomaneio, filterMesAnt, filterOcorrCod, dateFrom, dateTo])
+  }), [data, filterStatus, filterFilial, filterCC, filterTransp, filterAssist, filterNF, filterRomaneio, filterMesAnt, filterOcorrCod, dateFrom, dateTo, filterAgendadaEm])
 
   const paged      = filtered.slice(page*PAGE_SIZE, (page+1)*PAGE_SIZE)
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
@@ -293,22 +301,66 @@ function MonitoramentoInner() {
     setFilterStatus(''); setFilterFilial(''); setFilterCC(new Set()); setFilterTransp('')
     setFilterAssist(''); setFilterNF(''); setFilterRomaneio(''); setFilterMesAnt(''); setFilterOcorrCod(''); setDateFrom(''); setDateTo(''); setPage(0)
   }
-  const hasFilter = !!(filterStatus||filterFilial||filterCC.size>0||filterTransp||filterAssist||filterNF||filterRomaneio||filterMesAnt||filterOcorrCod||dateFrom||dateTo)
+  const hasFilter = !!(filterStatus||filterFilial||filterCC.size>0||filterTransp||filterAssist||filterNF||filterRomaneio||filterMesAnt||filterOcorrCod||dateFrom||dateTo||filterAgendadaEm)
 
   const exportXLSX = () => {
-    const rows = filtered.map(r => ({
-      'NF': r.nf_numero, 'Filial': r.filial, 'Emissão': fmt(r.dt_emissao),
-      'Destinatário': r.destinatario_fantasia||r.destinatario_nome, 'Razão Social': r.destinatario_nome,
-      'Cidade': r.cidade_destino, 'UF': r.uf_destino, 'C.Custo': r.centro_custo, 'CFOP': r.cfop,
-      'Valor': r.valor_produtos, 'Volumes': r.volumes,
-      'Romaneio': r.tem_romaneio?'Sim':'Não', 'Nº Romaneio': r.romaneio_numero,
-      'Transportadora': r.transportador_nome, 'Expedida': fmt(r.dt_expedida), 'Previsão': fmt(r.dt_previsao),
-      'LT Dias': r.lt_dias, 'LT Limite': fmt(r.dt_lt_interno), 'LT Vencido': r.lt_vencido?'Sim':'Não',
-      'Ocorrência': r.ultima_ocorrencia, 'Dt Ocorr': fmt(r.dt_ultima_ocorrencia), 'Dt Entrega': fmt(r.dt_entrega),
-      'Status': r.status_detalhado, 'Status Interno': r.followup_status||'', 'Obs': r.followup_obs||'',
-      'Assistente': r.assistente,
-    }))
+    // Mapa de colunas visíveis → campos do Excel (na mesma ordem de ALL_COLS)
+    // Colunas fixas sempre incluídas: NF, Filial, Status
+    // Colunas dinâmicas: apenas as visíveis na tela (visibleCols)
+    const rows = filtered.map(r => {
+      const row: Record<string, unknown> = {}
+      // ── Fixas ──
+      row['NF']     = r.nf_numero
+      row['Filial'] = r.filial
+      // ── Dinâmicas — mesma ordem do ALL_COLS/thead ──
+      if (visibleCols.has('emissao'))        row['Emissão']        = fmt(r.dt_emissao)
+      if (visibleCols.has('cnpj_cliente'))   row['CNPJ Cliente']   = r.destinatario_cnpj || ''
+      if (visibleCols.has('razao_social'))   row['Razão Social']   = r.destinatario_nome || ''
+      if (visibleCols.has('cidade'))         row['Cidade']         = r.cidade_destino ? `${r.cidade_destino} / ${r.uf_destino}` : ''
+      if (visibleCols.has('pedido_cliente')) row['Pedido']         = r.pedido || ''
+      if (visibleCols.has('ccusto'))         row['C. Custo']       = r.centro_custo || ''
+      if (visibleCols.has('regional'))       row['Regional']       = r.filial || ''
+      // Valor: número puro — Excel formata como moeda
+      if (visibleCols.has('valor'))          row['Valor (R$)']     = Number(r.valor_produtos) || 0
+      if (visibleCols.has('volumes'))        row['Volumes']        = r.volumes || ''
+      if (visibleCols.has('romaneio'))       row['Nº Romaneio']    = r.romaneio_numero || (r.tem_romaneio ? 'Sim' : 'Não')
+      if (visibleCols.has('transportadora')) row['Transportadora'] = r.transportador_nome || ''
+      if (visibleCols.has('expedida'))       row['Expedida']       = fmt(r.dt_expedida)
+      if (visibleCols.has('data_agendada'))  row['Data Agendada']  = fmt(r.dt_previsao)
+      if (visibleCols.has('previsao'))       row['Previsão']       = fmt(r.dt_previsao)
+      if (visibleCols.has('lt_interno'))     { row['LT Dias'] = r.lt_dias || ''; row['LT Limite'] = fmt(r.dt_lt_interno); row['LT Vencido'] = r.lt_vencido ? 'Sim' : 'Não' }
+      if (visibleCols.has('ocorrencia'))     row['Ocorrência']     = r.ultima_ocorrencia || ''
+      if (visibleCols.has('dt_ocorr'))       row['Dt. Ocorr']      = fmt(r.dt_ultima_ocorrencia)
+      if (visibleCols.has('dt_entrega'))     row['Dt. Entrega']    = fmt(r.dt_entrega)
+      if (visibleCols.has('status_interno')) row['Status Interno'] = r.followup_status || ''
+      if (visibleCols.has('followup_obs'))   row['Obs. Follow-up'] = r.followup_obs || ''
+      if (visibleCols.has('assistente'))     row['Responsável']    = r.assistente || ''
+      if (visibleCols.has('loja'))           row['Loja']           = (manualData[r.nf_numero]?.loja) || ''
+      if (visibleCols.has('voucher'))        row['Voucher']        = (manualData[r.nf_numero]?.voucher) || ''
+      if (visibleCols.has('protocolo'))      row['Protocolo']      = (manualData[r.nf_numero]?.protocolo) || ''
+      // ── Status sempre ao final ──
+      row['Status'] = r.status_detalhado || r.status || ''
+      return row
+    })
+
     const ws = XLSX.utils.json_to_sheet(rows)
+
+    // Formatar coluna "Valor (R$)" como número contábil no Excel
+    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1')
+    const headers = rows[0] ? Object.keys(rows[0]) : []
+    const valorColIdx = headers.indexOf('Valor (R$)')
+    if (valorColIdx >= 0) {
+      for (let row = range.s.r + 1; row <= range.e.r; row++) {
+        const cell = ws[XLSX.utils.encode_cell({ r: row, c: valorColIdx })]
+        if (cell) {
+          cell.t = 'n'
+          cell.z = '#,##0.00'
+        }
+      }
+    }
+    // Larguras automáticas
+    ws['!cols'] = headers.map(h => ({ wch: Math.max(h.length + 2, 12) }))
+
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Monitoramento')
     XLSX.writeFile(wb, `monitoramento_${format(new Date(),'dd-MM-yyyy')}.xlsx`)
@@ -508,6 +560,28 @@ function MonitoramentoInner() {
               <option value="com">Com Romaneio</option>
               <option value="sem">Sem Romaneio</option>
             </select>
+
+            {/* Filtro: Agendada em — date picker */}
+            <div style={{display:'flex',alignItems:'center',gap:6,
+              background:filterAgendadaEm?'rgba(37,99,235,.07)':T.surface2,
+              border:`1px solid ${filterAgendadaEm?'rgba(37,99,235,.35)':T.border}`,
+              borderRadius:8,padding:'3px 10px'}}>
+              <span style={{fontSize:11,fontWeight:600,color:filterAgendadaEm?'#2563eb':T.text3,whiteSpace:'nowrap'}}>
+                📅 Agendada em
+              </span>
+              <input
+                type="date"
+                value={filterAgendadaEm}
+                onChange={e=>{setFilterAgendadaEm(e.target.value);setPage(0)}}
+                style={{border:'none',background:'transparent',fontSize:11,color:filterAgendadaEm?'#2563eb':T.text2,
+                  fontFamily:'inherit',cursor:'pointer',outline:'none',padding:'2px 0'}}
+              />
+              {filterAgendadaEm&&(
+                <button onClick={()=>{setFilterAgendadaEm('');setPage(0)}}
+                  style={{border:'none',background:'none',cursor:'pointer',color:T.text3,fontSize:14,
+                    padding:'0 2px',lineHeight:1,fontFamily:'inherit'}}>✕</button>
+              )}
+            </div>
 
             {/* Spacer */}
             <div style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:8 }}>
