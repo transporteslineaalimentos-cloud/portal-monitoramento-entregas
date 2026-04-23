@@ -250,13 +250,18 @@ function ExecPage() {
       'Reagendada',
     ]
 
-    const calcMes = (de: Date, ate: Date) => {
+    // Usar string YYYY-MM para comparar meses sem problema de timezone
+    // new Date(timestamp_utc) pode mudar o dia no Brasil (UTC-3)
+    const anoMesAtual = format(iniMesAtual, 'yyyy-MM')
+    const anoMesAnt   = format(iniMesAnt,   'yyyy-MM')
+
+    const calcMes = (anoMes: string) => {
       const m: Record<string,{count:number;valor:number}> = {}
       LINHAS.forEach(s => { m[s] = {count:0, valor:0} })
       data.filter(r => {
         if (!r.dt_emissao) return false
-        const d = new Date(r.dt_emissao)
-        return d >= de && d <= ate
+        // Comparar apenas os primeiros 7 chars (YYYY-MM) para evitar problema de timezone
+        return r.dt_emissao.slice(0, 7) === anoMes
       }).forEach(r => {
         const s = r.status || 'Outro'
         if (!m[s]) m[s] = {count:0, valor:0}
@@ -266,8 +271,8 @@ function ExecPage() {
       return m
     }
 
-    const mesAtual = calcMes(iniMesAtual, now)
-    const mesAnt   = calcMes(iniMesAnt, fimMesAnt)
+    const mesAtual = calcMes(anoMesAtual)
+    const mesAnt   = calcMes(anoMesAnt)
 
     const totalAtual = LINHAS.reduce((s,l) => s + (mesAtual[l]?.valor||0), 0)
     const totalAnt   = LINHAS.reduce((s,l) => s + (mesAnt[l]?.valor||0), 0)
@@ -394,13 +399,15 @@ function ExecPage() {
   },[filtered])
 
   // Busca NF + histórico de ocorrências
-  const handleBusca = async (nfNum?: string) => {
+  const handleBusca = async (nfNum?: string, forceMode?: 'nf'|'pedido'|'cnpj') => {
     const num = (nfNum || searchNF).trim()
     if (!num) return
     setShowAllOcorr(false)
     setCnpjResults(null)
 
-    if (searchMode === 'cnpj') {
+    const modoAtivo = forceMode ?? searchMode
+
+    if (modoAtivo === 'cnpj') {
       // Busca por CNPJ — retorna todas as NFs do cliente
       const cnpjClean = num.replace(/\D/g, '')
       const matches = data.filter(d =>
@@ -411,7 +418,7 @@ function ExecPage() {
       return
     }
 
-    if (searchMode === 'pedido') {
+    if (modoAtivo === 'pedido') {
       // Busca por pedido — encontra a NF correspondente
       const r = data.find(d => (d.pedido||'').toLowerCase() === num.toLowerCase())
       setNfResult(r || 'not_found')
@@ -1220,7 +1227,7 @@ function ExecPage() {
                       <tbody>
                         {cnpjResults.map(r=>(
                           <tr key={r.nf_numero}
-                            onClick={()=>{setSearchMode('nf');setSearchNF(r.nf_numero);setCnpjResults(null);handleBusca(r.nf_numero)}}
+                            onClick={()=>{setSearchMode('nf');setSearchNF(r.nf_numero);setCnpjResults(null);handleBusca(r.nf_numero,'nf')}}
                             style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'opacity .1s'}}
                             onMouseEnter={e=>(e.currentTarget as HTMLElement).style.opacity='.7'}
                             onMouseLeave={e=>(e.currentTarget as HTMLElement).style.opacity='1'}>
