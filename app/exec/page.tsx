@@ -157,6 +157,9 @@ function ExecPage() {
     setExecFiltroStatus(params.status || '')
     setExecFiltroCC(params.cc || '')
     setExecFiltroLtVencido(!!params.lt_vencido)
+    // Filtro de mês opcional — passa dateFrom/dateTo para drill-down mensal
+    if (params.dateFrom) setDateFrom(params.dateFrom)
+    if (params.dateTo)   setDateTo(params.dateTo)
     setTab('lista')
   }
 
@@ -277,9 +280,16 @@ function ExecPage() {
     const totalAtual = LINHAS.reduce((s,l) => s + (mesAtual[l]?.valor||0), 0)
     const totalAnt   = LINHAS.reduce((s,l) => s + (mesAnt[l]?.valor||0), 0)
 
+    // Datas de início/fim de cada mês para uso no drill-down
+    const primeiroMesAtual = format(iniMesAtual, 'yyyy-MM-dd')
+    const ultimoMesAtual   = format(now, 'yyyy-MM-dd')
+    const primeiroMesAnt   = format(iniMesAnt, 'yyyy-MM-dd')
+    const ultimoMesAnt     = format(fimMesAnt, 'yyyy-MM-dd')
+
     return { linhas: LINHAS, mesAtual, mesAnt, totalAtual, totalAnt,
       labelAtual: format(iniMesAtual, 'MMM/yy', {locale: ptBR}).toUpperCase(),
-      labelAnt:   format(iniMesAnt,   'MMM/yy', {locale: ptBR}).toUpperCase() }
+      labelAnt:   format(iniMesAnt,   'MMM/yy', {locale: ptBR}).toUpperCase(),
+      primeiroMesAtual, ultimoMesAtual, primeiroMesAnt, ultimoMesAnt }
   }, [data])
 
   // Taxa de entrega por canal (para executivos comerciais)
@@ -812,16 +822,17 @@ function ExecPage() {
                       const cor = STATUS_COLORS[linha] || C.text3
                       return (
                         <tr key={linha}
-                          onClick={()=>navToMonitor({status:linha})}
-                          style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'opacity .15s'}}
+                          style={{borderBottom:`1px solid ${C.border}`,transition:'opacity .15s'}}
                           onMouseEnter={e=>(e.currentTarget as HTMLElement).style.opacity='.7'}
                           onMouseLeave={e=>(e.currentTarget as HTMLElement).style.opacity='1'}>
-                          <td style={{padding:'12px 12px',display:'flex',alignItems:'center',gap:9}}>
+                          <td style={{padding:'12px 12px',display:'flex',alignItems:'center',gap:9,cursor:'pointer'}}
+                            onClick={()=>navToMonitor({status:linha})}>
                             <span style={{width:7,height:7,borderRadius:'50%',background:cor,flexShrink:0,boxShadow:`0 0 0 3px ${cor}22`}}/>
                             <span style={{color:C.text,fontWeight:600,letterSpacing:'-.005em'}}>{linha}</span>
                             <span style={{fontSize:10,color:C.text4,marginLeft:'auto',opacity:.5}}>↗</span>
                           </td>
-                          <td style={{padding:'12px 12px',textAlign:'right'}}>
+                          <td style={{padding:'12px 12px',textAlign:'right',cursor:ant.count>0?'pointer':'default'}}
+                            onClick={()=>ant.count>0&&navToMonitor({status:linha,dateFrom:relatorioMensal.primeiroMesAnt,dateTo:relatorioMensal.ultimoMesAnt})}>
                             {ant.count > 0 ? (
                               <div>
                                 <div style={{fontWeight:700,color:C.text,fontVariantNumeric:'tabular-nums',letterSpacing:'-.01em'}}>{moneyFull(ant.valor)}</div>
@@ -829,7 +840,8 @@ function ExecPage() {
                               </div>
                             ) : <span style={{color:C.text4,fontSize:14}}>—</span>}
                           </td>
-                          <td style={{padding:'12px 12px',textAlign:'right'}}>
+                          <td style={{padding:'12px 12px',textAlign:'right',cursor:atual.count>0?'pointer':'default'}}
+                            onClick={()=>atual.count>0&&navToMonitor({status:linha,dateFrom:relatorioMensal.primeiroMesAtual,dateTo:relatorioMensal.ultimoMesAtual})}>
                             {atual.count > 0 ? (
                               <div>
                                 <div style={{fontWeight:700,color:C.text,fontVariantNumeric:'tabular-nums',letterSpacing:'-.01em'}}>{moneyFull(atual.valor)}</div>
