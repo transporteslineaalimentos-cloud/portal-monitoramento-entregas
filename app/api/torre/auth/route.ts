@@ -7,9 +7,15 @@ const db = () => createClient(
   { auth: { persistSession: false } }
 )
 
+async function hashSenha(s: string): Promise<string> {
+  const data = new TextEncoder().encode(s + (process.env.SENHA_SALT || 'linea_salt_2024'))
+  const hash = await crypto.subtle.digest('SHA-256', data)
+  return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('')
+}
+
 export async function POST(req: NextRequest) {
   const { email, senha } = await req.json().catch(() => ({}))
-  if (!email) return NextResponse.json({ error: 'Email obrigatório' }, { status: 400 })
+  if (!email || !senha) return NextResponse.json({ error: 'Email e senha obrigatórios' }, { status: 400 })
 
   const { data: user } = await db()
     .from('torre_usuarios')
@@ -17,10 +23,13 @@ export async function POST(req: NextRequest) {
     .eq('email', email.trim().toLowerCase())
     .single()
 
-  if (!user || !user.ativo) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 401 })
+  if (!user || !user.ativo) return NextResponse.json({ error: 'Credenciais inválidas' }, { status: 401 })
 
-  if (user.senha_hash && user.senha_hash !== senha)
-    return NextResponse.json({ error: 'Senha incorreta' }, { status: 401 })
+  if (user.senha_hash) {
+    const senhaHash = await hashSenha(senha)
+    const ok = user.senha_hash === senha || user.senha_hash === senhaHash
+    if (!ok) return NextResponse.json({ error: 'Credenciais inválidas' }, { status: 401 })
+  }
 
   await db().from('torre_usuarios').update({ ultimo_acesso: new Date().toISOString() }).eq('id', user.id)
 

@@ -7,6 +7,12 @@ const db = () => createClient(
   { auth: { persistSession: false } }
 )
 
+async function hashSenha(s: string): Promise<string> {
+  const data = new TextEncoder().encode(s + (process.env.SENHA_SALT || 'linea_salt_2024'))
+  const hash = await crypto.subtle.digest('SHA-256', data)
+  return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('')
+}
+
 export async function POST(req: NextRequest) {
   const { email, senha } = await req.json().catch(() => ({}))
   if (!email || !senha) return NextResponse.json({ error: 'Email e senha obrigatórios' }, { status: 400 })
@@ -17,8 +23,12 @@ export async function POST(req: NextRequest) {
     .eq('email', email.trim().toLowerCase())
     .single()
 
-  if (!user || !user.ativo) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 401 })
-  if (user.senha !== senha) return NextResponse.json({ error: 'Senha incorreta' }, { status: 401 })
+  if (!user || !user.ativo) return NextResponse.json({ error: 'Credenciais inválidas' }, { status: 401 })
+
+  // Aceitar senha em plain text (migração) ou hash
+  const senhaHash = await hashSenha(senha)
+  const senhaOk = user.senha === senha || user.senha === senhaHash
+  if (!senhaOk) return NextResponse.json({ error: 'Credenciais inválidas' }, { status: 401 })
 
   return NextResponse.json({ ok: true, admin: { id: user.id, nome: user.nome, email: user.email } })
 }

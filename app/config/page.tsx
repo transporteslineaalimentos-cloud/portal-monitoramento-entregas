@@ -35,7 +35,9 @@ export default function Config() {
   const [assistMsg, setAssistMsg] = useState<{ok:boolean;txt:string}|null>(null)
 
   const loadAssistentes = useCallback(async () => {
-    const res = await fetch('/api/admin/assistentes')
+    const res = await fetch('/api/admin/assistentes', {
+      headers: { 'x-admin-token': process.env.NEXT_PUBLIC_ADMIN_TOKEN || '' }
+    })
     const data = await res.json()
     if (Array.isArray(data)) setAssistentes(data)
   }, [])
@@ -44,7 +46,7 @@ export default function Config() {
     setSavingAssist(true); setAssistMsg(null)
     const form = action === 'criar' ? assistForm : { ...editAssist, ...assistForm }
     const res = await fetch('/api/admin/assistentes', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
+      method: 'POST', headers: {'Content-Type':'application/json','x-admin-token': process.env.NEXT_PUBLIC_ADMIN_TOKEN || ''},
       body: JSON.stringify({ action, ...form })
     })
     const d = await res.json()

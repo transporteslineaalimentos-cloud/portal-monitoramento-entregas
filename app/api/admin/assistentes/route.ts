@@ -1,3 +1,4 @@
+declare const process: { env: Record<string, string | undefined> }
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
@@ -7,7 +8,10 @@ const db = () => createClient(
   { auth: { persistSession: false } }
 )
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  if (!verificarAdmin(req)) {
+    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+  }
   const { data, error } = await db()
     .from('torre_usuarios')
     .select('*')
@@ -16,7 +20,15 @@ export async function GET() {
   return NextResponse.json(data)
 }
 
+function verificarAdmin(req: NextRequest): boolean {
+  const token = req.headers.get('x-admin-token') || req.headers.get('authorization')?.replace('Bearer ', '')
+  return token === process.env.ADMIN_API_SECRET && !!process.env.ADMIN_API_SECRET
+}
+
 export async function POST(req: NextRequest) {
+  if (!verificarAdmin(req)) {
+    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+  }
   const body = await req.json().catch(() => ({}))
   const { action, ...payload } = body
 
