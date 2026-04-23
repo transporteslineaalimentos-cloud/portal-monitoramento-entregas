@@ -95,6 +95,7 @@ const COL_DEFS: ColDef[] = [
   { id:'pedido',     label:'Pedido Cliente',    w:105, defaultOn:true                          },
   { id:'valor',      label:'Valor NF',          w:90,  defaultOn:true,  field:'valor_produtos' },
   { id:'volumes',    label:'Volumes',           w:65,  defaultOn:false                         },
+  { id:'romaneio',   label:'Romaneio',           w:100, defaultOn:true                          },
   { id:'loja',       label:'Loja',              w:100, defaultOn:false                         },
   { id:'agendada',   label:'Prev. Entrega',      w:105, defaultOn:true,  field:'dt_previsao'    },
   { id:'transp',     label:'Transportador',     w:130, defaultOn:true                          },
@@ -421,7 +422,7 @@ export default function TorrePage() {
     setLoading(true)
     const PAGE=2000; let all:Entrega[]=[]; let from=0
     while (true) {
-      const { data:rows, error } = await supabase.from('v_monitoramento_completo').select('nf_numero,nf_serie,nf_chave,dt_emissao,filial,remetente_cnpj,destinatario_cnpj,destinatario_nome,destinatario_fantasia,cidade_destino,uf_destino,pedido,centro_custo,valor_produtos,volumes,transportador_nome,dt_expedida,dt_previsao,dt_lt_interno,lt_dias,lt_vencido,codigo_ocorrencia,ultima_ocorrencia,dt_entrega,status,followup_status,followup_obs,followup_usuario,assistente,cc_editado,is_mock,cod_agend').range(from,from+PAGE-1)
+      const { data:rows, error } = await supabase.from('v_monitoramento_completo').select('nf_numero,nf_serie,nf_chave,dt_emissao,filial,remetente_cnpj,destinatario_cnpj,destinatario_nome,destinatario_fantasia,cidade_destino,uf_destino,pedido,centro_custo,valor_produtos,volumes,transportador_nome,tem_romaneio,romaneio_numero,dt_expedida,dt_previsao,dt_lt_interno,lt_dias,lt_vencido,codigo_ocorrencia,ultima_ocorrencia,dt_entrega,status,followup_status,followup_obs,followup_usuario,assistente,cc_editado,is_mock,cod_agend').range(from,from+PAGE-1)
       if (error||!rows||rows.length===0) break
       all=all.concat(rows as unknown as Entrega[]); if(rows.length<PAGE) break; from+=PAGE
     }
@@ -580,6 +581,7 @@ export default function TorrePage() {
       if (show('regional'))       row['Regional']        = r.filial||''
       if (show('valor'))          row['Valor (R$)']      = Number(r.valor_produtos)||0
       if (show('volumes'))        row['Volumes']         = r.volumes||''
+      if (show('romaneio'))       row['Romaneio']        = (r as any).tem_romaneio ? ((r as any).romaneio_numero||'Sim') : 'Não'
       if (show('transportadora')) row['Transportadora']  = r.transportador_nome||''
       if (show('expedida'))       row['Expedida']        = r.dt_expedida?.slice(0,10)||''
       if (show('previsao'))       row['Prev. Entrega']   = r.dt_previsao?.slice(0,10)||''
@@ -1102,6 +1104,7 @@ export default function TorrePage() {
                       {show('pedido')    &&<Th                       label="Pedido Cliente"   w={105}/>}
                       {show('valor')     &&<Th field="valor_produtos" label="Valor NF"        w={90}/>}
                       {show('volumes')   &&<Th                       label="Volumes"          w={65}/>}
+                      {show('romaneio')  &&<Th                       label="Romaneio"         w={110}/>}
                       {show('loja')      &&<Th                       label="Loja"             w={100}/>}
                       {show('agendada')  &&<Th field="dt_previsao"   label="Prev. Entrega"   w={105}/>}
                       {show('transp')    &&<Th                       label="Transportador"   w={130}/>}
@@ -1163,6 +1166,17 @@ export default function TorrePage() {
                           {show('pedido')&&<td style={{padding:'5px 10px',fontSize:11,color:T.text2,fontFamily:'var(--font-mono)',whiteSpace:'nowrap'}}>{r.pedido||'—'}</td>}
                           {show('valor')&&<td style={{padding:'5px 10px',fontVariantNumeric:'tabular-nums',fontSize:12,fontWeight:600,color:T.text,whiteSpace:'nowrap'}}>{money(Number(r.valor_produtos)||0)}</td>}
                           {show('volumes')&&<td style={{padding:'5px 10px',fontSize:11,color:T.text2,textAlign:'center'}}>{r.volumes||'—'}</td>}
+                          {show('romaneio')&&(
+                            <td style={{padding:'5px 8px'}}>
+                              {(r as any).tem_romaneio
+                                ? <span style={{display:'inline-flex',alignItems:'center',gap:3,fontSize:11,fontWeight:600,
+                                    color:'#16a34a',background:'rgba(22,163,74,.08)',border:'1px solid rgba(22,163,74,.2)',
+                                    borderRadius:5,padding:'2px 7px'}}>
+                                    ✓ {(r as any).romaneio_numero||'Sim'}
+                                  </span>
+                                : <span style={{fontSize:11,color:T.text3}}>—</span>}
+                            </td>
+                          )}
                           {show('loja')&&<td style={{padding:'5px 10px'}} onClick={e=>e.stopPropagation()}>
                             {editManual?.nf===r.nf_numero&&editManual.field==='loja'?(
                               <div style={{display:'flex',gap:3}}>
