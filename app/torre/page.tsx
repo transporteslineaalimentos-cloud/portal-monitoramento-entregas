@@ -96,12 +96,12 @@ const COL_DEFS: ColDef[] = [
   { id:'valor',      label:'Valor NF',          w:90,  defaultOn:true,  field:'valor_produtos' },
   { id:'volumes',    label:'Volumes',           w:65,  defaultOn:false                         },
   { id:'loja',       label:'Loja',              w:100, defaultOn:false                         },
-  { id:'agendada',   label:'Data Agendada',     w:105, defaultOn:true,  field:'dt_previsao'    },
+  { id:'agendada',   label:'Prev. Entrega',      w:105, defaultOn:true,  field:'dt_previsao'    },
   { id:'transp',     label:'Transportador',     w:130, defaultOn:true                          },
   { id:'st_interno', label:'Status Interno',    w:155, defaultOn:true                          },
   { id:'voucher',    label:'Voucher',           w:100, defaultOn:false                         },
   { id:'expedida',   label:'Expedida',          w:85,  defaultOn:true                          },
-  { id:'previsao',   label:'Previsão Interna',  w:95,  defaultOn:false                         },
+  { id:'previsao',   label:'LT Previsão',        w:95,  defaultOn:false                         },
   { id:'lt_interno', label:'LT Interno',        w:90,  defaultOn:false                         },
   { id:'ocorrencia', label:'Ocorrência',        w:160, defaultOn:true                          },
   { id:'status',     label:'Status',            w:170, defaultOn:true,  field:'status'         },
@@ -582,7 +582,7 @@ export default function TorrePage() {
       if (show('volumes'))        row['Volumes']         = r.volumes||''
       if (show('transportadora')) row['Transportadora']  = r.transportador_nome||''
       if (show('expedida'))       row['Expedida']        = r.dt_expedida?.slice(0,10)||''
-      if (show('previsao'))       row['Data Agendada']   = r.dt_previsao?.slice(0,10)||''
+      if (show('previsao'))       row['Prev. Entrega']   = r.dt_previsao?.slice(0,10)||''
       if (show('lt'))             { row['LT Dias']=r.lt_dias||''; row['LT Limite']=r.dt_lt_interno?.slice(0,10)||''; row['LT Vencido']=r.lt_vencido?'Sim':'Não' }
       if (show('ocorrencia'))     row['Ocorrência']      = r.ultima_ocorrencia||''
       if (show('dt_entrega'))     row['Dt. Entrega']     = r.dt_entrega?.slice(0,10)||''
@@ -1103,12 +1103,12 @@ export default function TorrePage() {
                       {show('valor')     &&<Th field="valor_produtos" label="Valor NF"        w={90}/>}
                       {show('volumes')   &&<Th                       label="Volumes"          w={65}/>}
                       {show('loja')      &&<Th                       label="Loja"             w={100}/>}
-                      {show('agendada')  &&<Th field="dt_previsao"   label="Data Agendada"   w={105}/>}
+                      {show('agendada')  &&<Th field="dt_previsao"   label="Prev. Entrega"   w={105}/>}
                       {show('transp')    &&<Th                       label="Transportador"   w={130}/>}
                       {show('st_interno')&&<Th                       label="Status Interno"  w={155}/>}
                       {show('voucher')   &&<Th                       label="Voucher"          w={100}/>}
                       {show('expedida')  &&<Th                       label="Expedida"         w={85}/>}
-                      {show('previsao')  &&<Th                       label="Previsão Interna" w={95}/>}
+                      {show('previsao')  &&<Th                       label="LT Previsão" w={95}/>}
                       {show('lt_interno')&&<Th                       label="LT Interno"       w={90}/>}
                       {show('ocorrencia')&&<Th                       label="Ocorrência"       w={160}/>}
                       {show('status')    &&<Th field="status"        label="Status"           w={170}/>}
