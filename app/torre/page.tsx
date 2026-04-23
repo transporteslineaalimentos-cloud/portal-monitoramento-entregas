@@ -85,6 +85,7 @@ const L = {
 type ColDef = { id: string; label: string; w: number; defaultOn: boolean; field?: string }
 const COL_DEFS: ColDef[] = [
   { id:'nf',         label:'NF',               w:80,  defaultOn:true,  field:'nf_numero'      },
+  { id:'chave',      label:'Chave NF',          w:130, defaultOn:false                         },
   { id:'emissao',    label:'Emissão',           w:85,  defaultOn:true,  field:'dt_emissao'     },
   { id:'regional',   label:'Regional',          w:120, defaultOn:true                          },
   { id:'cnpj',       label:'CNPJ Cliente',      w:130, defaultOn:false                         },
@@ -107,6 +108,38 @@ const COL_DEFS: ColDef[] = [
   { id:'registrar',  label:'Registrar',         w:110, defaultOn:true                          },
   { id:'protocolo',  label:'Protocolo',         w:110, defaultOn:false                         },
 ]
+
+/* ── Chave NF — botão inline copiável ───────────────────────────── */
+function ChaveCopiavelInline({ chave, T }: { chave: string; T: ReturnType<typeof getTheme> }) {
+  const [copied, setCopied] = useState(false)
+  const copy = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    navigator.clipboard.writeText(chave).then(() => {
+      setCopied(true); setTimeout(() => setCopied(false), 2000)
+    })
+  }
+  return (
+    <button onClick={copy}
+      title={`Clique para copiar: ${chave}`}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 5,
+        padding: '3px 8px', borderRadius: 6, cursor: 'pointer', border: 'none',
+        background: copied ? 'rgba(34,197,94,.12)' : T.surface2,
+        transition: 'all .15s', maxWidth: 120,
+      }}>
+      <span style={{
+        fontFamily: 'monospace', fontSize: 10, color: copied ? '#16a34a' : T.text2,
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        letterSpacing: '.02em', flex: 1,
+      }}>
+        {copied ? '✓ Copiada!' : chave.slice(0, 14) + '…'}
+      </span>
+      <span style={{ fontSize: 11, color: copied ? '#16a34a' : T.text3, flexShrink: 0 }}>
+        {copied ? '' : '📋'}
+      </span>
+    </button>
+  )
+}
 
 /* ── SVG Logo — Caixa Facetada 3D ────────────────────────────────── */
 function LogoIcon({ size = 36 }: { size?: number }) {
@@ -370,7 +403,7 @@ export default function TorrePage() {
     setLoading(true)
     const PAGE=1000; let all:Entrega[]=[]; let from=0
     while (true) {
-      const { data:rows, error } = await supabase.from('v_monitoramento_completo').select('nf_numero,nf_serie,dt_emissao,filial,remetente_cnpj,destinatario_cnpj,destinatario_nome,destinatario_fantasia,cidade_destino,uf_destino,pedido,centro_custo,valor_produtos,volumes,transportador_nome,dt_expedida,dt_previsao,dt_lt_interno,lt_dias,lt_vencido,codigo_ocorrencia,ultima_ocorrencia,dt_entrega,status,followup_status,followup_obs,followup_usuario,assistente,cc_editado,is_mock,cod_agend').range(from,from+PAGE-1)
+      const { data:rows, error } = await supabase.from('v_monitoramento_completo').select('nf_numero,nf_serie,nf_chave,dt_emissao,filial,remetente_cnpj,destinatario_cnpj,destinatario_nome,destinatario_fantasia,cidade_destino,uf_destino,pedido,centro_custo,valor_produtos,volumes,transportador_nome,dt_expedida,dt_previsao,dt_lt_interno,lt_dias,lt_vencido,codigo_ocorrencia,ultima_ocorrencia,dt_entrega,status,followup_status,followup_obs,followup_usuario,assistente,cc_editado,is_mock,cod_agend').range(from,from+PAGE-1)
       if (error||!rows||rows.length===0) break
       all=all.concat(rows as unknown as Entrega[]); if(rows.length<PAGE) break; from+=PAGE
     }
