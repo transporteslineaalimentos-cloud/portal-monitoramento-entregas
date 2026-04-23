@@ -157,6 +157,9 @@ function ExecPage() {
     setExecFiltroStatus(params.status || '')
     setExecFiltroCC(params.cc || '')
     setExecFiltroLtVencido(!!params.lt_vencido)
+    // Filtro de mês opcional — passa dateFrom/dateTo para drill-down mensal
+    if (params.dateFrom) setDateFrom(params.dateFrom)
+    if (params.dateTo)   setDateTo(params.dateTo)
     setTab('lista')
   }
 
@@ -165,7 +168,7 @@ function ExecPage() {
     let _all: Entrega[] = []; let _from = 0
     while (true) {
       const { data: _rows } = await supabase
-        .from('v_monitoramento_completo').select('nf_numero,nf_serie,dt_emissao,filial,destinatario_cnpj,destinatario_nome,destinatario_fantasia,cidade_destino,uf_destino,pedido,centro_custo,valor_produtos,volumes,cfop,transportador_nome,tem_romaneio,romaneio_numero,dt_expedida,dt_previsao,dt_lt_interno,lt_vencido,lt_transp_vencido,codigo_ocorrencia,ultima_ocorrencia,dt_entrega,status,status_detalhado,assistente,cod_agend,is_mock').eq('is_mock', false).range(_from, _from + 999)
+        .from('mv_monitoramento').select('nf_numero,nf_serie,dt_emissao,filial,destinatario_cnpj,destinatario_nome,destinatario_fantasia,cidade_destino,uf_destino,pedido,centro_custo,valor_produtos,volumes,cfop,transportador_nome,tem_romaneio,romaneio_numero,dt_expedida,dt_previsao,dt_lt_interno,lt_vencido,lt_transp_vencido,codigo_ocorrencia,ultima_ocorrencia,dt_entrega,status,status_detalhado,assistente,cod_agend,is_mock').range(_from, _from + 1999)
       if (!_rows || _rows.length === 0) break
       _all = _all.concat(_rows as unknown as Entrega[]); if (_rows.length < 1000) break; _from += 1000
     }
@@ -250,13 +253,18 @@ function ExecPage() {
       'Reagendada',
     ]
 
-    const calcMes = (de: Date, ate: Date) => {
+    // Usar string YYYY-MM para comparar meses sem problema de timezone
+    // new Date(timestamp_utc) pode mudar o dia no Brasil (UTC-3)
+    const anoMesAtual = format(iniMesAtual, 'yyyy-MM')
+    const anoMesAnt   = format(iniMesAnt,   'yyyy-MM')
+
+    const calcMes = (anoMes: string) => {
       const m: Record<string,{count:number;valor:number}> = {}
       LINHAS.forEach(s => { m[s] = {count:0, valor:0} })
       data.filter(r => {
         if (!r.dt_emissao) return false
-        const d = new Date(r.dt_emissao)
-        return d >= de && d <= ate
+        // Comparar apenas os primeiros 7 chars (YYYY-MM) para evitar problema de timezone
+        return r.dt_emissao.slice(0, 7) === anoMes
       }).forEach(r => {
         const s = r.status || 'Outro'
         if (!m[s]) m[s] = {count:0, valor:0}
@@ -266,15 +274,22 @@ function ExecPage() {
       return m
     }
 
-    const mesAtual = calcMes(iniMesAtual, now)
-    const mesAnt   = calcMes(iniMesAnt, fimMesAnt)
+    const mesAtual = calcMes(anoMesAtual)
+    const mesAnt   = calcMes(anoMesAnt)
 
     const totalAtual = LINHAS.reduce((s,l) => s + (mesAtual[l]?.valor||0), 0)
     const totalAnt   = LINHAS.reduce((s,l) => s + (mesAnt[l]?.valor||0), 0)
 
+    // Datas de início/fim de cada mês para uso no drill-down
+    const primeiroMesAtual = format(iniMesAtual, 'yyyy-MM-dd')
+    const ultimoMesAtual   = format(now, 'yyyy-MM-dd')
+    const primeiroMesAnt   = format(iniMesAnt, 'yyyy-MM-dd')
+    const ultimoMesAnt     = format(fimMesAnt, 'yyyy-MM-dd')
+
     return { linhas: LINHAS, mesAtual, mesAnt, totalAtual, totalAnt,
       labelAtual: format(iniMesAtual, 'MMM/yy', {locale: ptBR}).toUpperCase(),
-      labelAnt:   format(iniMesAnt,   'MMM/yy', {locale: ptBR}).toUpperCase() }
+      labelAnt:   format(iniMesAnt,   'MMM/yy', {locale: ptBR}).toUpperCase(),
+      primeiroMesAtual, ultimoMesAtual, primeiroMesAnt, ultimoMesAnt }
   }, [data])
 
   // Taxa de entrega por canal (para executivos comerciais)
@@ -299,23 +314,32 @@ function ExecPage() {
       .slice(0,7)
   },[filtered])
 
+  // pendAgendCC e pendAgendAssist usam `data` sem filtro de DATA
+  // (igual à Torre — pendentes em aberto independente do período selecionado)
+  // Respeita apenas filtro de CC se selecionado
+  const pendBase = useMemo(()=>{
+    let d = data.filter(r=>r.status==='Pendente Agendamento')
+    if (ccFiltros.size>0) d = d.filter(r=>ccFiltros.has(r.centro_custo||''))
+    return d
+  },[data, ccFiltros])
+
   const pendAgendCC = useMemo(()=>{
     const m:Record<string,{count:number;valor:number}>={}
-    filtered.filter(r=>r.status==='Pendente Agendamento').forEach(r=>{
+    pendBase.forEach(r=>{
       const cc=r.centro_custo||'N/D'; if(!m[cc]) m[cc]={count:0,valor:0}
       m[cc].count++; m[cc].valor+=Number(r.valor_produtos)||0
     })
     return Object.entries(m).map(([cc,v])=>({cc,...v})).sort((a,b)=>b.valor-a.valor)
-  },[filtered])
+  },[pendBase])
 
   const pendAgendAssist = useMemo(()=>{
     const m:Record<string,{count:number;valor:number}>={}
-    filtered.filter(r=>r.status==='Pendente Agendamento').forEach(r=>{
+    pendBase.forEach(r=>{
       const a=r.assistente||'N/D'; if(!m[a]) m[a]={count:0,valor:0}
       m[a].count++; m[a].valor+=Number(r.valor_produtos)||0
     })
     return Object.entries(m).map(([a,v])=>({assistente:a,...v})).sort((a,b)=>b.valor-a.valor)
-  },[filtered])
+  },[pendBase])
 
   const semanalData = useMemo(()=>{
     const WEEKS=['S-2','S-1','S0','S+1','S+2','S+3']
@@ -385,13 +409,15 @@ function ExecPage() {
   },[filtered])
 
   // Busca NF + histórico de ocorrências
-  const handleBusca = async (nfNum?: string) => {
+  const handleBusca = async (nfNum?: string, forceMode?: 'nf'|'pedido'|'cnpj') => {
     const num = (nfNum || searchNF).trim()
     if (!num) return
     setShowAllOcorr(false)
     setCnpjResults(null)
 
-    if (searchMode === 'cnpj') {
+    const modoAtivo = forceMode ?? searchMode
+
+    if (modoAtivo === 'cnpj') {
       // Busca por CNPJ — retorna todas as NFs do cliente
       const cnpjClean = num.replace(/\D/g, '')
       const matches = data.filter(d =>
@@ -402,7 +428,7 @@ function ExecPage() {
       return
     }
 
-    if (searchMode === 'pedido') {
+    if (modoAtivo === 'pedido') {
       // Busca por pedido — encontra a NF correspondente
       const r = data.find(d => (d.pedido||'').toLowerCase() === num.toLowerCase())
       setNfResult(r || 'not_found')
@@ -796,16 +822,17 @@ function ExecPage() {
                       const cor = STATUS_COLORS[linha] || C.text3
                       return (
                         <tr key={linha}
-                          onClick={()=>navToMonitor({status:linha})}
-                          style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'opacity .15s'}}
+                          style={{borderBottom:`1px solid ${C.border}`,transition:'opacity .15s'}}
                           onMouseEnter={e=>(e.currentTarget as HTMLElement).style.opacity='.7'}
                           onMouseLeave={e=>(e.currentTarget as HTMLElement).style.opacity='1'}>
-                          <td style={{padding:'12px 12px',display:'flex',alignItems:'center',gap:9}}>
+                          <td style={{padding:'12px 12px',display:'flex',alignItems:'center',gap:9,cursor:'pointer'}}
+                            onClick={()=>navToMonitor({status:linha})}>
                             <span style={{width:7,height:7,borderRadius:'50%',background:cor,flexShrink:0,boxShadow:`0 0 0 3px ${cor}22`}}/>
                             <span style={{color:C.text,fontWeight:600,letterSpacing:'-.005em'}}>{linha}</span>
                             <span style={{fontSize:10,color:C.text4,marginLeft:'auto',opacity:.5}}>↗</span>
                           </td>
-                          <td style={{padding:'12px 12px',textAlign:'right'}}>
+                          <td style={{padding:'12px 12px',textAlign:'right',cursor:ant.count>0?'pointer':'default'}}
+                            onClick={()=>ant.count>0&&navToMonitor({status:linha,dateFrom:relatorioMensal.primeiroMesAnt,dateTo:relatorioMensal.ultimoMesAnt})}>
                             {ant.count > 0 ? (
                               <div>
                                 <div style={{fontWeight:700,color:C.text,fontVariantNumeric:'tabular-nums',letterSpacing:'-.01em'}}>{moneyFull(ant.valor)}</div>
@@ -813,7 +840,8 @@ function ExecPage() {
                               </div>
                             ) : <span style={{color:C.text4,fontSize:14}}>—</span>}
                           </td>
-                          <td style={{padding:'12px 12px',textAlign:'right'}}>
+                          <td style={{padding:'12px 12px',textAlign:'right',cursor:atual.count>0?'pointer':'default'}}
+                            onClick={()=>atual.count>0&&navToMonitor({status:linha,dateFrom:relatorioMensal.primeiroMesAtual,dateTo:relatorioMensal.ultimoMesAtual})}>
                             {atual.count > 0 ? (
                               <div>
                                 <div style={{fontWeight:700,color:C.text,fontVariantNumeric:'tabular-nums',letterSpacing:'-.01em'}}>{moneyFull(atual.valor)}</div>
@@ -1211,7 +1239,7 @@ function ExecPage() {
                       <tbody>
                         {cnpjResults.map(r=>(
                           <tr key={r.nf_numero}
-                            onClick={()=>{setSearchMode('nf');setSearchNF(r.nf_numero);setCnpjResults(null);handleBusca(r.nf_numero)}}
+                            onClick={()=>{setSearchMode('nf');setSearchNF(r.nf_numero);setCnpjResults(null);handleBusca(r.nf_numero,'nf')}}
                             style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'opacity .1s'}}
                             onMouseEnter={e=>(e.currentTarget as HTMLElement).style.opacity='.7'}
                             onMouseLeave={e=>(e.currentTarget as HTMLElement).style.opacity='1'}>

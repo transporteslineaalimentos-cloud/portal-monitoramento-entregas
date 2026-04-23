@@ -167,7 +167,7 @@ function MonitoramentoInner() {
     let from = 0
     while (true) {
       const { data: rows, error } = await supabase
-        .from('v_monitoramento_completo')
+        .from('mv_monitoramento')
         .select('*')
         .order(sortField, { ascending: sortDir==='asc' })
         .range(from, from + PAGE - 1)

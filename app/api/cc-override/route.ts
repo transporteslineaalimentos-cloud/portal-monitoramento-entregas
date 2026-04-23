@@ -1,3 +1,4 @@
+declare const process: { env: Record<string, string | undefined> }
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
@@ -7,7 +8,15 @@ const db = () => createClient(
   { auth: { persistSession: false } }
 )
 
+function verificarToken(req: NextRequest): boolean {
+  const token = req.headers.get('x-admin-token') || req.headers.get('authorization')?.replace('Bearer ', '')
+  return token === process.env.ADMIN_API_SECRET && !!process.env.ADMIN_API_SECRET
+}
+
 export async function POST(req: NextRequest) {
+  if (!verificarToken(req)) {
+    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+  }
   const { nf_numero, centro_custo, editado_por } = await req.json().catch(() => ({}))
   if (!nf_numero || !centro_custo)
     return NextResponse.json({ error: 'nf_numero e centro_custo obrigatórios' }, { status: 400 })

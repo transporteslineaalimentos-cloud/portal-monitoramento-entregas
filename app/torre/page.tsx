@@ -401,23 +401,21 @@ export default function TorrePage() {
   const load = useCallback(async () => {
     if (!user) return
     setLoading(true)
-    const PAGE=1000; let all:Entrega[]=[]; let from=0
+    const PAGE=2000; let all:Entrega[]=[]; let from=0
     while (true) {
       const { data:rows, error } = await supabase.from('v_monitoramento_completo').select('nf_numero,nf_serie,nf_chave,dt_emissao,filial,remetente_cnpj,destinatario_cnpj,destinatario_nome,destinatario_fantasia,cidade_destino,uf_destino,pedido,centro_custo,valor_produtos,volumes,transportador_nome,dt_expedida,dt_previsao,dt_lt_interno,lt_dias,lt_vencido,codigo_ocorrencia,ultima_ocorrencia,dt_entrega,status,followup_status,followup_obs,followup_usuario,assistente,cc_editado,is_mock,cod_agend').range(from,from+PAGE-1)
       if (error||!rows||rows.length===0) break
       all=all.concat(rows as unknown as Entrega[]); if(rows.length<PAGE) break; from+=PAGE
     }
     const meusCCs = user.centros_custo.map(c=>c.toLowerCase().trim())
-    const meuNome = (user.nome||'').toLowerCase().trim()
     const SEM_CC_INVALIDOS = ['', '-', 'não mapeado', 'nao mapeado']
     setData(all.filter(r=>{
       const ccNota=(r.centro_custo||'').toLowerCase().trim()
-      const assistenteNota=(r.assistente||'').toLowerCase().trim()
       // NFs sem CC válido aparecem para TODAS as assistentes (aba Sem Centro de Custo)
       const semCC = SEM_CC_INVALIDOS.includes(ccNota)
+      // Mostrar apenas NFs cujo CC esteja cadastrado para esta assistente
       const matchCC = !semCC && meusCCs.some(cc=>cc===ccNota)
-      const matchAssistente = !!meuNome && assistenteNota===meuNome
-      return semCC || matchCC || matchAssistente
+      return semCC || matchCC
     }))
     setLastUpdate(new Date())
     setLoading(false)
