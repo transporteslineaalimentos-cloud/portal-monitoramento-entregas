@@ -146,6 +146,9 @@ export async function POST(req: NextRequest) {
         destinatario_nome: nf.destinatario_nome || null,
         payload_raw: payloadRaw,
         data_ocorrencia: dataParaActive,
+        // Salvar anexo para visualização no portal
+        anexo_base64: anexo_base64 || null,
+        anexo_nome:   anexo_nome   || null,
       }) } catch (_) { /* duplicata — ignora */ }
 
       return NextResponse.json({ ok: true, mensagem: item.Mensagem, guid: item.Guid_Processamento })

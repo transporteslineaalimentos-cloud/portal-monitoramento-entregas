@@ -7,10 +7,86 @@ import { getTheme } from '@/lib/theme'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
+function AnexoViewer({ base64, nome, T }: { base64: string; nome: string; T: ReturnType<typeof import('@/lib/theme').getTheme> }) {
+  const [open, setOpen] = useState(false)
+  const isImage = /\.(png|jpg|jpeg|gif|webp|bmp)$/i.test(nome)
+  const isPdf   = /\.pdf$/i.test(nome)
+  const dataUrl = `data:${isImage ? 'image/'+nome.split('.').pop() : 'application/pdf'};base64,${base64}`
+
+  return (
+    <div style={{ marginTop: 6 }}>
+      <button onClick={() => setOpen(p => !p)}
+        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px',
+          background: open ? 'rgba(37,99,235,.08)' : T.surface2,
+          border: `1px solid ${open ? 'rgba(37,99,235,.3)' : T.border}`,
+          borderRadius: 6, cursor: 'pointer', fontSize: 11, color: T.text2,
+          fontFamily: 'inherit', fontWeight: 600, transition: 'all .15s' }}>
+        <span>{isImage ? '🖼️' : isPdf ? '📄' : '📎'}</span>
+        <span style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nome}</span>
+        <span style={{ color: '#2563eb', marginLeft: 2 }}>{open ? '▲ Fechar' : '▼ Ver anexo'}</span>
+      </button>
+
+      {open && (
+        <div style={{ marginTop: 8, borderRadius: 8, overflow: 'hidden',
+          border: `1px solid ${T.border}`, background: T.surface2 }}>
+          {isImage && (
+            <img src={dataUrl} alt={nome}
+              style={{ width: '100%', maxHeight: 400, objectFit: 'contain', display: 'block' }} />
+          )}
+          {isPdf && (
+            <iframe src={dataUrl} title={nome}
+              style={{ width: '100%', height: 400, border: 'none', display: 'block' }} />
+          )}
+          {!isImage && !isPdf && (
+            <div style={{ padding: 12, fontSize: 12, color: T.text3 }}>
+              Tipo de arquivo não suportado para visualização.{' '}
+              <a href={dataUrl} download={nome} style={{ color: '#2563eb' }}>Baixar</a>
+            </div>
+          )}
+          <div style={{ padding: '6px 10px', display: 'flex', justifyContent: 'flex-end',
+            borderTop: `1px solid ${T.border}` }}>
+            <a href={dataUrl} download={nome}
+              style={{ fontSize: 11, color: '#2563eb', fontWeight: 600, textDecoration: 'none' }}>
+              ⬇️ Baixar arquivo
+            </a>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ChaveCopiavel({ chave, T }: { chave: string; T: ReturnType<typeof import('@/lib/theme').getTheme> }) {
+  const [copied, setCopied] = useState(false)
+  const copy = () => {
+    navigator.clipboard.writeText(chave).then(() => {
+      setCopied(true); setTimeout(() => setCopied(false), 2000)
+    })
+  }
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px',
+      background: copied ? 'rgba(34,197,94,.08)' : T.surface2,
+      border: `1px solid ${copied ? 'rgba(34,197,94,.3)' : T.border}`,
+      borderRadius: 6, cursor: 'pointer', transition: 'all .15s' }}
+      onClick={copy} title="Clique para copiar a chave de acesso">
+      <span style={{ fontSize: 10, color: T.text3, fontWeight: 600, whiteSpace: 'nowrap' }}>Chave NF</span>
+      <span style={{ fontSize: 10, color: T.text2, fontFamily: 'monospace', letterSpacing: '.02em',
+        maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {chave.slice(0, 22)}…
+      </span>
+      <span style={{ fontSize: 11, color: copied ? '#22c55e' : T.text3, fontWeight: 700, flexShrink: 0 }}>
+        {copied ? '✓ Copiada!' : '📋'}
+      </span>
+    </div>
+  )
+}
+
 type Ocorrencia = {
   id: string; nf_numero: string; codigo_ocorrencia: string; descricao_ocorrencia: string
   subtipo: string; data_ocorrencia: string | null; data_entrega: string | null; observacao: string | null
   created_at: string; payload_raw: Record<string, any>
+  source?: string; status_ocorrencia?: string
+  anexo_base64?: string | null; anexo_nome?: string | null
 }
 
 const fmt = (d: string | null) => {
@@ -198,7 +274,7 @@ export default function OcorrenciasDrawer({ nf, onClose, onTranspEdited }: {
     setLoading(true)
     const { data } = await supabase
       .from('v_todas_ocorrencias')
-      .select('id,nf_numero,codigo_ocorrencia,descricao_ocorrencia,subtipo,data_ocorrencia,data_entrega,observacao,created_at,payload_raw')
+      .select('id,nf_numero,codigo_ocorrencia,descricao_ocorrencia,subtipo,data_ocorrencia,data_entrega,observacao,created_at,payload_raw,source,status_ocorrencia,anexo_base64,anexo_nome')
       .eq('nf_numero', nf.nf_numero)
       .order('created_at', { ascending: false })
     setOcorrs((data as unknown as Ocorrencia[]) || [])
@@ -305,6 +381,11 @@ export default function OcorrenciasDrawer({ nf, onClose, onTranspEdited }: {
               <span style={{ fontSize: 11, color: T.text, fontWeight: 600 }}>{p.value}</span>
             </div>
           ))}
+
+          {/* Chave de acesso — copiável */}
+          {nf.nf_chave && (
+            <ChaveCopiavel chave={nf.nf_chave} T={T} />
+          )}
 
         </div>
 
@@ -559,6 +640,11 @@ export default function OcorrenciasDrawer({ nf, onClose, onTranspEdited }: {
                             </span>
                           )}
                         </div>
+                      )}
+
+                      {/* Anexo — só ocorrências lançadas pelo portal */}
+                      {o.anexo_base64 && o.anexo_nome && (
+                        <AnexoViewer base64={o.anexo_base64} nome={o.anexo_nome} T={T} />
                       )}
                     </div>
                   </div>

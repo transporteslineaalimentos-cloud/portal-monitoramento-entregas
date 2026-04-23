@@ -101,7 +101,9 @@ function ExecPage() {
   const [loading,   setLoading]   = useState(true)
   const [lastUpd,   setLastUpd]   = useState(new Date())
   const [searchNF,  setSearchNF]  = useState('')
+  const [searchMode, setSearchMode] = useState<'nf'|'pedido'|'cnpj'>('nf')
   const [nfResult,  setNfResult]  = useState<Entrega|null|'not_found'>(null)
+  const [cnpjResults, setCnpjResults] = useState<Entrega[]|null>(null)
   const [ocorrencias, setOcorrencias] = useState<Ocorrencia[]>([])
   const [loadingOcorr, setLoadingOcorr] = useState(false)
   const [showAllOcorr, setShowAllOcorr] = useState(false)
@@ -367,18 +369,42 @@ function ExecPage() {
     const num = (nfNum || searchNF).trim()
     if (!num) return
     setShowAllOcorr(false)
+    setCnpjResults(null)
+
+    if (searchMode === 'cnpj') {
+      // Busca por CNPJ — retorna todas as NFs do cliente
+      const cnpjClean = num.replace(/\D/g, '')
+      const matches = data.filter(d =>
+        (d.destinatario_cnpj || '').replace(/\D/g, '') === cnpjClean
+      ).sort((a, b) => new Date(b.dt_emissao||'').getTime() - new Date(a.dt_emissao||'').getTime())
+      setCnpjResults(matches.length > 0 ? matches : [])
+      setNfResult(null)
+      return
+    }
+
+    if (searchMode === 'pedido') {
+      // Busca por pedido — encontra a NF correspondente
+      const r = data.find(d => (d.pedido||'').toLowerCase() === num.toLowerCase())
+      setNfResult(r || 'not_found')
+      if (r) { setSearchNF(r.nf_numero); await carregarOcorr(r.nf_numero) }
+      return
+    }
+
+    // Busca por NF (padrão)
     const r = data.find(d=>d.nf_numero===num)
     setNfResult(r || 'not_found')
-    if (r) {
-      setLoadingOcorr(true)
-      const { data: ocs } = await supabase
-        .from('v_todas_ocorrencias')
-        .select('id,nf_numero,codigo_ocorrencia,descricao_ocorrencia,subtipo,data_ocorrencia,data_entrega,observacao,created_at,payload_raw')
-        .eq('nf_numero', num)
-        .order('created_at', { ascending: false })
-      setOcorrencias((ocs as unknown as Ocorrencia[]) || [])
-      setLoadingOcorr(false)
-    }
+    if (r) await carregarOcorr(num)
+  }
+
+  const carregarOcorr = async (num: string) => {
+    setLoadingOcorr(true)
+    const { data: ocs } = await supabase
+      .from('v_todas_ocorrencias')
+      .select('id,nf_numero,codigo_ocorrencia,descricao_ocorrencia,subtipo,data_ocorrencia,data_entrega,observacao,created_at,payload_raw')
+      .eq('nf_numero', num)
+      .order('created_at', { ascending: false })
+    setOcorrencias((ocs as unknown as Ocorrencia[]) || [])
+    setLoadingOcorr(false)
   }
 
   const abrirNF = (r: Entrega) => {
@@ -1111,11 +1137,22 @@ function ExecPage() {
               <div style={{fontSize:13,color:C.text2,marginBottom:10,fontWeight:500}}>
                 Consulte qualquer nota fiscal — veja o status atual, dados completos e <strong style={{color:C.text}}>todo o histórico de ocorrências registradas.</strong>
               </div>
+              {/* Seletor de modo */}
+              <div style={{display:'flex',gap:4,marginBottom:10}}>
+                {(['nf','pedido','cnpj'] as const).map(m=>(
+                  <button key={m} onClick={()=>{setSearchMode(m);setSearchNF('');setNfResult(null);setCnpjResults(null);setOcorrencias([])}}
+                    style={{padding:'5px 14px',borderRadius:6,border:`1px solid ${searchMode===m?C.accent:C.border2}`,
+                      background:searchMode===m?C.accent:'transparent',
+                      color:searchMode===m?'#fff':C.text3,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>
+                    {m==='nf'?'Nº NF':m==='pedido'?'Pedido':'CNPJ Cliente'}
+                  </button>
+                ))}
+              </div>
               <div style={{display:'flex',gap:10,maxWidth:520}}>
                 <input value={searchNF}
-                  onChange={e=>{setSearchNF(e.target.value);setNfResult(null);setOcorrencias([])}}
+                  onChange={e=>{setSearchNF(e.target.value);setNfResult(null);setCnpjResults(null);setOcorrencias([])}}
                   onKeyDown={e=>e.key==='Enter'&&handleBusca()}
-                  placeholder="Digite o número da NF..."
+                  placeholder={searchMode==='nf'?'Digite o número da NF...':searchMode==='pedido'?'Digite o número do pedido...':'Digite o CNPJ do cliente (com ou sem máscara)...'}
                   style={{flex:1,fontSize:15,padding:'11px 15px'}}/>
                 <button onClick={()=>handleBusca()}
                   style={{padding:'11px 24px',borderRadius:7,border:'none',background:C.accent,color:'#fff',fontSize:13,fontWeight:700}}>
@@ -1123,6 +1160,63 @@ function ExecPage() {
                 </button>
               </div>
             </div>
+
+            {/* Resultado CNPJ — lista de NFs do cliente */}
+            {cnpjResults !== null && (
+              <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:12,overflow:'hidden'}}>
+                <div style={{padding:'16px 20px',borderBottom:`1px solid ${C.border}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                  <span style={{fontSize:13,fontWeight:700,color:C.text}}>
+                    {cnpjResults.length > 0
+                      ? `${cnpjResults.length} NF${cnpjResults.length>1?'s':''} encontrada${cnpjResults.length>1?'s':''} — ${cnpjResults[0]?.destinatario_fantasia||cnpjResults[0]?.destinatario_nome||searchNF}`
+                      : `Nenhuma NF encontrada para o CNPJ ${searchNF}`}
+                  </span>
+                  {cnpjResults.length > 0 && (
+                    <span style={{fontSize:11,color:C.text3}}>
+                      Total: {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:0}).format(cnpjResults.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0))}
+                    </span>
+                  )}
+                </div>
+                {cnpjResults.length > 0 && (
+                  <div style={{overflowX:'auto'}}>
+                    <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+                      <thead>
+                        <tr style={{borderBottom:`1px solid ${C.border}`}}>
+                          {['NF','Emissão','Destinatário','Cidade','C.Custo','Valor','Status'].map(h=>(
+                            <th key={h} style={{padding:'8px 14px',textAlign:h==='Valor'?'right':'left',
+                              fontSize:10,color:C.text3,fontWeight:700,letterSpacing:'.08em',whiteSpace:'nowrap'}}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {cnpjResults.map(r=>(
+                          <tr key={r.nf_numero}
+                            onClick={()=>{setSearchMode('nf');setSearchNF(r.nf_numero);setCnpjResults(null);handleBusca(r.nf_numero)}}
+                            style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'opacity .1s'}}
+                            onMouseEnter={e=>(e.currentTarget as HTMLElement).style.opacity='.7'}
+                            onMouseLeave={e=>(e.currentTarget as HTMLElement).style.opacity='1'}>
+                            <td style={{padding:'9px 14px',fontWeight:700,color:C.accent,fontFamily:'monospace'}}>{r.nf_numero}</td>
+                            <td style={{padding:'9px 14px',color:C.text3,whiteSpace:'nowrap'}}>{r.dt_emissao?.slice(0,10).split('-').reverse().join('/')||'—'}</td>
+                            <td style={{padding:'9px 14px',color:C.text,maxWidth:180,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.destinatario_fantasia||r.destinatario_nome||'—'}</td>
+                            <td style={{padding:'9px 14px',color:C.text3,whiteSpace:'nowrap'}}>{r.cidade_destino||'—'}</td>
+                            <td style={{padding:'9px 14px',color:C.text3,whiteSpace:'nowrap'}}>{r.centro_custo||'—'}</td>
+                            <td style={{padding:'9px 14px',textAlign:'right',fontWeight:600,color:C.text,whiteSpace:'nowrap'}}>
+                              {new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:0}).format(Number(r.valor_produtos)||0)}
+                            </td>
+                            <td style={{padding:'9px 14px'}}>
+                              <span style={{fontSize:10,padding:'2px 7px',borderRadius:4,fontWeight:600,whiteSpace:'nowrap',
+                                background:r.status==='Entregue'?'rgba(34,197,94,.12)':r.status?.includes('Agend')?'rgba(37,99,235,.1)':'rgba(148,163,184,.12)',
+                                color:r.status==='Entregue'?'#22c55e':r.status?.includes('Agend')?C.accent:C.text3}}>
+                                {r.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Não encontrada */}
             {nfResult==='not_found' && (
