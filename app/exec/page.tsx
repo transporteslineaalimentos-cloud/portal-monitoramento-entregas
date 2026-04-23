@@ -555,8 +555,8 @@ function ExecPage() {
       {/* ── HEADER ─────────────────────────────────────────────────────── */}
       <header style={{background:isDark?'rgba(6,12,23,0.85)':'rgba(255,255,255,0.82)',backdropFilter:'blur(16px)',WebkitBackdropFilter:'blur(16px)',borderBottom:`1px solid ${C.border}`,padding:'14px 32px',position:'sticky',top:0,zIndex:50,display:'flex',alignItems:'center',justifyContent:'space-between',gap:24}}>
         <div style={{display:'flex',alignItems:'center',gap:16}}>
-          <div style={{background:'#ffffff',borderRadius:10,padding:'5px 14px',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 1px 2px rgba(0,0,0,.08)'}}>
-            <img src="/logo-linea-headlin.png" alt="Linea Alimentos" style={{height:34,width:'auto',display:'block'}}/>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'center'}}>
+            <img src="/logo-linea.png" alt="Linea Alimentos" style={{height:34,width:'auto',display:'block'}}/>
           </div>
           <div style={{display:'flex',flexDirection:'column',gap:1,paddingLeft:14,borderLeft:`1px solid ${C.border}`}}>
             <span style={{fontSize:9.5,fontWeight:700,color:C.text3,letterSpacing:'.16em',textTransform:'uppercase'}}>Painel Executivo</span>

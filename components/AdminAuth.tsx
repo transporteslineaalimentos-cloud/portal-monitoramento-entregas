@@ -54,11 +54,8 @@ export function AdminLoginScreen({ onLogin }: { onLogin: (u: AdminUser) => void 
       <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 16, padding: 40, width: 380, boxShadow: '0 8px 32px rgba(0,0,0,.15)' }}>
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <div style={{ background: '#0d1b3e', borderRadius: 12, padding: '10px 24px', display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-            <span style={{ fontSize: 20 }}>🔐</span>
-            <span style={{ color: '#f97316', fontWeight: 700, fontSize: 18 }}>Linea</span>
-            <span style={{ color: '#fff', fontWeight: 400, fontSize: 18 }}>Admin</span>
-          </div>
+          <img src="/logo-linea.png" alt="Linea Alimentos"
+            style={{ height: 56, width: 'auto', display: 'inline-block', marginBottom: 4 }} />
           <div style={{ fontSize: 13, color: T.text3 }}>Acesso restrito ao portal interno</div>
         </div>
 

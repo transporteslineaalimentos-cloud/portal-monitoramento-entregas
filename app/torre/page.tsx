@@ -251,8 +251,8 @@ function LoginScreen({ onLogin }: { onLogin:(u:TorreUser)=>void }) {
           borderBottom:`1px solid ${D.border}`,position:'relative',overflow:'hidden'}}>
           <div style={{position:'absolute',inset:0,background:'radial-gradient(ellipse 60% 80% at 50% -10%, rgba(59,130,246,.12) 0%, transparent 70%)',pointerEvents:'none'}}/>
           <div style={{display:'flex',justifyContent:'center',marginBottom:16}}>
-            <div style={{background:'#fff',borderRadius:12,padding:'10px 20px',display:'inline-flex',alignItems:'center',justifyContent:'center'}}>
-              <img src="/logo-linea-headlin.png" alt="Linea Alimentos" style={{height:44,width:'auto',display:'block'}}/>
+            <div style={{display:'inline-flex',alignItems:'center',justifyContent:'center'}}>
+              <img src="/logo-linea.png" alt="Linea Alimentos" style={{height:44,width:'auto',display:'block'}}/>
             </div>
           </div>
           <div style={{fontSize:13,fontWeight:700,color:D.text,letterSpacing:'.06em',textTransform:'uppercase',marginBottom:4}}>
@@ -639,8 +639,8 @@ export default function TorrePage() {
         {/* Logo */}
         <div style={{padding:'20px 18px 16px',borderBottom:`1px solid ${T.border}`}}>
           <div style={{display:'flex',flexDirection:'column',gap:4}}>
-            <div style={{background:'#ffffff',borderRadius:8,padding:'5px 8px',display:'flex',alignItems:'center',justifyContent:'center'}}>
-              <img src="/logo-linea-headlin.png" alt="Linea Alimentos" style={{height:32,width:'auto',display:'block',maxWidth:'100%'}}/>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'center'}}>
+              <img src="/logo-linea.png" alt="Linea Alimentos" style={{height:32,width:'auto',display:'block',maxWidth:'100%'}}/>
             </div>
             <div style={{fontSize:9,fontWeight:700,color:T.text3,letterSpacing:'.1em',textTransform:'uppercase',textAlign:'center'}}>
               Torre de Controle
