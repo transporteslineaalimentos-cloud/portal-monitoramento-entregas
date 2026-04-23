@@ -109,7 +109,13 @@ function ExecPage() {
   const [showAllOcorr, setShowAllOcorr] = useState(false)
   const [ccFiltros, setCcFiltros] = useState<Set<string>>(new Set())
   const [showCCDrop, setShowCCDrop]  = useState(false)
-  const [isDark, setIsDark] = useState(true)
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('exec_theme')
+      if (saved !== null) return saved === 'dark'
+    }
+    return false  // padrão: modo claro
+  })
   const C = isDark ? DARK : LIGHT
   const getFirstDay = () => { const d=new Date(); return new Date(d.getFullYear(),d.getMonth(),1).toISOString().split('T')[0] }
   const getToday = () => new Date().toISOString().split('T')[0]
@@ -184,7 +190,7 @@ function ExecPage() {
   const entregues  = filtered.filter(r=>r.status==='Entregue')
   const agendados  = filtered.filter(r=>r.status==='Agendado')
   const pendentes  = filtered.filter(r=>r.status==='Pendente Agendamento')
-  const devolucoes = filtered.filter(r=>r.status==='Devolução')
+  const devolucoes = filtered.filter(r=>r.status==='Devolução' && !['79','113'].includes(r.codigo_ocorrencia||''))
   const ltVenc     = filtered.filter(r=>r.lt_vencido&&r.status!=='Entregue')
   const taxaEnt    = pct(entregues.length, totalNFs)
 
@@ -538,7 +544,7 @@ function ExecPage() {
             </div>
             <div style={{fontSize:10,color:C.text3,marginTop:2,letterSpacing:'.02em'}}>{data.length} notas · tempo real</div>
           </div>
-          <button onClick={()=>setIsDark(d=>!d)}
+          <button onClick={()=>{ const next=!isDark; setIsDark(next); if(typeof window!=='undefined') localStorage.setItem('exec_theme',next?'dark':'light') }}
             title={isDark?'Modo claro':'Modo escuro'}
             style={{width:36,height:36,borderRadius:'50%',border:`1px solid ${C.border}`,
               background:C.surface2,color:C.text2,
@@ -637,7 +643,7 @@ function ExecPage() {
                 {label:'Entregues',        valueRaw:entregues.length, display:String(entregues.length), sub:`${taxaEnt}% de entrega`,       color:C.green,  status:'Entregue', deltaColor:taxaEnt>=80?C.green:taxaEnt>=60?C.yellow:C.red, deltaLabel:`${taxaEnt}%`},
                 {label:'Agendados',        valueRaw:agendados.length, display:String(agendados.length), sub:moneyK(agendados.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)), color:C.blue,  status:'Agendado'},
                 {label:'Pendentes',        valueRaw:pendentes.length, display:String(pendentes.length), sub:moneyK(pendentes.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)), color:C.yellow, status:'Pendente Agendamento'},
-                {label:'Devoluções',       valueRaw:devolucoes.length,display:String(devolucoes.length),sub:moneyK(devolucoes.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)),color:C.red,    status:'Devolução'},
+                {label:'Devoluções Totais',valueRaw:devolucoes.length,display:String(devolucoes.length),sub:moneyK(devolucoes.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)),color:C.red,    status:'Devolução'},
               ].map((k:any)=>(
                 <div key={k.label}
                   className="hover-card"
@@ -670,6 +676,33 @@ function ExecPage() {
             </div>
 
             {/* Status + Previsão semanal */}
+            {/* Agendadas por dia */}
+            {agendDia.length>0 && (
+              <SecCard title="Aguardando Entrega por Dia" sub={moneyK(agendDia.reduce((s,r)=>s+r.valor,0))} accent={C.blue}>
+                <ResponsiveContainer width="100%" height={170}>
+                  <ComposedChart data={agendDia} margin={{left:8,right:28,top:24,bottom:4}}>
+                    <defs>
+                      <linearGradient id="gradAgendDia" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={C.blue} stopOpacity={0.5}/>
+                        <stop offset="100%" stopColor={C.blue} stopOpacity={0.08}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 4" stroke={C.border} vertical={false}/>
+                    <XAxis dataKey="dia" tick={{fontSize:10,fill:C.text2,fontWeight:600}} axisLine={false} tickLine={false}/>
+                    <YAxis yAxisId="val" tick={{fontSize:9,fill:C.text3}} tickFormatter={moneyK} axisLine={false} tickLine={false}/>
+                    <YAxis yAxisId="cnt" orientation="right" tick={{fontSize:9,fill:C.text3}} axisLine={false} tickLine={false}/>
+                    <Tooltip content={<Tip/>} cursor={{fill:`${C.blue}10`}}/>
+                    <Bar yAxisId="val" dataKey="valor" name="Valor" fill="url(#gradAgendDia)" radius={[6,6,0,0]} maxBarSize={42}>
+                      <LabelList dataKey="valor" position="top" formatter={(v:any)=>moneyK(Number(v))} style={{fontSize:9.5,fill:C.text2,fontWeight:600}}/>
+                    </Bar>
+                    <Line yAxisId="cnt" type="monotone" dataKey="count" name="NFs" stroke={C.accent} strokeWidth={2.5} dot={{fill:C.accent,r:4,stroke:C.surface,strokeWidth:2}} activeDot={{r:6,stroke:C.surface,strokeWidth:2}}>
+                      <LabelList dataKey="count" position="top" offset={10} style={{fontSize:10.5,fontWeight:800,fill:C.accent}}/>
+                    </Line>
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </SecCard>
+            )}
+
             <SectionLabel num="02" label="Performance Operacional" count={`${taxaEnt}% de entrega · ${entregues.length}/${totalNFs}`}/>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1.6fr',gap:14}}>
               <SecCard title="Distribuição por Status" sub={moneyFull(totalValor)} accent={C.accent}>
@@ -846,32 +879,6 @@ function ExecPage() {
               </SecCard>
             </div>
 
-            {/* Agendadas por dia */}
-            {agendDia.length>0 && (
-              <SecCard title="Aguardando Entrega por Dia" sub={moneyK(agendDia.reduce((s,r)=>s+r.valor,0))} accent={C.blue}>
-                <ResponsiveContainer width="100%" height={170}>
-                  <ComposedChart data={agendDia} margin={{left:8,right:28,top:24,bottom:4}}>
-                    <defs>
-                      <linearGradient id="gradAgendDia" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={C.blue} stopOpacity={0.5}/>
-                        <stop offset="100%" stopColor={C.blue} stopOpacity={0.08}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 4" stroke={C.border} vertical={false}/>
-                    <XAxis dataKey="dia" tick={{fontSize:10,fill:C.text2,fontWeight:600}} axisLine={false} tickLine={false}/>
-                    <YAxis yAxisId="val" tick={{fontSize:9,fill:C.text3}} tickFormatter={moneyK} axisLine={false} tickLine={false}/>
-                    <YAxis yAxisId="cnt" orientation="right" tick={{fontSize:9,fill:C.text3}} axisLine={false} tickLine={false}/>
-                    <Tooltip content={<Tip/>} cursor={{fill:`${C.blue}10`}}/>
-                    <Bar yAxisId="val" dataKey="valor" name="Valor" fill="url(#gradAgendDia)" radius={[6,6,0,0]} maxBarSize={42}>
-                      <LabelList dataKey="valor" position="top" formatter={(v:any)=>moneyK(Number(v))} style={{fontSize:9.5,fill:C.text2,fontWeight:600}}/>
-                    </Bar>
-                    <Line yAxisId="cnt" type="monotone" dataKey="count" name="NFs" stroke={C.accent} strokeWidth={2.5} dot={{fill:C.accent,r:4,stroke:C.surface,strokeWidth:2}} activeDot={{r:6,stroke:C.surface,strokeWidth:2}}>
-                      <LabelList dataKey="count" position="top" offset={10} style={{fontSize:10.5,fontWeight:800,fill:C.accent}}/>
-                    </Line>
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </SecCard>
-            )}
 
             {/* Ocorrências + Reagendadas */}
             <SectionLabel num="04" label="Pontos de Atenção" count={`${nfsOcorrencia.length + nfsReagendadas.length} NFs`}/>
@@ -1266,7 +1273,7 @@ function ExecPage() {
                         {label:'Transportadora',     value:r.transportador_nome||'—',          color:C.text},
                         {label:'Romaneio',           value:r.romaneio_numero||(r.tem_romaneio?'Sim':'Não expedida'), color:r.tem_romaneio?C.green:C.yellow},
                         {label:'Data Expedição',     value:fmt(r.dt_expedida)||'Não expedida', color:r.dt_expedida?C.text:C.yellow},
-                        {label:'Previsão Entrega',   value:r.dt_previsao?fmt(r.dt_previsao):(r.tem_romaneio?'Aguardando agendamento':'Não expedida'), color:r.dt_previsao?C.yellow:(r.tem_romaneio?C.text3:C.text4)},
+                        {label:'Previsão Entrega',   value:(()=>{ const AGEND_STATUS=['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada']; return (r.dt_previsao && AGEND_STATUS.includes(r.status))?fmt(r.dt_previsao):'—' })(), color:(r.dt_previsao&&['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status))?C.yellow:C.text4},
                 
                         {label:'Data de Entrega',    value:(()=>{ const oc=ocorrencias.find(o=>['01','107','123','124'].includes(o.codigo_ocorrencia)); const d=r.dt_entrega||(oc?.data_ocorrencia); return d?fmt(d):'Não entregue' })(),  color:(r.dt_entrega||ocorrencias.some(o=>['01','107','123','124'].includes(o.codigo_ocorrencia)))?C.green:C.text3},
                         {label:'Responsável',        value:r.assistente||'—',                  color:C.text},
