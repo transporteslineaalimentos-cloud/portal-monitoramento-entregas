@@ -427,12 +427,11 @@ export default function TorrePage() {
       all=all.concat(rows as unknown as Entrega[]); if(rows.length<PAGE) break; from+=PAGE
     }
     const meusCCs = user.centros_custo.map(c=>c.toLowerCase().trim())
-    const SEM_CC_INVALIDOS = ['', '-', 'não mapeado', 'nao mapeado']
+    const SEM_CC_INVALIDOS = ['','-','não mapeado','nao mapeado']
     setData(all.filter(r=>{
-      const ccNota=(r.centro_custo||'').toLowerCase().trim()
-      // NFs sem CC válido aparecem para TODAS as assistentes (aba Sem Centro de Custo)
+      if (r.centro_custo === null || r.centro_custo === undefined) return true  // semCC: null
+      const ccNota = r.centro_custo.toString().trim().toLowerCase()
       const semCC = SEM_CC_INVALIDOS.includes(ccNota)
-      // Mostrar apenas NFs cujo CC esteja cadastrado para esta assistente
       const matchCC = !semCC && meusCCs.some(cc=>cc===ccNota)
       return semCC || matchCC
     }))
@@ -478,8 +477,12 @@ export default function TorrePage() {
 
   const filtered = useMemo(()=>{
     // Minhas Notas: excluir NFs sem CC válido (essas ficam apenas na aba Sem Centro de Custo)
-    const SEM_CC_SET = ['', '-', 'não mapeado', 'nao mapeado']
-    let d=data.filter(r=>!SEM_CC_SET.includes((r.centro_custo||'').toLowerCase().trim()))
+    const SEM_CC_SET = ['','-','não mapeado','nao mapeado']
+    let d=data.filter(r=>{
+      if (r.centro_custo === null || r.centro_custo === undefined) return false  // semCC → excluir de Minhas Notas
+      const cc = r.centro_custo.toString().trim().toLowerCase()
+      return !SEM_CC_SET.includes(cc)
+    })
     if (filtroAtivo==='hoje') d=d.filter(r=>['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao)))
     else if (filtroAtivo==='__lt') d=d.filter(r=>r.lt_vencido&&r.status!=='Entregue')
     else if (filtroAtivo==='Agendado') d=d.filter(r=>['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status))
@@ -528,9 +531,14 @@ export default function TorrePage() {
   const tableW = useMemo(() => COL_DEFS.filter(col => visibleCols.has(col.id)).reduce((s,col)=>s+col.w,0), [visibleCols])
 
   const nfsSemCC = useMemo(()=>{
-    // Sem CC mostra TODAS as NFs sem CC, sem filtro de data
-    // O objetivo é que nenhuma NF fique sem dono — datas antigas também precisam de CC
-    let d = data.filter(r=>{ const cc=(r.centro_custo||'').trim(); return !cc||cc===''||cc==='-'||cc==='Não mapeado' })
+    // Sem CC mostra TODAS as NFs sem CC (incluindo null, '', '-', Não mapeado)
+    // sem filtro de data e sem filtro de status — o objetivo é que nenhuma NF fique sem dono
+    const SEM_CC = ['','-','não mapeado','nao mapeado']
+    let d = data.filter(r=>{
+      if (r.centro_custo === null || r.centro_custo === undefined) return true
+      const cc = r.centro_custo.toString().trim().toLowerCase()
+      return SEM_CC.includes(cc)
+    })
     if (filtroTransp) d=d.filter(r=>r.transportador_nome?.toLowerCase().includes(filtroTransp.toLowerCase()))
     if (filtroNF) d=d.filter(r=>r.nf_numero?.includes(filtroNF)||r.destinatario_fantasia?.toLowerCase().includes(filtroNF.toLowerCase())||r.destinatario_nome?.toLowerCase().includes(filtroNF.toLowerCase()))
     return d.sort((a,b)=>(Number(b.valor_produtos)||0)-(Number(a.valor_produtos)||0))
