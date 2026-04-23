@@ -88,7 +88,7 @@ export default function FollowUp() {
     const PAGE = 1000; let all: Entrega[] = []; let from = 0
     while (true) {
       const { data: rows, error } = await supabase
-        .from('v_monitoramento_completo').select('nf_numero,dt_emissao,filial,destinatario_nome,destinatario_fantasia,cidade_destino,uf_destino,centro_custo,valor_produtos,transportador_nome,dt_previsao,dt_lt_interno,lt_vencido,lt_transp_vencido,ultima_ocorrencia,codigo_ocorrencia,status,followup_status,followup_obs,followup_data,followup_usuario,assistente,is_mock,cod_agend')
+        .from('mv_monitoramento').select('nf_numero,dt_emissao,filial,destinatario_nome,destinatario_fantasia,cidade_destino,uf_destino,centro_custo,valor_produtos,transportador_nome,dt_previsao,dt_lt_interno,lt_vencido,lt_transp_vencido,ultima_ocorrencia,codigo_ocorrencia,status,followup_status,followup_obs,followup_data,followup_usuario,assistente,is_mock,cod_agend')
         .in('status', FOLLOW_STATUS)
         .order('dt_previsao',{ ascending:true, nullsFirst:false })
         .range(from, from + PAGE - 1)
