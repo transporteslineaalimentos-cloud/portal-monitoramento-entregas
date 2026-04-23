@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
 const ACTIVE_URL = 'https://ws.activeonsupply.com.br/API/IntegracaoPublica/Ocorrencia'
-const ACTIVE_TOKEN = '19DE86CF-B805-4F6F-A3C5-0E254E609445'
+const ACTIVE_TOKEN = process.env.ACTIVE_TOKEN || '19DE86CF-B805-4F6F-A3C5-0E254E609445'
 
 const supabaseAdmin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
