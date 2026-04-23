@@ -313,7 +313,9 @@ export default function TorrePage() {
   // ── Tema ──────────────────────────────────────────────────────────────
   const [isDark, setIsDark] = useState(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('torre_theme') !== 'light'
+      const torreTheme = localStorage.getItem('torre_theme') ?? 'light'
+      localStorage.setItem('mon-theme', torreTheme)  // sync p/ OcorrenciasDrawer
+      return torreTheme === 'dark'
     }
     return true
   })
@@ -322,6 +324,7 @@ export default function TorrePage() {
     const next = !isDark
     setIsDark(next)
     localStorage.setItem('torre_theme', next ? 'dark' : 'light')
+    localStorage.setItem('mon-theme', next ? 'dark' : 'light')  // sync p/ OcorrenciasDrawer
   }
 
   // ── Colunas visíveis ────────────────────────────────────────────
@@ -483,7 +486,14 @@ export default function TorrePage() {
       const cc = r.centro_custo.toString().trim().toLowerCase()
       return !SEM_CC_SET.includes(cc)
     })
-    if (filtroAtivo==='hoje') d=d.filter(r=>['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao)))
+    if (filtroAtivo==='hoje') {
+      // "Entrega Hoje" não tem filtro de emissão — NFs de qualquer mês com previsão hoje
+      return data.filter(r=>{
+        if (filtroTransp && !r.transportador_nome?.toLowerCase().includes(filtroTransp.toLowerCase())) return false
+        if (filtroNF && !r.nf_numero?.includes(filtroNF) && !r.destinatario_fantasia?.toLowerCase().includes(filtroNF.toLowerCase()) && !r.destinatario_nome?.toLowerCase().includes(filtroNF.toLowerCase())) return false
+        return ['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status) && r.dt_previsao && isToday(parseISO(r.dt_previsao))
+      }).sort((a,b)=>(Number(b.valor_produtos)||0)-(Number(a.valor_produtos)||0))
+    }
     else if (filtroAtivo==='__lt') d=d.filter(r=>r.lt_vencido&&r.status!=='Entregue')
     else if (filtroAtivo==='Agendado') d=d.filter(r=>['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status))
     else if (filtroAtivo) d=d.filter(r=>r.status===filtroAtivo)
@@ -504,13 +514,13 @@ export default function TorrePage() {
   },[data,filtroAtivo,filtroTransp,filtroNF,sortField,dateFrom,dateTo,filtroAgendadaEm])
 
   const baseParaKpi = useMemo(()=>{
+    // KPIs usam data SEM filtro de emissão — "Entrega Hoje" e "Pendentes" precisam
+    // incluir NFs de meses anteriores que ainda estão em aberto
     let d=data
     if (filtroTransp) d=d.filter(r=>r.transportador_nome?.toLowerCase().includes(filtroTransp.toLowerCase()))
     if (filtroNF) d=d.filter(r=>r.nf_numero?.includes(filtroNF))
-    if (dateFrom) { const f=new Date(dateFrom); f.setHours(0,0,0,0); d=d.filter(r=>r.dt_emissao&&new Date(r.dt_emissao)>=f) }
-    if (dateTo) { const t=new Date(dateTo); t.setHours(23,59,59,999); d=d.filter(r=>r.dt_emissao&&new Date(r.dt_emissao)<=t) }
     return d
-  },[data,filtroTransp,filtroNF,dateFrom,dateTo])
+  },[data,filtroTransp,filtroNF])
 
   const kpiCount = (id:KpiId) =>
     id==='hoje' ? baseParaKpi.filter(r=>['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada'].includes(r.status)&&r.dt_previsao&&isToday(parseISO(r.dt_previsao))).length
