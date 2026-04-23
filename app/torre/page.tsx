@@ -788,13 +788,13 @@ export default function TorrePage() {
             return (
               <div onClick={()=>{setFiltroAtivo(null);setActiveSection('notas')}}
                 style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:16,
-                  padding:'12px 16px 10px',cursor:'pointer',position:'relative',overflow:'hidden',
+                  padding:'10px 14px 8px',cursor:'pointer',position:'relative',overflow:'hidden',
                   boxShadow:T.shadow,transition:'all .2s'}}
                 onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.borderColor=T.accentBlu;(e.currentTarget as HTMLElement).style.boxShadow=T.glow}}
                 onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.borderColor=T.border;(e.currentTarget as HTMLElement).style.boxShadow=T.shadow}}>
                 <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:isDark?`linear-gradient(90deg,${T.accentBlu},rgba(59,130,246,.2),transparent)`:`linear-gradient(90deg,${T.accentBlu},rgba(37,99,235,.15),transparent)`,borderRadius:'16px 16px 0 0'}}/>
                 <div style={{position:'absolute',bottom:-4,right:10,fontSize:72,fontWeight:900,color:T.accentBlu,opacity:.04,lineHeight:1,letterSpacing:'-.04em',userSelect:'none'}}>∑</div>
-                <div style={{fontSize:10,fontWeight:800,color:T.text3,letterSpacing:'.12em',textTransform:'uppercase',marginBottom:16,display:'flex',alignItems:'center',gap:6}}>
+                <div style={{fontSize:10,fontWeight:800,color:T.text3,letterSpacing:'.12em',textTransform:'uppercase',marginBottom:10,display:'flex',alignItems:'center',gap:6}}>
                   <span style={{width:6,height:6,borderRadius:'50%',background:T.accentBlu,display:'inline-block',boxShadow:`0 0 6px ${T.accentBlu}`}}/>
                   Total em Aberto
                 </div>
@@ -815,18 +815,18 @@ export default function TorrePage() {
               <div onClick={()=>{setFiltroAtivo(active?null:'Pendente Agendamento');setActiveSection('notas')}}
                 style={{background:active?(isDark?'rgba(202,138,4,.07)':'rgba(202,138,4,.04)'):T.surface,
                   border:`1px solid ${active?(isDark?'rgba(202,138,4,.55)':'rgba(202,138,4,.35)'):T.border}`,borderRadius:16,
-                  padding:'12px 16px 10px',cursor:'pointer',position:'relative',overflow:'hidden',
+                  padding:'10px 14px 8px',cursor:'pointer',position:'relative',overflow:'hidden',
                   boxShadow:active?`0 0 0 1px rgba(202,138,4,.2), 0 8px 24px rgba(202,138,4,.12), ${T.shadow}`:T.shadow,
                   transition:'all .2s'}}
                 onMouseEnter={e=>{if(!active){(e.currentTarget as HTMLElement).style.borderColor='rgba(202,138,4,.4)';(e.currentTarget as HTMLElement).style.boxShadow=`0 0 0 1px rgba(202,138,4,.15), ${T.shadow}`}}}
                 onMouseLeave={e=>{if(!active){(e.currentTarget as HTMLElement).style.borderColor=T.border;(e.currentTarget as HTMLElement).style.boxShadow=T.shadow}}}>
                 <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:`linear-gradient(90deg,${cor},rgba(202,138,4,.25),transparent)`,borderRadius:'16px 16px 0 0'}}/>
-                <div style={{position:'absolute',bottom:-4,right:10,fontSize:72,fontWeight:900,color:cor,opacity:.05,lineHeight:1,letterSpacing:'-.04em',userSelect:'none'}}>📅</div>
-                <div style={{fontSize:10,fontWeight:800,color:active?cor:T.text3,letterSpacing:'.12em',textTransform:'uppercase',marginBottom:16,display:'flex',alignItems:'center',gap:6}}>
+                <div style={{position:'absolute',bottom:-4,right:10,fontSize:52,fontWeight:900,color:cor,opacity:.05,lineHeight:1,letterSpacing:'-.04em',userSelect:'none'}}>📅</div>
+                <div style={{fontSize:10,fontWeight:800,color:active?cor:T.text3,letterSpacing:'.12em',textTransform:'uppercase',marginBottom:10,display:'flex',alignItems:'center',gap:6}}>
                   <span style={{width:6,height:6,borderRadius:'50%',background:cor,display:'inline-block',boxShadow:active?`0 0 6px ${cor}`:'none'}}/>
                   Pend. Agendamento
                 </div>
-                <div style={{fontSize:36,fontWeight:900,color:active?cor:T.text,lineHeight:1,fontVariantNumeric:'tabular-nums',letterSpacing:'-.04em',marginBottom:4}}>
+                <div style={{fontSize:28,fontWeight:900,color:active?cor:T.text,lineHeight:1,fontVariantNumeric:'tabular-nums',letterSpacing:'-.04em',marginBottom:2}}>
                   {kpiPendAgendCount}
                 </div>
                 <div style={{fontSize:13,color:active?`rgba(202,138,4,.7)`:T.text2,fontWeight:600}}>{money(kpiPendAgendValor)}</div>
@@ -842,18 +842,18 @@ export default function TorrePage() {
               <div onClick={()=>{setFiltroAtivo(active?null:'hoje');setActiveSection('notas')}}
                 style={{background:active?(isDark?'rgba(22,163,74,.07)':'rgba(22,163,74,.04)'):T.surface,
                   border:`1px solid ${active?(isDark?'rgba(22,163,74,.55)':'rgba(22,163,74,.35)'):T.border}`,borderRadius:16,
-                  padding:'12px 16px 10px',cursor:'pointer',position:'relative',overflow:'hidden',
+                  padding:'10px 14px 8px',cursor:'pointer',position:'relative',overflow:'hidden',
                   boxShadow:active?`0 0 0 1px rgba(22,163,74,.2), 0 8px 24px rgba(22,163,74,.12), ${T.shadow}`:T.shadow,
                   transition:'all .2s'}}
                 onMouseEnter={e=>{if(!active){(e.currentTarget as HTMLElement).style.borderColor='rgba(22,163,74,.4)';(e.currentTarget as HTMLElement).style.boxShadow=`0 0 0 1px rgba(22,163,74,.15), ${T.shadow}`}}}
                 onMouseLeave={e=>{if(!active){(e.currentTarget as HTMLElement).style.borderColor=T.border;(e.currentTarget as HTMLElement).style.boxShadow=T.shadow}}}>
                 <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:`linear-gradient(90deg,${cor},rgba(22,163,74,.25),transparent)`,borderRadius:'16px 16px 0 0'}}/>
-                <div style={{position:'absolute',bottom:-4,right:10,fontSize:72,fontWeight:900,color:cor,opacity:.05,lineHeight:1,letterSpacing:'-.04em',userSelect:'none'}}>🚚</div>
-                <div style={{fontSize:10,fontWeight:800,color:active?cor:T.text3,letterSpacing:'.12em',textTransform:'uppercase',marginBottom:16,display:'flex',alignItems:'center',gap:6}}>
+                <div style={{position:'absolute',bottom:-4,right:10,fontSize:52,fontWeight:900,color:cor,opacity:.05,lineHeight:1,letterSpacing:'-.04em',userSelect:'none'}}>🚚</div>
+                <div style={{fontSize:10,fontWeight:800,color:active?cor:T.text3,letterSpacing:'.12em',textTransform:'uppercase',marginBottom:10,display:'flex',alignItems:'center',gap:6}}>
                   <span style={{width:6,height:6,borderRadius:'50%',background:cor,display:'inline-block',boxShadow:active?`0 0 6px ${cor}`:'none'}}/>
                   Entrega Hoje
                 </div>
-                <div style={{fontSize:36,fontWeight:900,color:active?cor:T.text,lineHeight:1,fontVariantNumeric:'tabular-nums',letterSpacing:'-.04em',marginBottom:4}}>
+                <div style={{fontSize:28,fontWeight:900,color:active?cor:T.text,lineHeight:1,fontVariantNumeric:'tabular-nums',letterSpacing:'-.04em',marginBottom:2}}>
                   {kpiHojeCount}
                 </div>
                 <div style={{fontSize:13,color:active?`rgba(22,163,74,.7)`:T.text2,fontWeight:600}}>{money(kpiHojeValor)}</div>
@@ -895,91 +895,95 @@ export default function TorrePage() {
           )}
         </div>
 
-        {/* ── Barra de Filtros ────────────────────────── */}
-        <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,padding:'7px 12px',
-          boxShadow:T.shadow,display:'flex',gap:8,alignItems:'center',flexWrap:'nowrap'}}>
+        {/* ── Barra de Filtros — 2 linhas para caber em notebooks ─── */}
+        <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,padding:'6px 12px',
+          boxShadow:T.shadow,display:'flex',flexDirection:'column',gap:6}}>
 
-          {/* Busca */}
-          <div style={{position:'relative',flex:'1 1 200px',minWidth:180}}>
-            <span style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',color:T.text3,fontSize:14,pointerEvents:'none'}}>⌕</span>
-            <input value={filtroNF} onChange={e=>setFiltroNF(e.target.value)} placeholder="Buscar NF, cliente…"
-              style={{...darkInput,width:'100%',paddingLeft:32,paddingRight:12,paddingTop:8,paddingBottom:8,fontSize:12,boxSizing:'border-box'}}
-              onFocus={e=>{e.target.style.borderColor=T.accentBlu;e.target.style.boxShadow=`0 0 0 3px rgba(59,130,246,.1)`}}
-              onBlur={e=>{e.target.style.borderColor=T.border;e.target.style.boxShadow='none'}}/>
+          {/* Linha 1: Busca + Transportadora + Agendada em + Datas + Hoje + Colunas + Contagem */}
+          <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
+
+            {/* Busca */}
+            <div style={{position:'relative',flex:'1 1 160px',minWidth:140}}>
+              <span style={{position:'absolute',left:8,top:'50%',transform:'translateY(-50%)',color:T.text3,fontSize:13,pointerEvents:'none'}}>⌕</span>
+              <input value={filtroNF} onChange={e=>setFiltroNF(e.target.value)} placeholder="Buscar NF, cliente…"
+                style={{...darkInput,width:'100%',paddingLeft:26,paddingRight:8,paddingTop:6,paddingBottom:6,fontSize:11,boxSizing:'border-box'}}
+                onFocus={e=>{e.target.style.borderColor=T.accentBlu;e.target.style.boxShadow=`0 0 0 2px rgba(59,130,246,.1)`}}
+                onBlur={e=>{e.target.style.borderColor=T.border;e.target.style.boxShadow='none'}}/>
+            </div>
+
+            {/* Transportadora */}
+            <select value={filtroTransp} onChange={e=>setFiltroTransp(e.target.value)}
+              style={{...darkInput,padding:'6px 8px',fontSize:11,cursor:'pointer',minWidth:130,maxWidth:170}}>
+              <option value=''>Transportadora</option>
+              {trOpts.map(t=><option key={t} value={t}>{t}</option>)}
+            </select>
+
+            {/* Agendada em */}
+            <div style={{display:'flex',alignItems:'center',gap:4,
+              background:filtroAgendadaEm?'rgba(37,99,235,.07)':T.surface2,
+              border:`1px solid ${filtroAgendadaEm?'rgba(37,99,235,.35)':T.border}`,
+              borderRadius:7,padding:'5px 8px',flexShrink:0}}>
+              <span style={{fontSize:10,fontWeight:600,color:filtroAgendadaEm?'#2563eb':T.text3,whiteSpace:'nowrap'}}>📅</span>
+              <input type="date" value={filtroAgendadaEm}
+                onChange={e=>setFiltroAgendadaEm(e.target.value)}
+                style={{padding:'2px 2px',background:'transparent',border:'none',
+                  color:filtroAgendadaEm?'#2563eb':T.text,fontSize:11,outline:'none',cursor:'pointer',fontFamily:'inherit'}}/>
+              {filtroAgendadaEm&&(
+                <button onClick={()=>setFiltroAgendadaEm('')}
+                  style={{border:'none',background:'none',cursor:'pointer',color:T.text3,fontSize:12,padding:'0 1px',lineHeight:1,fontFamily:'inherit'}}>✕</button>
+              )}
+            </div>
+
+            {/* Intervalo de datas */}
+            <div style={{display:'flex',alignItems:'center',gap:4,background:T.surface2,border:`1px solid ${T.border}`,borderRadius:7,padding:'5px 8px',flexShrink:0}}>
+              <span style={{fontSize:10,color:T.text3}}>De</span>
+              <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)}
+                style={{padding:'2px 2px',background:'transparent',border:'none',color:T.text,fontSize:11,outline:'none',cursor:'pointer',fontFamily:'inherit'}}/>
+              <span style={{fontSize:10,color:T.text3}}>até</span>
+              <input type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)}
+                style={{padding:'2px 2px',background:'transparent',border:'none',color:T.text,fontSize:11,outline:'none',cursor:'pointer',fontFamily:'inherit'}}/>
+            </div>
+
+            <button onClick={()=>{setDateFrom(getToday());setDateTo(getToday())}}
+              style={{padding:'6px 10px',background:T.surface2,border:`1px solid ${T.border}`,color:T.text2,
+                borderRadius:7,cursor:'pointer',fontSize:11,fontFamily:'inherit',fontWeight:500,whiteSpace:'nowrap',flexShrink:0}}>
+              Hoje
+            </button>
+
+            {/* Botão colunas — sempre visível */}
+            <button onClick={()=>setShowColPicker(p=>!p)}
+              style={{padding:'6px 10px',borderRadius:7,border:`1px solid ${showColPicker?T.accentBlu:T.border}`,
+                background:showColPicker?'rgba(59,130,246,.1)':T.surface2,
+                color:showColPicker?T.accentBlu:T.text2,cursor:'pointer',fontSize:11,fontFamily:'inherit',
+                fontWeight:showColPicker?600:400,display:'flex',alignItems:'center',gap:4,flexShrink:0,whiteSpace:'nowrap'}}>
+              ⊞ Colunas ({visibleCols.size})
+            </button>
+
+            {/* Contagem */}
+            <div style={{fontSize:11,color:T.text2,fontWeight:600,fontVariantNumeric:'tabular-nums',whiteSpace:'nowrap',
+              flexShrink:0,borderLeft:`1px solid ${T.border}`,paddingLeft:10,marginLeft:'auto'}}>
+              <span style={{color:T.text3,fontWeight:400}}>{filtered.length} NFs</span>
+              {' · '}
+              <span style={{color:T.accent,fontWeight:700}}>{money(totalValor)}</span>
+            </div>
           </div>
 
-          {/* Transportadora */}
-          <select value={filtroTransp} onChange={e=>setFiltroTransp(e.target.value)}
-            style={{...darkInput,padding:'8px 10px',fontSize:12,cursor:'pointer',minWidth:150,maxWidth:190}}>
-            <option value=''>Transportadora</option>
-            {trOpts.map(t=><option key={t} value={t}>{t}</option>)}
-          </select>
-
-          {/* Filtro Agendada em */}
-          <div style={{display:'flex',alignItems:'center',gap:6,
-            background:filtroAgendadaEm?`rgba(37,99,235,.07)`:T.surface2,
-            border:`1px solid ${filtroAgendadaEm?'rgba(37,99,235,.35)':T.border}`,
-            borderRadius:8,padding:'5px 10px',flexShrink:0}}>
-            <span style={{fontSize:11,fontWeight:600,color:filtroAgendadaEm?'#2563eb':T.text3,whiteSpace:'nowrap'}}>📅 Agendada em</span>
-            <input type="date" value={filtroAgendadaEm}
-              onChange={e=>setFiltroAgendadaEm(e.target.value)}
-              style={{padding:'3px 4px',background:'transparent',border:'none',
-                color:filtroAgendadaEm?'#2563eb':T.text,fontSize:12,outline:'none',
-                cursor:'pointer',fontFamily:'inherit'}}/>
-            {filtroAgendadaEm&&(
-              <button onClick={()=>setFiltroAgendadaEm('')}
-                style={{border:'none',background:'none',cursor:'pointer',
-                  color:T.text3,fontSize:13,padding:'0 2px',lineHeight:1,fontFamily:'inherit'}}>✕</button>
-            )}
-          </div>
-
-          {/* Intervalo de datas */}
-          <div style={{display:'flex',alignItems:'center',gap:6,background:T.surface2,border:`1px solid ${T.border}`,borderRadius:8,padding:'5px 10px',flexShrink:0}}>
-            <span style={{fontSize:11,color:T.text3}}>De</span>
-            <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)}
-              style={{padding:'3px 4px',background:'transparent',border:'none',color:T.text,fontSize:12,outline:'none',cursor:'pointer',fontFamily:'inherit'}}/>
-            <span style={{fontSize:11,color:T.text3}}>até</span>
-            <input type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)}
-              style={{padding:'3px 4px',background:'transparent',border:'none',color:T.text,fontSize:12,outline:'none',cursor:'pointer',fontFamily:'inherit'}}/>
-          </div>
-
-          <button onClick={()=>{setDateFrom(getToday());setDateTo(getToday())}}
-            style={{padding:'8px 12px',background:T.surface2,border:`1px solid ${T.border}`,color:T.text2,borderRadius:8,cursor:'pointer',fontSize:11,fontFamily:'inherit',fontWeight:500,whiteSpace:'nowrap',flexShrink:0,transition:'all .15s'}}>
-            Hoje
-          </button>
-
-          {/* Ordenação */}
-          <div style={{display:'flex',gap:4,marginLeft:'auto',flexShrink:0}}>
+          {/* Linha 2: Ordenação */}
+          <div style={{display:'flex',gap:4,alignItems:'center'}}>
+            <span style={{fontSize:9,fontWeight:700,color:T.text3,letterSpacing:'.1em',textTransform:'uppercase',marginRight:2,flexShrink:0}}>Ordenar:</span>
             {(['Previsão','Emissão','Valor','Status'] as const).map(f=>{
               const fld=f==='Previsão'?'dt_previsao':f==='Emissão'?'dt_emissao':f==='Valor'?'valor_produtos':'status'
               const active=sortField===fld
               return (
                 <button key={f} onClick={()=>setSortField(fld)}
-                  style={{padding:'5px 10px',borderRadius:7,fontSize:11,fontWeight:active?600:400,cursor:'pointer',fontFamily:'inherit',
+                  style={{padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:active?600:400,cursor:'pointer',fontFamily:'inherit',
                     background:active?T.accentBlu:T.surface2,border:`1px solid ${active?T.accentBlu:T.border}`,
                     color:active?'#fff':T.text3,transition:'all .15s',
-                    boxShadow:active?`0 2px 8px rgba(59,130,246,.3)`:'none'}}>
+                    boxShadow:active?'0 2px 8px rgba(59,130,246,.3)':'none'}}>
                   {f}{active&&' ↑'}
                 </button>
               )
             })}
-          </div>
-
-          {/* Botão colunas */}
-          <button onClick={()=>setShowColPicker(p=>!p)}
-            style={{padding:'6px 12px',borderRadius:8,border:`1px solid ${showColPicker?T.accentBlu:T.border}`,
-              background:showColPicker?`rgba(59,130,246,.1)`:T.surface2,
-              color:showColPicker?T.accentBlu:T.text2,cursor:'pointer',fontSize:12,fontFamily:'inherit',
-              fontWeight:showColPicker?600:400,display:'flex',alignItems:'center',gap:5,flexShrink:0,whiteSpace:'nowrap',
-              transition:'all .15s'}}>
-            <span style={{fontSize:13}}>⊞</span> Colunas ({visibleCols.size})
-          </button>
-
-          {/* Contagem */}
-          <div style={{fontSize:12,color:T.text2,fontWeight:600,fontVariantNumeric:'tabular-nums',whiteSpace:'nowrap',flexShrink:0,borderLeft:`1px solid ${T.border}`,paddingLeft:12,marginLeft:4}}>
-            <span style={{color:T.text3,fontWeight:400}}>{filtered.length} notas</span>
-            {' · '}
-            <span style={{color:T.accent,fontWeight:700}}>{money(totalValor)}</span>
           </div>
         </div>
 
