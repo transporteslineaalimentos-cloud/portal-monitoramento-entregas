@@ -1392,7 +1392,7 @@ export default function TorrePage() {
                         </div>
                         <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',flexShrink:0}}>
                           <span style={{fontSize:11,fontWeight:700,color:STATUS_COLORS_D[s.status]||T.text}}>{moneyK(s.valor)}</span>
-                          <span style={{fontSize:9,color:T.text4,fontVariantNumeric:'tabular-nums'}}>{s.count} NFs</span>
+                          <span style={{fontSize:9,color:T.text3,fontVariantNumeric:'tabular-nums'}}>{s.count} NFs</span>
                         </div>
                       </div>
                     ))}
