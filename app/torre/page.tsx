@@ -367,6 +367,24 @@ export default function TorrePage() {
     if (from==='bot'&&topRef.current&&botRef.current) topRef.current.scrollLeft=botRef.current.scrollLeft
   }
 
+  // Drag-to-scroll: arrastar a tabela com o mouse segurando o botão
+  const dragState = useRef<{dragging:boolean;startX:number;scrollLeft:number}>({dragging:false,startX:0,scrollLeft:0})
+  const onTableMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!botRef.current) return
+    dragState.current = {dragging:true, startX:e.clientX, scrollLeft:botRef.current.scrollLeft}
+    document.body.style.userSelect = 'none'
+  }
+  const onTableMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!dragState.current.dragging || !botRef.current) return
+    const dx = e.clientX - dragState.current.startX
+    botRef.current.scrollLeft = dragState.current.scrollLeft - dx
+    if (topRef.current) topRef.current.scrollLeft = botRef.current.scrollLeft
+  }
+  const onTableMouseUp = () => {
+    dragState.current.dragging = false
+    document.body.style.userSelect = ''
+  }
+
   const [selectedNF, setSelectedNF] = useState<Entrega|null>(null)
   const [followupNF, setFollowupNF] = useState<Entrega|null>(null)
   const [ocorrNF, setOcorrNF] = useState<Entrega|null>(null)
@@ -1037,11 +1055,20 @@ export default function TorrePage() {
         {activeSection==='notas'&&(
           <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:14,overflow:'hidden',boxShadow:T.shadow,flex:1,display:'flex',flexDirection:'column'}}>
 
-            {/* Scrollbar espelho */}
-            <div ref={topRef} onScroll={()=>syncScroll('top')} style={{overflowX:'auto',overflowY:'hidden',height:12,borderBottom:`1px solid ${T.borderLo}`,cursor:'col-resize',flexShrink:0}}>
+            {/* Barra de scroll superior — espelho da tabela para arrastar facilmente */}
+            <div ref={topRef} onScroll={()=>syncScroll('top')}
+              style={{overflowX:'auto',overflowY:'hidden',height:14,
+                borderBottom:`2px solid ${T.border}`,flexShrink:0,
+                background:isDark?'rgba(0,0,0,.15)':'rgba(0,0,0,.03)'}}>
               <div style={{height:1,width:tableW}}/>
             </div>
-            <div ref={botRef} onScroll={()=>syncScroll('bot')} style={{overflowX:'auto',overflowY:'auto',flex:1,maxHeight:'calc(100vh - 310px)'}}>
+            <div ref={botRef} onScroll={()=>syncScroll('bot')}
+              onMouseDown={onTableMouseDown}
+              onMouseMove={onTableMouseMove}
+              onMouseUp={onTableMouseUp}
+              onMouseLeave={onTableMouseUp}
+              style={{overflowX:'auto',overflowY:'auto',flex:1,maxHeight:'calc(100vh - 310px)',
+                cursor:dragState.current.dragging?'grabbing':'auto'}}>
               {loading?(
                 <div style={{textAlign:'center',padding:80,color:T.text3}}>
                   <div style={{fontSize:13,fontWeight:500,marginBottom:20}}>Carregando notas…</div>
@@ -1822,11 +1849,14 @@ export default function TorrePage() {
       <style>{`
         @keyframes kfPulse { 0%,100%{opacity:.2;transform:scale(.7)} 50%{opacity:1;transform:scale(1)} }
         @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.5} }
-        ::-webkit-scrollbar { width:5px; height:5px; }
-        ::-webkit-scrollbar-track { background:${T.bg}; }
-        ::-webkit-scrollbar-thumb { background:${T.surface3}; border-radius:4px; }
-        ::-webkit-scrollbar-thumb:hover { background:${T.border}; }
-        * { scrollbar-width:thin; scrollbar-color:${T.surface3} ${T.bg}; }
+        /* Scrollbar horizontal larga e fácil de arrastar */
+        ::-webkit-scrollbar { width:6px; height:10px; }
+        ::-webkit-scrollbar-track { background:${T.surface2}; border-radius:8px; }
+        ::-webkit-scrollbar-thumb { background:${T.accentBlu}88; border-radius:8px; border:2px solid ${T.surface2}; }
+        ::-webkit-scrollbar-thumb:hover { background:${T.accentBlu}; }
+        ::-webkit-scrollbar-corner { background:${T.surface2}; }
+        /* Scrollbar vertical fina */
+        * { scrollbar-width:thin; scrollbar-color:${T.accentBlu}66 ${T.surface2}; }
       `}</style>
     </div>
   )
