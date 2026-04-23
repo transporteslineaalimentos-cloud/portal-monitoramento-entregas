@@ -299,23 +299,32 @@ function ExecPage() {
       .slice(0,7)
   },[filtered])
 
+  // pendAgendCC e pendAgendAssist usam `data` sem filtro de DATA
+  // (igual à Torre — pendentes em aberto independente do período selecionado)
+  // Respeita apenas filtro de CC se selecionado
+  const pendBase = useMemo(()=>{
+    let d = data.filter(r=>r.status==='Pendente Agendamento')
+    if (ccFiltros.size>0) d = d.filter(r=>ccFiltros.has(r.centro_custo||''))
+    return d
+  },[data, ccFiltros])
+
   const pendAgendCC = useMemo(()=>{
     const m:Record<string,{count:number;valor:number}>={}
-    filtered.filter(r=>r.status==='Pendente Agendamento').forEach(r=>{
+    pendBase.forEach(r=>{
       const cc=r.centro_custo||'N/D'; if(!m[cc]) m[cc]={count:0,valor:0}
       m[cc].count++; m[cc].valor+=Number(r.valor_produtos)||0
     })
     return Object.entries(m).map(([cc,v])=>({cc,...v})).sort((a,b)=>b.valor-a.valor)
-  },[filtered])
+  },[pendBase])
 
   const pendAgendAssist = useMemo(()=>{
     const m:Record<string,{count:number;valor:number}>={}
-    filtered.filter(r=>r.status==='Pendente Agendamento').forEach(r=>{
+    pendBase.forEach(r=>{
       const a=r.assistente||'N/D'; if(!m[a]) m[a]={count:0,valor:0}
       m[a].count++; m[a].valor+=Number(r.valor_produtos)||0
     })
     return Object.entries(m).map(([a,v])=>({assistente:a,...v})).sort((a,b)=>b.valor-a.valor)
-  },[filtered])
+  },[pendBase])
 
   const semanalData = useMemo(()=>{
     const WEEKS=['S-2','S-1','S0','S+1','S+2','S+3']
