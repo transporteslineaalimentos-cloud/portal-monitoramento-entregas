@@ -189,7 +189,12 @@ function ExecPage() {
   const totalNFs   = filtered.length
   const entregues  = filtered.filter(r=>r.status==='Entregue')
   const agendados  = filtered.filter(r=>r.status==='Agendado')
-  const pendentes  = filtered.filter(r=>r.status==='Pendente Agendamento')
+  // pendentesAll: conta de TODOS os dados (sem filtro de data) — captura NFs de meses anteriores ainda abertas
+  const pendentesAll = data.filter(r=>{
+    if (ccFiltros.size>0 && !ccFiltros.has(r.centro_custo||'')) return false
+    return r.status==='Pendente Agendamento'
+  })
+  const pendentes = pendentesAll  // usar versão sem filtro de data para KPIs
   const devolucoes = filtered.filter(r=>r.status==='Devolução' && !['79','113'].includes(r.codigo_ocorrencia||''))
   const ltVenc     = filtered.filter(r=>r.lt_vencido&&r.status!=='Entregue')
   const taxaEnt    = pct(entregues.length, totalNFs)
@@ -343,10 +348,19 @@ function ExecPage() {
   },[data])
 
   const agendDia = useMemo(()=>{
-    const m:Record<string,{valor:number;count:number}>={}
+    const m:Record<string,{dia:string;valor:number;count:number}>={}
     const STATUS_AGUARD_EXEC = ['Agendado','Reagendada','Agend. Conforme Cliente','Entrega Programada']
-    filtered.filter(r=>STATUS_AGUARD_EXEC.includes(r.status)&&r.dt_previsao).forEach(r=>{ const d=fmtDia(r.dt_previsao); if(!m[d]) m[d]={valor:0,count:0}; m[d].valor+=Number(r.valor_produtos)||0; m[d].count++ })
-    return Object.entries(m).sort((a,b)=>a[0].localeCompare(b[0])).slice(0,14).map(([dia,v])=>({dia,...v}))
+    const hoje = new Date(); hoje.setHours(0,0,0,0)
+    // Somente datas FUTURAS (a partir de hoje) — não mostrar entregas passadas
+    filtered.filter(r=>STATUS_AGUARD_EXEC.includes(r.status)&&r.dt_previsao).forEach(r=>{
+      const d = new Date((r.dt_previsao||'').slice(0,10)+' 12:00')
+      if (d < hoje) return  // ignorar datas passadas
+      const iso = (r.dt_previsao||'').slice(0,10)
+      const label = fmtDia(r.dt_previsao)
+      if(!m[iso]) m[iso]={dia:label,valor:0,count:0}
+      m[iso].valor+=Number(r.valor_produtos)||0; m[iso].count++
+    })
+    return Object.keys(m).sort().slice(0,14).map(iso=>m[iso])
   },[filtered])
 
   const entregS1 = useMemo(()=>{
@@ -642,7 +656,7 @@ function ExecPage() {
                 {label:'Total Emitido',    valueRaw:totalValor,      display:moneyK(totalValor),    sub:`${totalNFs} notas emitidas`,   color:C.accent, isHero:true},
                 {label:'Entregues',        valueRaw:entregues.length, display:String(entregues.length), sub:`${taxaEnt}% de entrega`,       color:C.green,  status:'Entregue', deltaColor:taxaEnt>=80?C.green:taxaEnt>=60?C.yellow:C.red, deltaLabel:`${taxaEnt}%`},
                 {label:'Agendados',        valueRaw:agendados.length, display:String(agendados.length), sub:moneyK(agendados.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)), color:C.blue,  status:'Agendado'},
-                {label:'Pendentes',        valueRaw:pendentes.length, display:String(pendentes.length), sub:moneyK(pendentes.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)), color:C.yellow, status:'Pendente Agendamento'},
+                {label:'Pendentes',        valueRaw:pendentesAll.length, display:String(pendentesAll.length), sub:moneyK(pendentesAll.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)), color:C.yellow, status:'Pendente Agendamento'},
                 {label:'Devoluções Totais',valueRaw:devolucoes.length,display:String(devolucoes.length),sub:moneyK(devolucoes.reduce((s,r)=>s+(Number(r.valor_produtos)||0),0)),color:C.red,    status:'Devolução'},
               ].map((k:any)=>(
                 <div key={k.label}
@@ -728,9 +742,9 @@ function ExecPage() {
                           <div style={{width:8,height:8,borderRadius:2,background:STATUS_COLORS[s.status]||C.text4,flexShrink:0}}/>
                           <span style={{fontSize:11.5,color:C.text2,fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',letterSpacing:'-.005em'}}>{s.status}</span>
                         </div>
-                        <div style={{display:'flex',gap:9,flexShrink:0,alignItems:'baseline'}}>
-                          <span style={{fontSize:12,fontWeight:800,color:C.text,fontVariantNumeric:'tabular-nums',letterSpacing:'-.01em'}}>{s.count}</span>
-                          <span style={{fontSize:10,color:C.text3,fontVariantNumeric:'tabular-nums',minWidth:38,textAlign:'right'}}>{moneyK(s.valor)}</span>
+                        <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',flexShrink:0}}>
+                          <span style={{fontSize:12,fontWeight:800,color:STATUS_COLORS[s.status]||C.text,fontVariantNumeric:'tabular-nums',letterSpacing:'-.01em'}}>{moneyK(s.valor)}</span>
+                          <span style={{fontSize:9.5,color:C.text4,fontVariantNumeric:'tabular-nums'}}>{s.count} NFs</span>
                         </div>
                       </div>
                     ))}
