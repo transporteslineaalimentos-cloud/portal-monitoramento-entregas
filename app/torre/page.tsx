@@ -411,7 +411,7 @@ export default function TorrePage() {
   const [contatoSaving, setContatoSaving] = useState(false)
   const [followupNF, setFollowupNF] = useState<Entrega|null>(null)
   const [ocorrNF, setOcorrNF] = useState<Entrega|null>(null)
-  const [activeSection, setActiveSection] = useState<'notas'|'sem-cc'|'dashboard'|'contatos'|'contatos-transp'|'tabelas-frete'>('notas')
+  const [activeSection, setActiveSection] = useState<'notas'|'sem-cc'|'dashboard'|'contatos'|'contatos-transp'|'tabelas-frete'|'lead-time'>('notas')
   const [editCCNF, setEditCCNF] = useState<string|null>(null)
   const [editCCValor, setEditCCValor] = useState('')
   const [editCCSaving, setEditCCSaving] = useState(false)
@@ -701,6 +701,15 @@ export default function TorrePage() {
 
 
 
+
+  // ── Lead Time ─────────────────────────────────────────────────
+  type LeadTimeRow = { id:number; cidade:string; uf:string; regiao:string; lt_mix:number; lt_choco:number; lt_mix_transp:number; lt_choco_transp:number }
+  const [ltAll,   setLtAll]   = useState<LeadTimeRow[]>([])
+  const [ltList,  setLtList]  = useState<LeadTimeRow[]>([])
+  const [ltBusca, setLtBusca] = useState('')
+  const [ltUF,    setLtUF]    = useState('')
+  const [ltRegiao,setLtRegiao]= useState('')
+  const [ltLoading,setLtLoading] = useState(false)
   // ── Tabelas de Frete ─────────────────────────────────────────
   type TabelaFrete = {
     id: string; transportador_cnpj: string; transportador_nome: string
@@ -720,6 +729,35 @@ export default function TorrePage() {
   }|null>(null)
 
 
+
+  // ── Funções Lead Time ─────────────────────────────────────────
+  const loadLeadTimes = async () => {
+    if (ltAll.length > 0) return // já carregado
+    setLtLoading(true)
+    const { data } = await supabase
+      .from('mon_lead_times')
+      .select('id,cidade,uf,regiao,lt_mix,lt_choco,lt_mix_transp,lt_choco_transp')
+      .order('uf').order('cidade')
+    const lista = data || []
+    setLtAll(lista as LeadTimeRow[])
+    setLtList(lista as LeadTimeRow[])
+    setLtLoading(false)
+  }
+
+  const filtrarLT = (busca: string, uf: string, regiao: string, all: LeadTimeRow[]) => {
+    let r = all
+    if (busca.trim()) { const q=busca.toLowerCase().trim(); r=r.filter(x=>x.cidade.toLowerCase().includes(q)||x.uf.toLowerCase()===q) }
+    if (uf)     r = r.filter(x => x.uf === uf)
+    if (regiao) r = r.filter(x => x.regiao === regiao)
+    setLtList(r)
+  }
+
+  const ltColor = (dias: number) => {
+    if (dias <= 10) return {bg:'rgba(22,163,74,.1)',  color:'#16a34a'}
+    if (dias <= 16) return {bg:'rgba(234,179,8,.1)',   color:'#a16207'}
+    if (dias <= 21) return {bg:'rgba(249,115,22,.1)',  color:'#c2410c'}
+    return               {bg:'rgba(220,38,38,.1)',   color:'#dc2626'}
+  }
   // ── Funções Tabelas de Frete ─────────────────────────────────
   const loadTabelasFrete = async (busca='', cnpj='') => {
     const params = new URLSearchParams()
@@ -979,11 +1017,12 @@ export default function TorrePage() {
             {key:'contatos',       icon:'✉', label:'Contatos Clientes',   badge:null, badgeColor:'#059669'},
             {key:'contatos-transp', icon:'🚚', label:'Contatos Transp.',      badge:null, badgeColor:'#7c3aed'},
             {key:'tabelas-frete',   icon:'📄', label:'Tabelas de Frete',       badge:null, badgeColor:'#0891b2'},
+            {key:'lead-time',       icon:'⏱', label:'Lead Times',              badge:null, badgeColor:'#059669'},
           ] as const).map(item=>{
             const active=activeSection===item.key&&filtroAtivo===null
             return (
               <button key={item.key}
-                onClick={()=>{setActiveSection(item.key as any);if(item.key==='notas') setFiltroAtivo(null);if(item.key==='contatos') loadContatos('');if(item.key==='contatos-transp') loadContatosTransp('');if(item.key==='tabelas-frete'){loadTabelasFrete('');loadContatosTransp('')}}}
+                onClick={()=>{setActiveSection(item.key as any);if(item.key==='notas')setFiltroAtivo(null);if(item.key==='contatos')loadContatos('');if(item.key==='contatos-transp')loadContatosTransp('');if(item.key==='tabelas-frete'){loadTabelasFrete();loadContatosTransp('');}if(item.key==='lead-time')loadLeadTimes();}}
                 style={{display:'flex',alignItems:'center',gap:9,width:'100%',padding:'9px 10px',border:'none',
                   background:active?`rgba(59,130,246,.12)`:'transparent',
                   borderRadius:8,cursor:'pointer',textAlign:'left',fontFamily:'inherit',
@@ -1644,6 +1683,127 @@ export default function TorrePage() {
         )}
         </>)}
 {/* DASHBOARD SECTION */}
+      {activeSection==='lead-time'&&(()=>{
+        const ufsDisp = Array.from(new Set(ltAll.map(r=>r.uf))).sort()
+        return (
+          <div style={{flex:1,overflowY:'auto',padding:'0 16px 24px'}}>
+            {/* Header */}
+            <div style={{paddingTop:8,marginBottom:14}}>
+              <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:4}}>
+                <h2 style={{margin:0,fontSize:18,fontWeight:800,color:T.text}}>⏱ Lead Times</h2>
+                <span style={{fontSize:10,fontWeight:700,padding:'3px 8px',borderRadius:10,background:'rgba(5,150,105,.12)',color:'#059669',letterSpacing:'.05em'}}>MIX & CHOCOLATE</span>
+              </div>
+              <div style={{fontSize:11,color:T.text3}}>{ltList.length} de {ltAll.length} cidades · dias corridos expedição → entrega</div>
+            </div>
+
+            {/* Legenda */}
+            <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:14}}>
+              {[['≤ 10d','#16a34a','rgba(22,163,74,.1)'],['11-16d','#a16207','rgba(234,179,8,.1)'],['17-21d','#c2410c','rgba(249,115,22,.1)'],['> 21d','#dc2626','rgba(220,38,38,.1)']].map(([lbl,col,bg])=>(
+                <span key={lbl} style={{fontSize:10,fontWeight:600,padding:'3px 10px',borderRadius:10,background:bg as string,color:col as string}}>{lbl}</span>
+              ))}
+            </div>
+
+            {/* Filtros */}
+            <div style={{display:'flex',gap:8,marginBottom:14,flexWrap:'wrap'}}>
+              <div style={{position:'relative',flex:2,minWidth:180}}>
+                <span style={{position:'absolute',left:9,top:'50%',transform:'translateY(-50%)',color:T.text3,fontSize:13,pointerEvents:'none'}}>⌕</span>
+                <input value={ltBusca}
+                  onChange={e=>{setLtBusca(e.target.value);filtrarLT(e.target.value,ltUF,ltRegiao,ltAll)}}
+                  placeholder="Buscar cidade ou UF..."
+                  style={{width:'100%',padding:'7px 10px 7px 30px',borderRadius:8,border:`1px solid ${T.border}`,background:T.surface2,color:T.text,fontSize:12,boxSizing:'border-box' as const,fontFamily:'inherit'}}/>
+              </div>
+              <select value={ltUF} onChange={e=>{setLtUF(e.target.value);filtrarLT(ltBusca,e.target.value,ltRegiao,ltAll)}}
+                style={{padding:'7px 10px',borderRadius:8,border:`1px solid ${T.border}`,background:T.surface2,color:T.text,fontSize:12,fontFamily:'inherit',minWidth:80}}>
+                <option value=''>Todas UFs</option>
+                {ufsDisp.map(u=><option key={u} value={u}>{u}</option>)}
+              </select>
+              <select value={ltRegiao} onChange={e=>{setLtRegiao(e.target.value);filtrarLT(ltBusca,ltUF,e.target.value,ltAll)}}
+                style={{padding:'7px 10px',borderRadius:8,border:`1px solid ${T.border}`,background:T.surface2,color:T.text,fontSize:12,fontFamily:'inherit'}}>
+                <option value=''>Capital + Interior</option>
+                <option value='CAPITAL'>Capitais</option>
+                <option value='INTERIOR'>Interior</option>
+              </select>
+              {(ltBusca||ltUF||ltRegiao)&&(
+                <button onClick={()=>{setLtBusca('');setLtUF('');setLtRegiao('');setLtList(ltAll)}}
+                  style={{padding:'7px 12px',borderRadius:8,background:'transparent',border:`1px solid ${T.border}`,color:T.text3,cursor:'pointer',fontSize:11,fontFamily:'inherit'}}>
+                  Limpar
+                </button>
+              )}
+            </div>
+
+            {/* Tabela */}
+            {ltLoading ? (
+              <div style={{padding:40,textAlign:'center',color:T.text3}}>Carregando...</div>
+            ) : (
+              <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:14,overflow:'hidden'}}>
+                <table style={{width:'100%',borderCollapse:'collapse'}}>
+                  <thead>
+                    <tr style={{background:T.surface2}}>
+                      <th style={{padding:'10px 14px',textAlign:'left',fontSize:10,fontWeight:700,color:T.text3,letterSpacing:'.07em',textTransform:'uppercase',borderBottom:`1px solid ${T.border}`,whiteSpace:'nowrap'}}>Cidade</th>
+                      <th style={{padding:'10px 8px',textAlign:'center',fontSize:10,fontWeight:700,color:T.text3,letterSpacing:'.07em',textTransform:'uppercase',borderBottom:`1px solid ${T.border}`,whiteSpace:'nowrap'}}>UF</th>
+                      <th style={{padding:'10px 8px',textAlign:'center',fontSize:10,fontWeight:700,color:T.text3,letterSpacing:'.07em',textTransform:'uppercase',borderBottom:`1px solid ${T.border}`,whiteSpace:'nowrap'}}>Região</th>
+                      <th style={{padding:'10px 14px',textAlign:'center',fontSize:10,fontWeight:700,color:'#0891b2',letterSpacing:'.07em',textTransform:'uppercase',borderBottom:`1px solid ${T.border}`,whiteSpace:'nowrap'}}>🔵 LT MIX</th>
+                      <th style={{padding:'10px 14px',textAlign:'center',fontSize:10,fontWeight:700,color:'#7c3aed',letterSpacing:'.07em',textTransform:'uppercase',borderBottom:`1px solid ${T.border}`,whiteSpace:'nowrap'}}>🟣 LT CHOCO</th>
+                      <th style={{padding:'10px 14px',textAlign:'center',fontSize:10,fontWeight:700,color:T.text3,letterSpacing:'.07em',textTransform:'uppercase',borderBottom:`1px solid ${T.border}`,whiteSpace:'nowrap'}}>MIX Transp.</th>
+                      <th style={{padding:'10px 14px',textAlign:'center',fontSize:10,fontWeight:700,color:T.text3,letterSpacing:'.07em',textTransform:'uppercase',borderBottom:`1px solid ${T.border}`,whiteSpace:'nowrap'}}>Choco Transp.</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ltList.map((row,i)=>{
+                      const cMix   = ltColor(row.lt_mix)
+                      const cChoco = ltColor(row.lt_choco)
+                      const cMixT  = ltColor(row.lt_mix_transp)
+                      const cChoT  = ltColor(row.lt_choco_transp)
+                      return (
+                        <tr key={row.id} style={{borderBottom:`1px solid ${T.border}`,background:i%2===0?'transparent':T.surface2+'30'}}>
+                          <td style={{padding:'8px 14px',fontWeight:600,color:T.text,fontSize:12}}>{row.cidade}</td>
+                          <td style={{padding:'8px 8px',textAlign:'center'}}>
+                            <span style={{fontWeight:700,fontSize:11,color:'#0891b2'}}>{row.uf}</span>
+                          </td>
+                          <td style={{padding:'8px 8px',textAlign:'center'}}>
+                            <span style={{fontSize:9,fontWeight:700,padding:'2px 7px',borderRadius:8,
+                              background:row.regiao==='CAPITAL'?'rgba(124,58,237,.1)':'rgba(100,116,139,.1)',
+                              color:row.regiao==='CAPITAL'?'#7c3aed':'#64748b',letterSpacing:'.05em'}}>
+                              {row.regiao==='CAPITAL'?'CAP':'INT'}
+                            </span>
+                          </td>
+                          <td style={{padding:'8px 14px',textAlign:'center'}}>
+                            <span style={{...cMix,fontWeight:700,fontSize:13,padding:'3px 10px',borderRadius:8,fontVariantNumeric:'tabular-nums'}}>
+                              {row.lt_mix}d
+                            </span>
+                          </td>
+                          <td style={{padding:'8px 14px',textAlign:'center'}}>
+                            <span style={{...cChoco,fontWeight:700,fontSize:13,padding:'3px 10px',borderRadius:8,fontVariantNumeric:'tabular-nums'}}>
+                              {row.lt_choco}d
+                            </span>
+                          </td>
+                          <td style={{padding:'8px 14px',textAlign:'center'}}>
+                            <span style={{...cMixT,fontWeight:600,fontSize:12,padding:'2px 8px',borderRadius:6,fontVariantNumeric:'tabular-nums',opacity:.85}}>
+                              {row.lt_mix_transp}d
+                            </span>
+                          </td>
+                          <td style={{padding:'8px 14px',textAlign:'center'}}>
+                            <span style={{...cChoT,fontWeight:600,fontSize:12,padding:'2px 8px',borderRadius:6,fontVariantNumeric:'tabular-nums',opacity:.85}}>
+                              {row.lt_choco_transp}d
+                            </span>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+                {ltList.length===0&&!ltLoading&&(
+                  <div style={{padding:'32px',textAlign:'center',color:T.text3,fontSize:13}}>
+                    Nenhuma cidade encontrada para o filtro aplicado.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )
+      })()}
+
+
       {activeSection==='tabelas-frete'&&(()=>{
         // Agrupar por transportadora
         const transpList = Array.from(new Set(tabelasFrete.map(t=>t.transportador_cnpj)))
