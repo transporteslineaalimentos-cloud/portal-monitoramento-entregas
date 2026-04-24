@@ -436,13 +436,32 @@ export default function TorrePage() {
     setChecked(true)
   }, [])
 
+  const [contatosAll, setContatosAll] = useState<any[]>([])
   const loadContatos = async (busca='') => {
+    // Busca client-side — mais rápida e confiável
+    if (contatosAll.length > 0) {
+      if (!busca.trim()) {
+        setContatosList(contatosAll)
+      } else {
+        const q = busca.toLowerCase().trim()
+        setContatosList(contatosAll.filter(r =>
+          (r.nome_cliente||'').toLowerCase().includes(q) ||
+          (r.cnpj||'').includes(q) ||
+          (r.email_principal||'').toLowerCase().includes(q) ||
+          (r.executivo||'').toLowerCase().includes(q) ||
+          (r.uf||'').toLowerCase() === q
+        ))
+      }
+      return
+    }
+    // Primeira carga — buscar tudo da API
     setContatosLoading(true)
     try {
-      const url = '/api/contatos' + (busca ? `?busca=${encodeURIComponent(busca)}` : '')
-      const res = await fetch(url)
+      const res = await fetch('/api/contatos')
       const d = await res.json()
-      setContatosList(Array.isArray(d) ? d : [])
+      const lista = Array.isArray(d) ? d : []
+      setContatosAll(lista)
+      setContatosList(lista)
     } catch(e) {
       console.error('loadContatos error', e)
       setContatosList([])
@@ -1048,7 +1067,7 @@ export default function TorrePage() {
           </div>
         </div>
 
-        {activeSection!=='dashboard'&&(<>
+        {(activeSection==='notas'||activeSection==='sem-cc')&&(<>
         {/* ── 3 KPIs Destacados ───────────────────────── */}
         <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10}}>
 
@@ -1133,7 +1152,7 @@ export default function TorrePage() {
         </div>
 
         {/* ── Barra de Ação (quando NFs selecionadas) ── */}
-        {nfsSelecionadas.size>0&&(
+        {(activeSection==='notas'||activeSection==='sem-cc')&&nfsSelecionadas.size>0&&(
           <div style={{background:isDark?'rgba(14,165,233,.12)':'rgba(14,165,233,.08)',border:`1px solid rgba(14,165,233,.35)`,borderRadius:12,padding:'10px 16px',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
             <span style={{fontSize:12,fontWeight:700,color:'#0ea5e9'}}>{nfsSelecionadas.size} NF{nfsSelecionadas.size>1?'s':''} selecionada{nfsSelecionadas.size>1?'s':''}</span>
             <button onClick={async()=>{
@@ -1951,8 +1970,23 @@ export default function TorrePage() {
           <div style={{position:'relative',marginBottom:16}}>
             <span style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',color:T.text3,fontSize:13}}>⌕</span>
             <input value={contatosBusca}
-              onChange={e=>{setContatosBusca(e.target.value);loadContatos(e.target.value)}}
-              placeholder="Buscar cliente..."
+              onChange={e=>{
+                const v = e.target.value
+                setContatosBusca(v)
+                if (contatosAll.length > 0) {
+                  const q = v.toLowerCase().trim()
+                  setContatosList(!q ? contatosAll : contatosAll.filter(r =>
+                    (r.nome_cliente||'').toLowerCase().includes(q) ||
+                    (r.cnpj||'').includes(q) ||
+                    (r.email_principal||'').toLowerCase().includes(q) ||
+                    (r.executivo||'').toLowerCase().includes(q) ||
+                    (r.uf||'').toLowerCase() === q
+                  ))
+                } else {
+                  loadContatos(v)
+                }
+              }}
+              placeholder="Buscar por nome, CNPJ, email, executivo ou UF..."
               style={{...darkInput,width:'100%',paddingLeft:32,paddingRight:12,paddingTop:9,paddingBottom:9,fontSize:12,boxSizing:'border-box'}}/>
           </div>
 
