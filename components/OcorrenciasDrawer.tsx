@@ -254,6 +254,7 @@ function EmailTab({ nf, T }: { nf: Entrega; T: ReturnType<typeof import('@/lib/t
   const [status, setStatus] = useState<'idle'|'ok'|'erro'>('idle')
   const [errMsg, setErrMsg] = useState('')
   const [extraDest, setExtraDest] = useState('')
+  const [copiado, setCopiado] = useState(false)
   // supabase importado globalmente
   const fmt = (d: string|null) => d ? d.slice(0,10).split('-').reverse().join('/') : '—'
 
@@ -344,31 +345,22 @@ Equipe de Logística — Linea Alimentos`)
     return contato?.emails_cc || []
   }
 
-  const enviar = async () => {
+  const gerarMailto = () => {
     const dests = destinatarios()
-    if (!dests.length) { setErrMsg('Informe ao menos um email destinatário'); return }
-    setEnviando(true); setStatus('idle'); setErrMsg('')
-    try {
-      const resp = await fetch('https://opcrtjdnpgqcjlksofjw.supabase.co/functions/v1/enviar-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tipo: tipo === 'cliente' ? 'agendamento_cliente' : 'confirmacao_transportador',
-          nf_numero: nf.nf_numero,
-          destinatarios: dests,
-          cc: cc(),
-          assunto,
-          corpo_html: corpo.replace(/\n/g,'<br>'),
-          enviado_por: 'portal',
-        })
-      })
-      const data = await resp.json()
-      if (data.ok) { setStatus('ok') }
-      else { setStatus('erro'); setErrMsg(data.erro || 'Erro ao enviar') }
-    } catch(e: any) {
-      setStatus('erro'); setErrMsg(e.message)
-    }
-    setEnviando(false)
+    const ccList = cc()
+    const params = new URLSearchParams()
+    if (ccList.length) params.set('cc', ccList.join(';'))
+    params.set('subject', assunto)
+    params.set('body', corpo)
+    // mailto: usa & não &amp;, e o body/subject com encoding correto
+    const qs = params.toString().replace(/\+/g, '%20')
+    return `mailto:${dests.join(';')}?${qs}`
+  }
+
+  const copiarCorpo = () => {
+    navigator.clipboard.writeText(`Assunto: ${assunto}\n\n${corpo}`)
+    setCopiado(true)
+    setTimeout(() => setCopiado(false), 2000)
   }
 
   const inputStyle = { padding:'7px 10px', background:T.surface2, border:`1px solid ${T.border}`,
@@ -442,33 +434,42 @@ Equipe de Logística — Linea Alimentos`)
           style={{...inputStyle, resize:'vertical', lineHeight:1.5}}/>
       </div>
 
-      {/* Status feedback */}
-      {status==='ok'&&(
-        <div style={{background:'rgba(34,197,94,.1)',border:'1px solid rgba(34,197,94,.3)',borderRadius:7,
-          padding:'8px 12px',fontSize:11,color:'#16a34a',fontWeight:600}}>
-          ✓ Email enviado com sucesso para {destinatarios().join(', ')}
-        </div>
-      )}
-      {status==='erro'&&(
-        <div style={{background:'rgba(239,68,68,.1)',border:'1px solid rgba(239,68,68,.3)',borderRadius:7,
-          padding:'8px 12px',fontSize:11,color:'#dc2626'}}>
-          ✗ Erro: {errMsg}
-        </div>
-      )}
+      {/* Aviso de anexos */}
+      <div style={{background:'rgba(234,179,8,.08)',border:'1px solid rgba(234,179,8,.25)',borderRadius:7,
+        padding:'8px 12px',fontSize:10,color:'#92400e',lineHeight:1.5}}>
+        💡 O Outlook vai abrir com tudo preenchido. Adicione os PDFs/XMLs como anexo antes de enviar.
+      </div>
 
-      {/* Enviar */}
-      <button onClick={enviar} disabled={enviando||!destinatarios().length}
-        style={{padding:'10px',borderRadius:8,border:'none',background:enviando?T.surface2:'#2563eb',
-          color:enviando?T.text3:'#fff',cursor:enviando?'not-allowed':'pointer',fontSize:12,fontWeight:700,
-          fontFamily:'inherit',transition:'all .15s',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
-        {enviando?'Enviando...':'✉ Enviar Email'}
-      </button>
+      {/* Botões de ação */}
+      <div style={{display:'flex',gap:8}}>
+        {/* Abrir Outlook */}
+        <a href={destinatarios().length?gerarMailto():'#'}
+          onClick={e=>{ if(!destinatarios().length){e.preventDefault();return} }}
+          style={{flex:1,padding:'10px',borderRadius:8,border:'none',
+            background:destinatarios().length?'#2563eb':T.surface2,
+            color:destinatarios().length?'#fff':T.text3,
+            fontSize:12,fontWeight:700,fontFamily:'inherit',textDecoration:'none',
+            display:'flex',alignItems:'center',justifyContent:'center',gap:6,
+            cursor:destinatarios().length?'pointer':'not-allowed',transition:'all .15s'}}>
+          📧 Abrir no Outlook
+        </a>
+
+        {/* Copiar corpo */}
+        <button onClick={copiarCorpo}
+          title="Copiar assunto + corpo para colar manualmente"
+          style={{padding:'10px 14px',borderRadius:8,border:`1px solid ${T.border}`,
+            background:copiado?'rgba(34,197,94,.1)':T.surface2,
+            color:copiado?'#16a34a':T.text2,fontSize:12,fontWeight:600,
+            fontFamily:'inherit',cursor:'pointer',whiteSpace:'nowrap',transition:'all .15s'}}>
+          {copiado?'✓ Copiado!':'📋 Copiar texto'}
+        </button>
+      </div>
 
       {/* Preview destinatários */}
       {destinatarios().length>0&&(
         <div style={{fontSize:10,color:T.text3}}>
-          Para: {destinatarios().join(', ')}
-          {cc().length>0&&<span> · CC: {cc().join(', ')}</span>}
+          <strong>Para:</strong> {destinatarios().join('; ')}
+          {cc().length>0&&<><br/><strong>CC:</strong> {cc().join('; ')}</>}
         </div>
       )}
     </div>
