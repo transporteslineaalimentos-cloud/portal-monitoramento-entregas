@@ -11,9 +11,22 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const cnpj  = searchParams.get('cnpj')
   const busca = searchParams.get('busca')
-  let q = db().from('mon_contatos_transportadores').select('*').order('nome')
-  if (cnpj)  q = (q as any).eq('cnpj', cnpj.replace(/\D/g,''))
-  if (busca) q = (q as any).or(`nome.ilike.%${busca}%,cnpj.ilike.%${busca}%,email_principal.ilike.%${busca}%`)
+  const uf    = searchParams.get('uf')
+
+  let q = db().from('mon_contatos_transportadores')
+    .select('*')
+    .order('nome')
+    .order('uf', { ascending: true, nullsFirst: true })
+
+  if (cnpj) {
+    q = (q as any).eq('cnpj', cnpj.replace(/\D/g,''))
+    // Se veio UF, retornar: 1) match exato de UF, 2) geral (uf IS NULL)
+    if (uf) {
+      q = (q as any).or(`uf.eq.${uf},uf.is.null`)
+    }
+  }
+  if (busca) q = (q as any).or(`nome.ilike.%${busca}%,cnpj.ilike.%${busca}%,descricao_contato.ilike.%${busca}%`)
+
   const { data, error } = await q
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json(data)

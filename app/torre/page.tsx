@@ -832,11 +832,21 @@ export default function TorrePage() {
       body: JSON.stringify({action:'deletar',id}) })
     loadContatosTransp(ctBusca)
   }
-  const buscarContatoTransp = async (cnpj: string) => {
+  const buscarContatoTransp = async (cnpj: string, uf?: string): Promise<ContatoTransp|null> => {
     if (!cnpj) return null
-    const res = await fetch(`/api/contatos-transp?cnpj=${cnpj}`)
+    const params = new URLSearchParams({ cnpj })
+    if (uf) params.set('uf', uf)
+    const res = await fetch(`/api/contatos-transp?${params}`)
     const d = await res.json()
-    return Array.isArray(d) && d.length > 0 ? d[0] : null
+    if (!Array.isArray(d) || d.length === 0) return null
+    // Se tem UF específica, priorizar o match exato; se múltiplos, retornar o primeiro
+    if (uf) {
+      const match = d.find((r:any) => r.uf === uf)
+      if (match) return match
+    }
+    // Fallback: geral (uf = null)
+    const geral = d.find((r:any) => !r.uf)
+    return geral || d[0]
   }
   const carregarFlagsNotificado = async (nfs: string[]) => {
     if (nfs.length === 0) return
@@ -853,10 +863,16 @@ export default function TorrePage() {
     if (nfsSel.length === 0) return
     const cnpjTransp = nfsSel[0].transportador_cnpj || ''
     const nomeTransp = nfsSel[0].transportador_nome || 'Transportadora'
-    const contato: any = await buscarContatoTransp(cnpjTransp)
+    // Pegar UF das NFs selecionadas (pode ter múltiplas UFs - usa a mais frequente)
+    const ufs = nfsSel.map(n=>n.uf_destino).filter(Boolean)
+    const ufPrincipal = ufs.length > 0 
+      ? Object.entries(ufs.reduce((acc: Record<string,number>,uf) => ({...acc,[uf||'']:(acc[uf||'']||0)+1}),{})).sort((a,b)=>b[1]-a[1])[0][0]
+      : undefined
+    const contato: any = await buscarContatoTransp(cnpjTransp, ufPrincipal)
     const destinatario = contato?.email_principal || ''
     const cc = (contato?.emails_cc || []).join(';')
-    const assunto = `Agenda de Entregas — Linea Alimentos — ${nfsSel.length} NF${nfsSel.length>1?'s':''}`
+    const descricaoContato = contato?.descricao_contato ? ` (${contato.descricao_contato})` : ''
+    const assunto = `Agenda de Entregas — Linea Alimentos${descricaoContato} — ${nfsSel.length} NF${nfsSel.length>1?'s':''}`
     const nfLinhas = nfsSel.map(nf => {
       const prev = nf.dt_previsao ? new Date(nf.dt_previsao+'T12:00').toLocaleDateString('pt-BR') : '—'
       return `• NF ${nf.nf_numero} | Cliente: ${nf.destinatario_nome||nf.destinatario_fantasia||'—'} | ${nf.cidade_destino||'—'}/${nf.uf_destino||'—'} | Previsão: ${prev} | Vol: ${nf.volumes||'?'} | R$ ${Number(nf.valor_produtos||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`
@@ -892,6 +908,7 @@ export default function TorrePage() {
       `• NF ${nf.nf_numero} — ${nf.volumes||'?'} vol — R$ ${Number(nf.valor_produtos||0).toLocaleString('pt-BR',{minimumFractionDigits:2})} — Dest: ${nf.cidade_destino}/${nf.uf_destino}`
     ).join('\n')
     const assunto = `Solicitação de Agendamento — Linea Alimentos — ${nfsSel.length} NF${nfsSel.length>1?'s':''}`
+    const descricaoContato = contato?.descricao_contato ? ` (${contato.descricao_contato})` : ''
     const corpo = `Prezado(a) ${contato?.contato_nome||'Responsável'},\n\nSolicitamos agendamento para as seguintes notas fiscais:\n\n${nfLinhas}\n\nPedimos informar data e horário disponível.\n\nAtenciosamente,\n${user?.nome||'Equipe Linea Alimentos'}\nLinea Alimentos`
     const params = [`to=${encodeURIComponent(destinatario)}`]
     if (cc) params.push(`cc=${encodeURIComponent(cc)}`)
@@ -1927,7 +1944,7 @@ export default function TorrePage() {
               <table style={{width:'100%',borderCollapse:'collapse'}}>
                 <thead>
                   <tr style={{background:T.surface2}}>
-                    {['Transportadora','Contato','Email Principal','CC','Telefone',''].map(h=>(
+                    {['Transportadora','UF / Destino','Contato','Email Principal','CC',''].map(h=>(
                       <th key={h} style={{padding:'10px 14px',textAlign:'left',fontSize:10,fontWeight:700,color:T.text3,letterSpacing:'.07em',textTransform:'uppercase',borderBottom:`1px solid ${T.border}`,whiteSpace:'nowrap'}}>{h}</th>
                     ))}
                   </tr>
@@ -1938,6 +1955,11 @@ export default function TorrePage() {
                       <td style={{padding:'10px 14px'}}>
                         <div style={{fontWeight:600,color:T.text,fontSize:12}}>{ct.nome}</div>
                         <div style={{fontSize:10,color:T.text3,fontFamily:'monospace'}}>{ct.cnpj}</div>
+                      </td>
+                      <td style={{padding:'10px 14px'}}>
+                        {ct.uf ? <span style={{fontWeight:700,color:'#0891b2',fontSize:12}}>{ct.uf}</span> : null}
+                        {ct.descricao_contato && <div style={{fontSize:10,color:T.text3,marginTop:1}}>{ct.descricao_contato}</div>}
+                        {!ct.uf && !ct.descricao_contato && <span style={{fontSize:11,color:T.text3}}>Geral</span>}
                       </td>
                       <td style={{padding:'10px 14px',fontSize:12,color:T.text2}}>{ct.contato_nome||'—'}</td>
                       <td style={{padding:'10px 14px',fontSize:12,color:'#7c3aed'}}>{ct.email_principal||'—'}</td>
