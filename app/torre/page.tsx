@@ -411,7 +411,7 @@ export default function TorrePage() {
   const [contatoSaving, setContatoSaving] = useState(false)
   const [followupNF, setFollowupNF] = useState<Entrega|null>(null)
   const [ocorrNF, setOcorrNF] = useState<Entrega|null>(null)
-  const [activeSection, setActiveSection] = useState<'notas'|'sem-cc'|'dashboard'|'contatos'|'contatos-transp'>('notas')
+  const [activeSection, setActiveSection] = useState<'notas'|'sem-cc'|'dashboard'|'contatos'|'contatos-transp'|'tabelas-frete'>('notas')
   const [editCCNF, setEditCCNF] = useState<string|null>(null)
   const [editCCValor, setEditCCValor] = useState('')
   const [editCCSaving, setEditCCSaving] = useState(false)
@@ -681,6 +681,113 @@ export default function TorrePage() {
 
 
 
+
+  // ── Tabelas de Frete ─────────────────────────────────────────
+  type TabelaFrete = {
+    id: string; transportador_cnpj: string; transportador_nome: string
+    nome_arquivo: string; descricao: string|null; tipo: string; formato: string
+    storage_path: string; tamanho_bytes: number|null
+    vigencia_inicio: string|null; vigencia_fim: string|null
+    enviado_por: string|null; criado_em: string
+  }
+  const [tabelasFrete, setTabelasFrete]       = useState<TabelaFrete[]>([])
+  const [tfBusca, setTfBusca]                 = useState('')
+  const [tfTranspFiltro, setTfTranspFiltro]   = useState('')
+  const [tfUploading, setTfUploading]         = useState(false)
+  const [tfUploadMsg, setTfUploadMsg]         = useState<{ok:boolean;txt:string}|null>(null)
+  const [tfForm, setTfForm]                   = useState<{
+    transportador_cnpj:string; transportador_nome:string; descricao:string
+    tipo:string; vigencia_inicio:string; vigencia_fim:string; file:File|null
+  }|null>(null)
+
+
+  // ── Funções Tabelas de Frete ─────────────────────────────────
+  const loadTabelasFrete = async (busca='', cnpj='') => {
+    const params = new URLSearchParams()
+    if (busca) params.set('busca', busca)
+    if (cnpj)  params.set('cnpj', cnpj)
+    const res = await fetch('/api/tabelas-frete' + (params.toString() ? '?'+params.toString() : ''))
+    const d = await res.json()
+    setTabelasFrete(Array.isArray(d) ? d : [])
+  }
+
+  const uploadTabelaFrete = async () => {
+    if (!tfForm?.file || !tfForm.transportador_cnpj) {
+      setTfUploadMsg({ok:false, txt:'Selecione o transportador e o arquivo'}); return
+    }
+    setTfUploading(true); setTfUploadMsg(null)
+    const file = tfForm.file
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'bin'
+    const formato = ['pdf','xlsx','xls','docx','doc','csv'].includes(ext) ? ext : 'outro'
+    const timestamp = Date.now()
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+    const storagePath = `${tfForm.transportador_cnpj}/${timestamp}_${safeName}`
+
+    try {
+      // 1. Pegar URL de upload assinada
+      const r1 = await fetch('/api/tabelas-frete', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({action:'upload_url', path: storagePath})
+      })
+      const { signedUrl } = await r1.json()
+      if (!signedUrl) throw new Error('Erro ao gerar URL de upload')
+
+      // 2. Upload direto para o Supabase Storage
+      const r2 = await fetch(signedUrl, {
+        method:'PUT',
+        headers:{'Content-Type': file.type || 'application/octet-stream'},
+        body: file
+      })
+      if (!r2.ok) throw new Error('Erro no upload: ' + r2.status)
+
+      // 3. Registrar metadados
+      const r3 = await fetch('/api/tabelas-frete', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          action:'registrar',
+          transportador_cnpj: tfForm.transportador_cnpj,
+          transportador_nome: tfForm.transportador_nome,
+          nome_arquivo: file.name,
+          descricao: tfForm.descricao || null,
+          tipo: tfForm.tipo || 'frete',
+          formato,
+          storage_path: storagePath,
+          tamanho_bytes: file.size,
+          vigencia_inicio: tfForm.vigencia_inicio || null,
+          vigencia_fim:    tfForm.vigencia_fim    || null,
+          enviado_por: user?.nome || null,
+        })
+      })
+      const d3 = await r3.json()
+      if (!d3.ok) throw new Error(d3.error || 'Erro ao registrar')
+
+      setTfUploadMsg({ok:true, txt:'Arquivo enviado com sucesso!'})
+      setTfForm(null)
+      loadTabelasFrete(tfBusca)
+    } catch(e:any) {
+      setTfUploadMsg({ok:false, txt: e.message || 'Erro no upload'})
+    }
+    setTfUploading(false)
+  }
+
+  const downloadTabela = async (tabela: TabelaFrete) => {
+    const res = await fetch('/api/tabelas-frete', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({action:'download_url', storage_path: tabela.storage_path})
+    })
+    const { url } = await res.json()
+    if (url) window.open(url, '_blank')
+  }
+
+  const deletarTabela = async (tabela: TabelaFrete) => {
+    if (!confirm(`Remover "${tabela.nome_arquivo}"?`)) return
+    await fetch('/api/tabelas-frete', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({action:'deletar', id: tabela.id, storage_path: tabela.storage_path})
+    })
+    loadTabelasFrete(tfBusca)
+  }
+
   // ── Funções Contatos Transportadoras ─────────────────────────
   const loadContatosTransp = async (busca='') => {
     const url = '/api/contatos-transp' + (busca ? `?busca=${encodeURIComponent(busca)}` : '')
@@ -835,11 +942,12 @@ export default function TorrePage() {
             {key:'sem-cc',    icon:'◉', label:'Sem Centro de Custo',  badge:nfsSemCC.length, badgeColor:'#ef4444'},
             {key:'contatos',       icon:'✉', label:'Contatos Clientes',   badge:null, badgeColor:'#059669'},
             {key:'contatos-transp', icon:'🚚', label:'Contatos Transp.',      badge:null, badgeColor:'#7c3aed'},
+            {key:'tabelas-frete',   icon:'📄', label:'Tabelas de Frete',       badge:null, badgeColor:'#0891b2'},
           ] as const).map(item=>{
             const active=activeSection===item.key&&filtroAtivo===null
             return (
               <button key={item.key}
-                onClick={()=>{setActiveSection(item.key as any);if(item.key==='notas') setFiltroAtivo(null);if(item.key==='contatos') loadContatos('');if(item.key==='contatos-transp') loadContatosTransp('')}}
+                onClick={()=>{setActiveSection(item.key as any);if(item.key==='notas') setFiltroAtivo(null);if(item.key==='contatos') loadContatos('');if(item.key==='contatos-transp') loadContatosTransp('');if(item.key==='tabelas-frete') loadTabelasFrete('')}}
                 style={{display:'flex',alignItems:'center',gap:9,width:'100%',padding:'9px 10px',border:'none',
                   background:active?`rgba(59,130,246,.12)`:'transparent',
                   borderRadius:8,cursor:'pointer',textAlign:'left',fontFamily:'inherit',
@@ -1500,6 +1608,225 @@ export default function TorrePage() {
         )}
         </>)}
 {/* DASHBOARD SECTION */}
+      {activeSection==='tabelas-frete'&&(()=>{
+        // Agrupar por transportadora
+        const transpList = Array.from(new Set(tabelasFrete.map(t=>t.transportador_cnpj)))
+          .map(cnpj => {
+            const tabelas = tabelasFrete.filter(t=>t.transportador_cnpj===cnpj)
+            return { cnpj, nome: tabelas[0].transportador_nome, tabelas }
+          })
+
+        const tipoLabel: Record<string,string> = {
+          frete:'Tabela de Frete', adicional:'Adicional / Extra',
+          paletizacao:'Paletização', dedicado:'Carro Dedicado',
+          descarga:'Descarga', outro:'Outro'
+        }
+        const tipoColor: Record<string,string> = {
+          frete:'#0891b2', adicional:'#b45309', paletizacao:'#2563eb',
+          dedicado:'#7c3aed', descarga:'#dc2626', outro:'#64748b'
+        }
+        const fmtIcon: Record<string,string> = {
+          pdf:'📄', xlsx:'📊', xls:'📊', docx:'📝', doc:'📝', csv:'📋', outro:'📎'
+        }
+        const fmtSize = (b:number|null) => {
+          if (!b) return ''
+          if (b < 1024) return `${b}B`
+          if (b < 1024*1024) return `${(b/1024).toFixed(0)}KB`
+          return `${(b/1024/1024).toFixed(1)}MB`
+        }
+
+        return (
+          <div style={{flex:1,overflowY:'auto',padding:'0 16px 24px'}}>
+            {/* Header */}
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16,paddingTop:8,flexWrap:'wrap',gap:8}}>
+              <div>
+                <h2 style={{margin:0,fontSize:18,fontWeight:800,color:T.text}}>📄 Tabelas de Frete</h2>
+                <div style={{fontSize:11,color:T.text3,marginTop:2}}>{tabelasFrete.length} arquivo{tabelasFrete.length!==1?'s':''} · {transpList.length} transportadora{transpList.length!==1?'s':''}</div>
+              </div>
+              <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                <input value={tfBusca}
+                  onChange={e=>{setTfBusca(e.target.value);loadTabelasFrete(e.target.value)}}
+                  onFocus={()=>loadTabelasFrete(tfBusca)}
+                  placeholder="Buscar transportadora ou arquivo…"
+                  style={{padding:'6px 12px',fontSize:12,borderRadius:8,border:`1px solid ${T.border}`,background:T.surface2,color:T.text,width:240,fontFamily:'inherit'}}/>
+                <button onClick={()=>{
+                  setTfForm({transportador_cnpj:'',transportador_nome:'',descricao:'',tipo:'frete',vigencia_inicio:'',vigencia_fim:'',file:null})
+                  setTfUploadMsg(null)
+                }} style={{padding:'7px 14px',borderRadius:8,background:'#0891b2',color:'#fff',border:'none',cursor:'pointer',fontSize:12,fontWeight:600,fontFamily:'inherit',whiteSpace:'nowrap'}}>
+                  + Enviar Arquivo
+                </button>
+              </div>
+            </div>
+
+            {/* Formulário de upload */}
+            {tfForm!==null&&(
+              <div style={{background:T.surface,border:`1px solid #0891b220`,borderRadius:14,padding:'18px 20px',marginBottom:16,boxShadow:'0 4px 20px rgba(8,145,178,.08)'}}>
+                <div style={{fontWeight:700,fontSize:13,color:'#0891b2',marginBottom:16}}>📤 Enviar Tabela de Frete</div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
+                  {/* Transportadora */}
+                  <div>
+                    <div style={{fontSize:10,fontWeight:700,color:T.text3,letterSpacing:'.07em',textTransform:'uppercase',marginBottom:5}}>Transportadora *</div>
+                    <select value={tfForm.transportador_cnpj}
+                      onChange={e=>{
+                        const opt = e.target.options[e.target.selectedIndex]
+                        setTfForm(f=>f?{...f,transportador_cnpj:e.target.value,transportador_nome:opt.dataset.nome||''}:f)
+                      }}
+                      style={{width:'100%',padding:'8px 12px',borderRadius:8,border:`1px solid ${T.border}`,background:T.surface2,color:T.text,fontSize:12,fontFamily:'inherit'}}>
+                      <option value=''>Selecione…</option>
+                      {contatosTransp.map(ct=>(
+                        <option key={ct.cnpj} value={ct.cnpj} data-nome={ct.nome}>{ct.nome}</option>
+                      ))}
+                      <option value='__outro' data-nome=''>Outra (digitar)</option>
+                    </select>
+                    {tfForm.transportador_cnpj==='__outro'&&(
+                      <input placeholder="Nome da transportadora" value={tfForm.transportador_nome}
+                        onChange={e=>setTfForm(f=>f?{...f,transportador_nome:e.target.value}:f)}
+                        style={{marginTop:6,width:'100%',padding:'7px 12px',borderRadius:8,border:`1px solid ${T.border}`,background:T.surface2,color:T.text,fontSize:12,boxSizing:'border-box' as const,fontFamily:'inherit'}}/>
+                    )}
+                  </div>
+                  {/* Tipo */}
+                  <div>
+                    <div style={{fontSize:10,fontWeight:700,color:T.text3,letterSpacing:'.07em',textTransform:'uppercase',marginBottom:5}}>Tipo de Tabela</div>
+                    <select value={tfForm.tipo} onChange={e=>setTfForm(f=>f?{...f,tipo:e.target.value}:f)}
+                      style={{width:'100%',padding:'8px 12px',borderRadius:8,border:`1px solid ${T.border}`,background:T.surface2,color:T.text,fontSize:12,fontFamily:'inherit'}}>
+                      <option value='frete'>Tabela de Frete</option>
+                      <option value='adicional'>Adicional / Taxa Extra</option>
+                      <option value='paletizacao'>Paletização</option>
+                      <option value='dedicado'>Carro Dedicado</option>
+                      <option value='descarga'>Descarga</option>
+                      <option value='outro'>Outro</option>
+                    </select>
+                  </div>
+                  {/* Vigência */}
+                  <div>
+                    <div style={{fontSize:10,fontWeight:700,color:T.text3,letterSpacing:'.07em',textTransform:'uppercase',marginBottom:5}}>Vigência — Início</div>
+                    <input type="date" value={tfForm.vigencia_inicio}
+                      onChange={e=>setTfForm(f=>f?{...f,vigencia_inicio:e.target.value}:f)}
+                      style={{width:'100%',padding:'8px 12px',borderRadius:8,border:`1px solid ${T.border}`,background:T.surface2,color:T.text,fontSize:12,fontFamily:'inherit'}}/>
+                  </div>
+                  <div>
+                    <div style={{fontSize:10,fontWeight:700,color:T.text3,letterSpacing:'.07em',textTransform:'uppercase',marginBottom:5}}>Vigência — Fim</div>
+                    <input type="date" value={tfForm.vigencia_fim}
+                      onChange={e=>setTfForm(f=>f?{...f,vigencia_fim:e.target.value}:f)}
+                      style={{width:'100%',padding:'8px 12px',borderRadius:8,border:`1px solid ${T.border}`,background:T.surface2,color:T.text,fontSize:12,fontFamily:'inherit'}}/>
+                  </div>
+                </div>
+                {/* Descrição */}
+                <div style={{marginBottom:12}}>
+                  <div style={{fontSize:10,fontWeight:700,color:T.text3,letterSpacing:'.07em',textTransform:'uppercase',marginBottom:5}}>Descrição</div>
+                  <input value={tfForm.descricao}
+                    onChange={e=>setTfForm(f=>f?{...f,descricao:e.target.value}:f)}
+                    placeholder="Ex: Tabela GO/DF/MS — Padrão, Adicional paletização PBR…"
+                    style={{width:'100%',padding:'8px 12px',borderRadius:8,border:`1px solid ${T.border}`,background:T.surface2,color:T.text,fontSize:12,boxSizing:'border-box' as const,fontFamily:'inherit'}}/>
+                </div>
+                {/* Arquivo */}
+                <div style={{marginBottom:14}}>
+                  <div style={{fontSize:10,fontWeight:700,color:T.text3,letterSpacing:'.07em',textTransform:'uppercase',marginBottom:5}}>Arquivo * (.pdf, .xlsx, .xls, .docx, .doc, .csv)</div>
+                  <label style={{display:'block',padding:'16px',border:`2px dashed ${tfForm.file?'#0891b2':T.border}`,borderRadius:10,cursor:'pointer',
+                    background:tfForm.file?'rgba(8,145,178,.05)':T.surface2,transition:'all .2s',textAlign:'center'}}>
+                    <input type="file" accept=".pdf,.xlsx,.xls,.docx,.doc,.csv"
+                      onChange={e=>setTfForm(f=>f?{...f,file:e.target.files?.[0]||null}:f)}
+                      style={{display:'none'}}/>
+                    {tfForm.file ? (
+                      <div>
+                        <div style={{fontSize:20,marginBottom:4}}>{fmtIcon[tfForm.file.name.split('.').pop()?.toLowerCase()||'']||'📎'}</div>
+                        <div style={{fontWeight:600,color:'#0891b2',fontSize:12}}>{tfForm.file.name}</div>
+                        <div style={{fontSize:11,color:T.text3,marginTop:2}}>{fmtSize(tfForm.file.size)}</div>
+                      </div>
+                    ) : (
+                      <div>
+                        <div style={{fontSize:24,marginBottom:4}}>📁</div>
+                        <div style={{fontSize:12,color:T.text3}}>Clique para selecionar ou arraste o arquivo aqui</div>
+                        <div style={{fontSize:10,color:T.text3,marginTop:4}}>PDF, Excel, Word, CSV — até 50MB</div>
+                      </div>
+                    )}
+                  </label>
+                </div>
+                {tfUploadMsg&&<div style={{padding:'8px 14px',borderRadius:8,marginBottom:12,fontSize:12,fontWeight:600,background:tfUploadMsg.ok?'rgba(22,163,74,.1)':'rgba(220,38,38,.1)',color:tfUploadMsg.ok?'#16a34a':'#dc2626'}}>{tfUploadMsg.ok?'✓':'⚠'} {tfUploadMsg.txt}</div>}
+                <div style={{display:'flex',gap:8}}>
+                  <button onClick={uploadTabelaFrete} disabled={tfUploading}
+                    style={{padding:'8px 20px',borderRadius:8,background:'#0891b2',color:'#fff',border:'none',cursor:'pointer',fontSize:12,fontWeight:600,fontFamily:'inherit',opacity:tfUploading?.6:1}}>
+                    {tfUploading?'Enviando…':'📤 Enviar'}
+                  </button>
+                  <button onClick={()=>{setTfForm(null);setTfUploadMsg(null)}}
+                    style={{padding:'8px 16px',borderRadius:8,background:'transparent',border:`1px solid ${T.border}`,color:T.text3,cursor:'pointer',fontSize:12,fontFamily:'inherit'}}>Cancelar</button>
+                </div>
+              </div>
+            )}
+
+            {/* Lista agrupada por transportadora */}
+            {tabelasFrete.length===0 ? (
+              <div style={{padding:'48px',textAlign:'center',background:T.surface,border:`1px solid ${T.border}`,borderRadius:14,color:T.text3}}>
+                <div style={{fontSize:40,marginBottom:12}}>📂</div>
+                <div style={{fontSize:14,fontWeight:600,marginBottom:6}}>Nenhuma tabela cadastrada</div>
+                <div style={{fontSize:12}}>Clique em "+ Enviar Arquivo" para adicionar a primeira tabela de frete</div>
+              </div>
+            ) : (
+              <div style={{display:'flex',flexDirection:'column',gap:14}}>
+                {transpList.map(tp=>(
+                  <div key={tp.cnpj} style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:14,overflow:'hidden'}}>
+                    {/* Header da transportadora */}
+                    <div style={{padding:'12px 18px',background:isDark?'rgba(8,145,178,.07)':'rgba(8,145,178,.04)',borderBottom:`1px solid ${T.border}`,display:'flex',alignItems:'center',gap:10}}>
+                      <span style={{fontSize:18}}>🚚</span>
+                      <div style={{flex:1}}>
+                        <div style={{fontWeight:700,fontSize:14,color:T.text}}>{tp.nome}</div>
+                        <div style={{fontSize:10,color:T.text3,fontFamily:'monospace'}}>{tp.cnpj} · {tp.tabelas.length} arquivo{tp.tabelas.length!==1?'s':''}</div>
+                      </div>
+                    </div>
+                    {/* Lista de arquivos */}
+                    <div style={{padding:'8px 0'}}>
+                      {tp.tabelas.map(tab=>{
+                        const ext = tab.nome_arquivo.split('.').pop()?.toLowerCase()||'outro'
+                        const vigente = tab.vigencia_fim ? new Date(tab.vigencia_fim) > new Date() : true
+                        return (
+                          <div key={tab.id} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 18px',
+                            borderBottom:`1px solid ${T.borderLo}`,transition:'background .1s'}}
+                            onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background=isDark?'rgba(255,255,255,.03)':'rgba(0,0,0,.02)'}
+                            onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background='transparent'}>
+                            {/* Ícone */}
+                            <div style={{fontSize:24,flexShrink:0}}>{fmtIcon[ext]||'📎'}</div>
+                            {/* Info */}
+                            <div style={{flex:1,minWidth:0}}>
+                              <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+                                <span style={{fontWeight:600,fontSize:12,color:T.text}}>{tab.nome_arquivo}</span>
+                                <span style={{fontSize:9,fontWeight:700,padding:'2px 7px',borderRadius:10,
+                                  background:`${tipoColor[tab.tipo]||'#64748b'}15`,
+                                  color:tipoColor[tab.tipo]||'#64748b',textTransform:'uppercase',letterSpacing:'.06em'}}>
+                                  {tipoLabel[tab.tipo]||tab.tipo}
+                                </span>
+                                {!vigente&&<span style={{fontSize:9,padding:'2px 6px',borderRadius:10,background:'rgba(220,38,38,.1)',color:'#dc2626',fontWeight:700}}>EXPIRADO</span>}
+                              </div>
+                              <div style={{display:'flex',gap:12,flexWrap:'wrap',marginTop:3}}>
+                                {tab.descricao&&<span style={{fontSize:11,color:T.text2}}>{tab.descricao}</span>}
+                                {tab.vigencia_inicio&&<span style={{fontSize:10,color:T.text3}}>📅 {new Date(tab.vigencia_inicio).toLocaleDateString('pt-BR')} — {tab.vigencia_fim?new Date(tab.vigencia_fim).toLocaleDateString('pt-BR'):'em aberto'}</span>}
+                                {tab.tamanho_bytes&&<span style={{fontSize:10,color:T.text3}}>{fmtSize(tab.tamanho_bytes)}</span>}
+                                {tab.enviado_por&&<span style={{fontSize:10,color:T.text3}}>por {tab.enviado_por}</span>}
+                              </div>
+                            </div>
+                            {/* Ações */}
+                            <div style={{display:'flex',gap:6,flexShrink:0}}>
+                              <button onClick={()=>downloadTabela(tab)}
+                                style={{padding:'5px 12px',borderRadius:7,background:'#0891b2',color:'#fff',border:'none',cursor:'pointer',fontSize:11,fontWeight:600,fontFamily:'inherit'}}>
+                                ⬇ Baixar
+                              </button>
+                              <button onClick={()=>deletarTabela(tab)}
+                                style={{padding:'5px 10px',borderRadius:7,background:'transparent',border:'1px solid rgba(220,38,38,.3)',color:'#dc2626',cursor:'pointer',fontSize:11,fontFamily:'inherit'}}>
+                                🗑
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })()}
+
+
       {activeSection==='contatos-transp'&&(
         <div style={{flex:1,overflowY:'auto',padding:'0 16px 24px'}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16,paddingTop:8,flexWrap:'wrap',gap:8}}>
@@ -1663,12 +1990,32 @@ export default function TorrePage() {
                         <div style={{fontSize:10,color:T.text2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.contato_agendamento||'—'}</div>
                         {r.horario_recebimento&&<div style={{fontSize:9,color:T.text3}}>{r.horario_recebimento}</div>}
                       </td>
-                      <td style={{padding:'7px 10px'}}>
-                        <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-                          {r.carga_paletizada&&<span style={{fontSize:8,background:'rgba(37,99,235,.1)',color:'#2563eb',borderRadius:3,padding:'1px 4px',fontWeight:600}}>PBR</span>}
-                          {r.palete_batida&&<span style={{fontSize:8,background:'rgba(234,179,8,.1)',color:'#b45309',borderRadius:3,padding:'1px 4px',fontWeight:600}}>BAT</span>}
-                          {r.possui_descarga&&<span style={{fontSize:8,background:'rgba(239,68,68,.1)',color:'#dc2626',borderRadius:3,padding:'1px 4px',fontWeight:600}}>DESC</span>}
-                          {r.carro_dedicado&&<span style={{fontSize:8,background:'rgba(168,85,247,.1)',color:'#7c3aed',borderRadius:3,padding:'1px 4px',fontWeight:600}}>DED</span>}
+                      <td style={{padding:'7px 10px',minWidth:200}}>
+                        <div style={{display:'flex',flexDirection:'column',gap:3,fontSize:10}}>
+                          <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                            <span style={{color:T.text3}}>Paletização:</span>
+                            <span style={{fontWeight:600,color:r.carga_paletizada?'#2563eb':T.text3}}>
+                              {r.carga_paletizada===true?'✓ Sim':r.carga_paletizada===false?'Não':'—'}
+                            </span>
+                            {r.carga_paletizada&&r.palete_pbr&&<span style={{color:'#2563eb',fontWeight:600}}>PBR</span>}
+                            {r.carga_paletizada&&r.palete_batida&&<span style={{color:'#b45309',fontWeight:600}}>Batida</span>}
+                          </div>
+                          {r.skus_por_palete&&<div><span style={{color:T.text3}}>SKUs/palete: </span><span style={{fontWeight:600,color:T.text}}>{r.skus_por_palete}</span></div>}
+                          {r.peso_maximo_kg&&<div><span style={{color:T.text3}}>Peso máx: </span><span style={{fontWeight:600,color:T.text}}>{r.peso_maximo_kg} kg</span></div>}
+                          {r.altura_maxima_m&&<div><span style={{color:T.text3}}>Altura máx: </span><span style={{fontWeight:600,color:T.text}}>{r.altura_maxima_m} m</span></div>}
+                          {r.obs_paletizacao&&<div style={{color:'#b45309',fontStyle:'italic',maxWidth:180,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={r.obs_paletizacao}>⚠ {r.obs_paletizacao}</div>}
+                          <div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:1}}>
+                            <span style={{color:T.text3}}>Descarga:</span>
+                            <span style={{fontWeight:600,color:r.possui_descarga?'#dc2626':r.possui_descarga===false?'#16a34a':T.text3}}>
+                              {r.possui_descarga===true?`✓ Sim${r.custo_descarga?` (${r.custo_descarga})`:''}`:r.possui_descarga===false?'Não':'—'}
+                            </span>
+                          </div>
+                          <div style={{display:'flex',gap:6}}>
+                            <span style={{color:T.text3}}>Carro dedicado:</span>
+                            <span style={{fontWeight:600,color:r.carro_dedicado?'#7c3aed':r.carro_dedicado===false?T.text2:T.text3}}>
+                              {r.carro_dedicado===true?'✓ Sim':r.carro_dedicado===false?'Não':'—'}
+                            </span>
+                          </div>
                         </div>
                       </td>
                       <td style={{padding:'7px 8px'}}>
