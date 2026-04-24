@@ -106,6 +106,7 @@ const COL_DEFS: ColDef[] = [
   { id:'lt_interno', label:'LT Interno',        w:90,  defaultOn:false                         },
   { id:'ocorrencia', label:'Ocorrência',        w:160, defaultOn:true                          },
   { id:'status',     label:'Status',            w:170, defaultOn:true,  field:'status'         },
+  { id:'notificado', label:'Notif. Transp.',     w:90,  defaultOn:true                          },
   { id:'registrar',  label:'Registrar',         w:110, defaultOn:true                          },
   { id:'protocolo',  label:'Protocolo',         w:110, defaultOn:false                         },
 ]
@@ -394,10 +395,23 @@ export default function TorrePage() {
   const [contatosList, setContatosList] = useState<any[]>([])
   const [contatosLoading, setContatosLoading] = useState(false)
   const [contatoEdit, setContatoEdit] = useState<any|null>(null)
+  // ── Seleção de NFs para email / notificação ──────────────────
+  const [nfsSelecionadas, setNfsSelecionadas] = useState<Set<string>>(new Set())
+  // ── Flags notificado por NF ──────────────────────────────────
+  const [flagsNotificado, setFlagsNotificado] = useState<Record<string,boolean>>({})
+  // ── Contatos Transportadoras ─────────────────────────────────
+  type ContatoTransp = { id:string; cnpj:string; nome:string; email_principal:string|null; emails_cc:string[]; contato_nome:string|null; telefone:string|null; observacoes:string|null }
+  const [contatosTransp, setContatosTransp]   = useState<ContatoTransp[]>([])
+  const [ctBusca, setCtBusca]                 = useState('')
+  const [ctForm, setCtForm]                   = useState<Partial<ContatoTransp>|null>(null)
+  const [ctSaving, setCtSaving]               = useState(false)
+  const [ctMsg, setCtMsg]                     = useState<{ok:boolean;txt:string}|null>(null)
+  const [ctCcInput, setCtCcInput]             = useState('')
+
   const [contatoSaving, setContatoSaving] = useState(false)
   const [followupNF, setFollowupNF] = useState<Entrega|null>(null)
   const [ocorrNF, setOcorrNF] = useState<Entrega|null>(null)
-  const [activeSection, setActiveSection] = useState<'notas'|'sem-cc'|'dashboard'|'contatos'>('notas')
+  const [activeSection, setActiveSection] = useState<'notas'|'sem-cc'|'dashboard'|'contatos'|'contatos-transp'>('notas')
   const [editCCNF, setEditCCNF] = useState<string|null>(null)
   const [editCCValor, setEditCCValor] = useState('')
   const [editCCSaving, setEditCCSaving] = useState(false)
@@ -677,6 +691,100 @@ export default function TorrePage() {
 
 
 
+
+  // ── Funções Contatos Transportadoras ─────────────────────────
+  const loadContatosTransp = async (busca='') => {
+    const url = '/api/contatos-transp' + (busca ? `?busca=${encodeURIComponent(busca)}` : '')
+    const res = await fetch(url)
+    const d = await res.json()
+    if (Array.isArray(d)) setContatosTransp(d)
+  }
+  const salvarContatoTransp = async () => {
+    if (!ctForm?.cnpj || !ctForm?.nome) { setCtMsg({ok:false,txt:'CNPJ e nome obrigatórios'}); return }
+    setCtSaving(true); setCtMsg(null)
+    const res = await fetch('/api/contatos-transp', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ action:'salvar', ...ctForm, criado_por: user?.nome })
+    })
+    const d = await res.json()
+    if (d.ok) { setCtMsg({ok:true,txt:'Contato salvo!'}); setCtForm(null); setCtCcInput(''); loadContatosTransp(ctBusca) }
+    else setCtMsg({ok:false, txt: d.error || 'Erro ao salvar'})
+    setCtSaving(false)
+  }
+  const deletarContatoTransp = async (id: string) => {
+    if (!confirm('Remover esta transportadora?')) return
+    await fetch('/api/contatos-transp', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({action:'deletar',id}) })
+    loadContatosTransp(ctBusca)
+  }
+  const buscarContatoTransp = async (cnpj: string) => {
+    if (!cnpj) return null
+    const res = await fetch(`/api/contatos-transp?cnpj=${cnpj}`)
+    const d = await res.json()
+    return Array.isArray(d) && d.length > 0 ? d[0] : null
+  }
+  const carregarFlagsNotificado = async (nfs: string[]) => {
+    if (nfs.length === 0) return
+    const chunk = nfs.slice(0, 200) // max 200 por vez
+    const res = await fetch(`/api/transp-notificado?nfs=${chunk.join(',')}`)
+    const d = await res.json()
+    if (Array.isArray(d)) {
+      const flags: Record<string,boolean> = {}
+      d.forEach((r:any) => { flags[r.nf_numero] = r.notificado })
+      setFlagsNotificado(prev => ({...prev, ...flags}))
+    }
+  }
+  const sinalizarTransportador = async (nfsSel: Entrega[]) => {
+    if (nfsSel.length === 0) return
+    const cnpjTransp = nfsSel[0].transportador_cnpj || ''
+    const nomeTransp = nfsSel[0].transportador_nome || 'Transportadora'
+    const contato: any = await buscarContatoTransp(cnpjTransp)
+    const destinatario = contato?.email_principal || ''
+    const cc = (contato?.emails_cc || []).join(';')
+    const assunto = `Agenda de Entregas — Linea Alimentos — ${nfsSel.length} NF${nfsSel.length>1?'s':''}`
+    const nfLinhas = nfsSel.map(nf => {
+      const prev = nf.dt_previsao ? new Date(nf.dt_previsao+'T12:00').toLocaleDateString('pt-BR') : '—'
+      return `• NF ${nf.nf_numero} | Cliente: ${nf.destinatario_nome||nf.destinatario_fantasia||'—'} | ${nf.cidade_destino||'—'}/${nf.uf_destino||'—'} | Previsão: ${prev} | Vol: ${nf.volumes||'?'} | R$ ${Number(nf.valor_produtos||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`
+    }).join('\n')
+    const corpo = `Prezado(a) ${contato?.contato_nome||'Responsável'},\n\nSegue relação de notas fiscais agendadas para entrega:\n\n${nfLinhas}\n\nSolicito confirmação de recebimento e cumprimento dos prazos.\nEm caso de impossibilidade, favor entrar em contato imediatamente.\n\nAtenciosamente,\n${user?.nome||'Equipe Linea Alimentos'}\nLinea Alimentos`
+    const params = [`to=${encodeURIComponent(destinatario)}`]
+    if (cc) params.push(`cc=${encodeURIComponent(cc)}`)
+    params.push(`subject=${encodeURIComponent(assunto)}`)
+    params.push(`body=${encodeURIComponent(corpo)}`)
+    window.location.href = `mailto:?${params.join('&')}`
+    // Marcar como notificadas
+    await fetch('/api/transp-notificado', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ nf_numeros: nfsSel.map(n=>n.nf_numero), notificado: true, notificado_por: user?.nome })
+    })
+    const flags: Record<string,boolean> = {}
+    nfsSel.forEach(n => { flags[n.nf_numero] = true })
+    setFlagsNotificado(prev => ({...prev, ...flags}))
+  }
+  const gerarMailtoCliente = async (nfsSel: Entrega[]) => {
+    if (nfsSel.length === 0) return
+    const cnpj = nfsSel[0].destinatario_cnpj || ''
+    let contato: any = null
+    if (cnpj) {
+      const res = await fetch(`/api/contatos?cnpj=${cnpj}`)
+      const d = await res.json()
+      contato = Array.isArray(d) && d.length > 0 ? d[0] : null
+    }
+    const destinatario = contato?.email_principal || ''
+    const cc = (contato?.emails_cc || []).join(';')
+    const cliente = nfsSel[0]?.destinatario_nome || nfsSel[0]?.destinatario_fantasia || 'Cliente'
+    const nfLinhas = nfsSel.map(nf =>
+      `• NF ${nf.nf_numero} — ${nf.volumes||'?'} vol — R$ ${Number(nf.valor_produtos||0).toLocaleString('pt-BR',{minimumFractionDigits:2})} — Dest: ${nf.cidade_destino}/${nf.uf_destino}`
+    ).join('\n')
+    const assunto = `Solicitação de Agendamento — Linea Alimentos — ${nfsSel.length} NF${nfsSel.length>1?'s':''}`
+    const corpo = `Prezado(a) ${contato?.contato_nome||'Responsável'},\n\nSolicitamos agendamento para as seguintes notas fiscais:\n\n${nfLinhas}\n\nPedimos informar data e horário disponível.\n\nAtenciosamente,\n${user?.nome||'Equipe Linea Alimentos'}\nLinea Alimentos`
+    const params = [`to=${encodeURIComponent(destinatario)}`]
+    if (cc) params.push(`cc=${encodeURIComponent(cc)}`)
+    params.push(`subject=${encodeURIComponent(assunto)}`)
+    params.push(`body=${encodeURIComponent(corpo)}`)
+    window.location.href = `mailto:?${params.join('&')}`
+  }
+
   if(!checked) return null
   if(!user) return <LoginScreen onLogin={handleLogin}/>
 
@@ -736,7 +844,8 @@ export default function TorrePage() {
             {key:'notas',     icon:'▦', label:'Minhas Notas',         badge:null,            badgeColor:T.accentBlu},
             {key:'dashboard', icon:'◈', label:'Dashboard',             badge:null,            badgeColor:'#a855f7'},
             {key:'sem-cc',    icon:'◉', label:'Sem Centro de Custo',  badge:nfsSemCC.length, badgeColor:'#ef4444'},
-            {key:'contatos',  icon:'✉', label:'Contatos Clientes',     badge:null,            badgeColor:'#059669'},
+            {key:'contatos',       icon:'✉', label:'Contatos Clientes',   badge:null, badgeColor:'#059669'},
+            {key:'contatos-transp', icon:'🚚', label:'Contatos Transp.',      badge:null, badgeColor:'#7c3aed'},
           ] as const).map(item=>{
             const active=activeSection===item.key&&filtroAtivo===null
             return (
@@ -925,6 +1034,30 @@ export default function TorrePage() {
             )
           })()}
         </div>
+
+        {/* ── Barra de Ação (quando NFs selecionadas) ── */}
+        {nfsSelecionadas.size>0&&(
+          <div style={{background:isDark?'rgba(14,165,233,.12)':'rgba(14,165,233,.08)',border:`1px solid rgba(14,165,233,.35)`,borderRadius:12,padding:'10px 16px',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+            <span style={{fontSize:12,fontWeight:700,color:'#0ea5e9'}}>{nfsSelecionadas.size} NF{nfsSelecionadas.size>1?'s':''} selecionada{nfsSelecionadas.size>1?'s':''}</span>
+            <button onClick={async()=>{
+              const sels=Array.from(nfsSelecionadas).map(n=>data.find(r=>r.nf_numero===n)).filter(Boolean) as Entrega[]
+              await gerarMailtoCliente(sels)
+            }} style={{padding:'6px 14px',borderRadius:8,background:'#0ea5e9',color:'#fff',border:'none',cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'inherit'}}>
+              ✉ Email Agendamento (Cliente)
+            </button>
+            <button onClick={async()=>{
+              const sels=Array.from(nfsSelecionadas).map(n=>data.find(r=>r.nf_numero===n)).filter(Boolean) as Entrega[]
+              await sinalizarTransportador(sels)
+            }} style={{padding:'6px 14px',borderRadius:8,background:'#7c3aed',color:'#fff',border:'none',cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'inherit'}}>
+              🚚 Sinalizar Transportador
+            </button>
+            <span style={{fontSize:11,color:T.text3}}>Abre o Outlook com destinatário e corpo preenchidos</span>
+            <button onClick={()=>setNfsSelecionadas(new Set())}
+              style={{marginLeft:'auto',padding:'4px 10px',borderRadius:6,background:'transparent',border:`1px solid ${T.border}`,color:T.text3,cursor:'pointer',fontSize:11,fontFamily:'inherit'}}>
+              Limpar seleção
+            </button>
+          </div>
+        )}
 
         {/* ── Chips de Status ─────────────────────────── */}
         <div style={{display:'flex',alignItems:'center',gap:5,flexWrap:'nowrap',overflowX:'auto',paddingBottom:2}}>
@@ -1156,6 +1289,12 @@ export default function TorrePage() {
                 <table style={{width:'100%',minWidth:tableW,borderCollapse:'collapse'}}>
                   <thead>
                     <tr>
+                      <th style={{width:28,padding:'6px 4px',background:isDark?T.surface:'#f8fafc',borderBottom:`1px solid ${T.border}`,position:'sticky',top:0,zIndex:1}}>
+                        <input type="checkbox"
+                          checked={filtered.length>0&&filtered.every(r=>nfsSelecionadas.has(r.nf_numero))}
+                          onChange={e=>{if(e.target.checked)setNfsSelecionadas(new Set(filtered.map(r=>r.nf_numero)));else setNfsSelecionadas(new Set())}}
+                          style={{cursor:'pointer',accentColor:'#0ea5e9',width:14,height:14}}/>
+                      </th>
                       {show('nf')        &&<Th field="nf_numero"     label="NF"              w={80}/>}
                       {show('emissao')   &&<Th field="dt_emissao"    label="Emissão"          w={85}/>}
                       {show('regional')  &&<Th                       label="Regional"         w={120}/>}
@@ -1177,6 +1316,7 @@ export default function TorrePage() {
                       {show('lt_interno')&&<Th                       label="LT Interno"       w={90}/>}
                       {show('ocorrencia')&&<Th                       label="Ocorrência"       w={160}/>}
                       {show('status')    &&<Th field="status"        label="Status"           w={170}/>}
+                      {show('notificado')&&<Th                       label="Notif. Transp."   w={90}/>}
                       {show('registrar') &&<Th                       label="Registrar"        w={110}/>}
                       {show('protocolo') &&<Th                       label="Protocolo"        w={110}/>}
                     </tr>
@@ -1309,6 +1449,21 @@ export default function TorrePage() {
                             ):<span style={{color:T.text3,fontSize:11}}>—</span>}
                           </td>}
                           {show('status')&&<td style={{padding:'5px 10px'}}><StatusBadge status={r.status||''}/></td>}
+                          {show('notificado')&&<td style={{padding:'5px 8px'}} onClick={async e=>{
+                            e.stopPropagation()
+                            const newVal = !flagsNotificado[r.nf_numero]
+                            await fetch('/api/transp-notificado',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nf_numeros:[r.nf_numero],notificado:newVal,notificado_por:user?.nome})})
+                            setFlagsNotificado(prev=>({...prev,[r.nf_numero]:newVal}))
+                          }}>
+                            <div style={{display:'flex',alignItems:'center',gap:4,cursor:'pointer',userSelect:'none'}}>
+                              <div style={{width:14,height:14,borderRadius:3,border:`2px solid ${flagsNotificado[r.nf_numero]?'#7c3aed':T.border}`,background:flagsNotificado[r.nf_numero]?'#7c3aed':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all .15s'}}>
+                                {flagsNotificado[r.nf_numero]&&<span style={{color:'#fff',fontSize:9,fontWeight:900}}>✓</span>}
+                              </div>
+                              <span style={{fontSize:10,color:flagsNotificado[r.nf_numero]?'#7c3aed':T.text3,fontWeight:flagsNotificado[r.nf_numero]?700:400}}>
+                                {flagsNotificado[r.nf_numero]?'Sim':'—'}
+                              </span>
+                            </div>
+                          </td>}
                           {show('registrar')&&<td style={{padding:'5px 10px'}} onClick={e=>e.stopPropagation()}>
                             <button
                               onClick={()=>{setOcorrNF(r);setOcorrCod('');setOcorrBusca('');setOcorrObs('');setOcorrData('');setOcorrAnexo(null);setOcorrDropOpen(false);setOcorrMsg(null)}}
@@ -1346,6 +1501,112 @@ export default function TorrePage() {
         )}
         </>)}
 {/* DASHBOARD SECTION */}
+      {activeSection==='contatos-transp'&&(
+        <div style={{flex:1,overflowY:'auto',padding:'0 16px 24px'}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16,paddingTop:8,flexWrap:'wrap',gap:8}}>
+            <h2 style={{margin:0,fontSize:18,fontWeight:800,color:T.text}}>🚚 Contatos Transportadoras</h2>
+            <div style={{display:'flex',gap:8,alignItems:'center'}}>
+              <input value={ctBusca} onChange={e=>{setCtBusca(e.target.value);loadContatosTransp(e.target.value)}}
+                onFocus={()=>loadContatosTransp(ctBusca)}
+                placeholder="Buscar transportadora…"
+                style={{padding:'6px 12px',fontSize:12,borderRadius:8,border:`1px solid ${T.border}`,background:T.surface2,color:T.text,width:220,fontFamily:'inherit'}}/>
+              <button onClick={()=>{setCtForm({emails_cc:[]});setCtMsg(null);setCtCcInput('')}}
+                style={{padding:'7px 14px',borderRadius:8,background:'#7c3aed',color:'#fff',border:'none',cursor:'pointer',fontSize:12,fontWeight:600,fontFamily:'inherit'}}>
+                + Nova
+              </button>
+            </div>
+          </div>
+
+          {ctForm!==null&&(
+            <div style={{background:T.surface,border:`1px solid #7c3aed30`,borderRadius:14,padding:'18px 20px',marginBottom:16,boxShadow:'0 4px 20px rgba(124,58,237,.08)'}}>
+              <div style={{fontWeight:700,fontSize:13,color:'#7c3aed',marginBottom:14}}>{ctForm.id?'✏️ Editar':'+ Nova Transportadora'}</div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
+                {([['CNPJ *','cnpj','text'],['Razão Social *','nome','text'],['Contato','contato_nome','text'],['Telefone','telefone','text']] as const).map(([label,field,type])=>(
+                  <div key={field}>
+                    <div style={{fontSize:10,fontWeight:700,color:T.text3,letterSpacing:'.07em',textTransform:'uppercase',marginBottom:5}}>{label}</div>
+                    <input type={type} value={(ctForm as any)[field]||''} onChange={e=>setCtForm((f:any)=>({...f,[field]:e.target.value}))}
+                      style={{width:'100%',padding:'8px 12px',borderRadius:8,border:`1px solid ${T.border}`,background:T.surface2,color:T.text,fontSize:12,boxSizing:'border-box' as const,fontFamily:'inherit'}}/>
+                  </div>
+                ))}
+              </div>
+              <div style={{marginBottom:12}}>
+                <div style={{fontSize:10,fontWeight:700,color:T.text3,letterSpacing:'.07em',textTransform:'uppercase',marginBottom:5}}>Email Principal</div>
+                <input type="email" value={ctForm.email_principal||''} onChange={e=>setCtForm((f:any)=>({...f,email_principal:e.target.value}))}
+                  style={{width:'100%',padding:'8px 12px',borderRadius:8,border:`1px solid ${T.border}`,background:T.surface2,color:T.text,fontSize:12,boxSizing:'border-box' as const,fontFamily:'inherit'}}/>
+              </div>
+              <div style={{marginBottom:12}}>
+                <div style={{fontSize:10,fontWeight:700,color:T.text3,letterSpacing:'.07em',textTransform:'uppercase',marginBottom:5}}>Emails CC</div>
+                <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:6}}>
+                  {(ctForm.emails_cc||[]).map((em,i)=>(
+                    <span key={i} style={{display:'flex',alignItems:'center',gap:4,background:'#7c3aed15',color:'#7c3aed',padding:'3px 10px',borderRadius:20,fontSize:11}}>
+                      {em}<button onClick={()=>setCtForm((f:any)=>({...f,emails_cc:(f?.emails_cc||[]).filter((_:any,j:number)=>j!==i)}))}
+                        style={{background:'none',border:'none',cursor:'pointer',color:'#7c3aed',padding:0,fontSize:13}}>×</button>
+                    </span>
+                  ))}
+                </div>
+                <div style={{display:'flex',gap:6}}>
+                  <input value={ctCcInput} onChange={e=>setCtCcInput(e.target.value)}
+                    onKeyDown={e=>{if(e.key==='Enter'&&ctCcInput.trim()){setCtForm((f:any)=>({...f,emails_cc:[...(f?.emails_cc||[]),ctCcInput.trim()]}));setCtCcInput('')}}}
+                    placeholder="Digite e pressione Enter" type="email"
+                    style={{flex:1,padding:'7px 12px',borderRadius:8,border:`1px solid ${T.border}`,background:T.surface2,color:T.text,fontSize:12,fontFamily:'inherit'}}/>
+                  <button onClick={()=>{if(ctCcInput.trim()){setCtForm((f:any)=>({...f,emails_cc:[...(f?.emails_cc||[]),ctCcInput.trim()]}));setCtCcInput('')}}}
+                    style={{padding:'7px 12px',borderRadius:8,background:T.surface3,border:`1px solid ${T.border}`,color:T.text,cursor:'pointer',fontSize:12,fontFamily:'inherit'}}>+</button>
+                </div>
+              </div>
+              {ctMsg&&<div style={{padding:'8px 14px',borderRadius:8,marginBottom:12,fontSize:12,fontWeight:600,background:ctMsg.ok?'rgba(22,163,74,.1)':'rgba(220,38,38,.1)',color:ctMsg.ok?'#16a34a':'#dc2626'}}>{ctMsg.ok?'✓':'⚠'} {ctMsg.txt}</div>}
+              <div style={{display:'flex',gap:8}}>
+                <button onClick={salvarContatoTransp} disabled={ctSaving}
+                  style={{padding:'8px 20px',borderRadius:8,background:'#7c3aed',color:'#fff',border:'none',cursor:'pointer',fontSize:12,fontWeight:600,fontFamily:'inherit',opacity:ctSaving?.6:1}}>
+                  {ctSaving?'Salvando…':'Salvar'}
+                </button>
+                <button onClick={()=>{setCtForm(null);setCtMsg(null);setCtCcInput('')}}
+                  style={{padding:'8px 16px',borderRadius:8,background:'transparent',border:`1px solid ${T.border}`,color:T.text3,cursor:'pointer',fontSize:12,fontFamily:'inherit'}}>Cancelar</button>
+              </div>
+            </div>
+          )}
+
+          <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:14,overflow:'hidden'}}>
+            {contatosTransp.length===0 ? (
+              <div style={{padding:'40px',textAlign:'center',color:T.text3,fontSize:13}}>
+                <div style={{fontSize:32,marginBottom:10}}>🚛</div>
+                {ctBusca ? 'Nenhuma transportadora encontrada.' : 'Nenhuma transportadora cadastrada. Clique em "+ Nova" para começar.'}
+              </div>
+            ) : (
+              <table style={{width:'100%',borderCollapse:'collapse'}}>
+                <thead>
+                  <tr style={{background:T.surface2}}>
+                    {['Transportadora','Contato','Email Principal','CC','Telefone',''].map(h=>(
+                      <th key={h} style={{padding:'10px 14px',textAlign:'left',fontSize:10,fontWeight:700,color:T.text3,letterSpacing:'.07em',textTransform:'uppercase',borderBottom:`1px solid ${T.border}`,whiteSpace:'nowrap'}}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {contatosTransp.map((ct,i)=>(
+                    <tr key={ct.id} style={{borderBottom:`1px solid ${T.border}`,background:i%2===0?'transparent':T.surface2+'30'}}>
+                      <td style={{padding:'10px 14px'}}>
+                        <div style={{fontWeight:600,color:T.text,fontSize:12}}>{ct.nome}</div>
+                        <div style={{fontSize:10,color:T.text3,fontFamily:'monospace'}}>{ct.cnpj}</div>
+                      </td>
+                      <td style={{padding:'10px 14px',fontSize:12,color:T.text2}}>{ct.contato_nome||'—'}</td>
+                      <td style={{padding:'10px 14px',fontSize:12,color:'#7c3aed'}}>{ct.email_principal||'—'}</td>
+                      <td style={{padding:'10px 14px',fontSize:11,color:T.text3,maxWidth:160}}>{(ct.emails_cc||[]).length>0?ct.emails_cc.join(', '):'—'}</td>
+                      <td style={{padding:'10px 14px',fontSize:12,color:T.text2}}>{ct.telefone||'—'}</td>
+                      <td style={{padding:'10px 14px',whiteSpace:'nowrap'}}>
+                        <button onClick={()=>{setCtForm({...ct,emails_cc:ct.emails_cc||[]});setCtMsg(null);setCtCcInput('')}}
+                          style={{padding:'4px 10px',borderRadius:6,background:'transparent',border:`1px solid ${T.border}`,color:T.text3,cursor:'pointer',fontSize:11,fontFamily:'inherit',marginRight:4}}>Editar</button>
+                        <button onClick={()=>deletarContatoTransp(ct.id)}
+                          style={{padding:'4px 10px',borderRadius:6,background:'transparent',border:'1px solid rgba(220,38,38,.3)',color:'#dc2626',cursor:'pointer',fontSize:11,fontFamily:'inherit'}}>Remover</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+
+
       {activeSection==='contatos'&&(
         <div style={{flex:1,overflowY:'auto',padding:'0 16px 24px'}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16,paddingTop:8}}>
