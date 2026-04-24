@@ -438,40 +438,27 @@ export default function TorrePage() {
 
   const loadContatos = async (busca='') => {
     setContatosLoading(true)
-    let q = supabase.from('mon_contatos_clientes')
-      .select('id,cnpj,nome_cliente,uf,executivo,possui_agenda,email_principal,emails_cc,contato_agendamento,horario_recebimento,portal_agendamento,agendamento_responsavel,carga_paletizada,palete_pbr,palete_batida,possui_descarga,custo_descarga,carro_dedicado,obs_paletizacao,skus_por_palete,peso_maximo_kg,altura_maxima_m')
-      .order('nome_cliente')
-      .limit(1000)
-    if (busca) q = q.ilike('nome_cliente', `%${busca}%`)
-    const { data } = await q
-    setContatosList(data || [])
+    try {
+      const url = '/api/contatos' + (busca ? `?busca=${encodeURIComponent(busca)}` : '')
+      const res = await fetch(url)
+      const d = await res.json()
+      setContatosList(Array.isArray(d) ? d : [])
+    } catch(e) {
+      console.error('loadContatos error', e)
+      setContatosList([])
+    }
     setContatosLoading(false)
   }
 
   const saveContato = async (row: any) => {
     setContatoSaving(true)
-    await supabase.from('mon_contatos_clientes').update({
-      email_principal: row.email_principal||null,
-      emails_cc: row.emails_cc||[],
-      contato_agendamento: row.contato_agendamento||null,
-      horario_recebimento: row.horario_recebimento||null,
-      portal_agendamento: row.portal_agendamento||null,
-      agendamento_responsavel: row.agendamento_responsavel||null,
-      possui_agenda: row.possui_agenda||'NAO',
-      carga_paletizada: row.carga_paletizada??null,
-      palete_pbr: row.palete_pbr??null,
-      palete_batida: row.palete_batida??null,
-      possui_descarga: row.possui_descarga??null,
-      custo_descarga: row.custo_descarga||null,
-      carro_dedicado: row.carro_dedicado??null,
-      obs_paletizacao: row.obs_paletizacao||null,
-      skus_por_palete: row.skus_por_palete||null,
-      peso_maximo_kg: row.peso_maximo_kg||null,
-      altura_maxima_m: row.altura_maxima_m||null,
-    }).eq('id', row.id)
+    await fetch('/api/contatos', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({action:'salvar', id: row.id, ...row, criado_por: user?.nome})
+    })
     setContatoSaving(false)
+    loadContatos(contatosBusca)
     setContatoEdit(null)
-    await loadContatos(contatosBusca)
   }
 
   const handleLogin = (u:TorreUser) => { sessionStorage.setItem('torre_user',JSON.stringify(u)); setUser(u) }
@@ -480,9 +467,11 @@ export default function TorrePage() {
   const load = useCallback(async () => {
     if (!user) return
     setLoading(true)
-    const PAGE=2000; let all:Entrega[]=[]; let from=0
+    const PAGE=1000; let all:Entrega[]=[]; let from=0
     while (true) {
-      const { data:rows, error } = await supabase.from('v_monitoramento_completo').select('nf_numero,nf_serie,nf_chave,dt_emissao,filial,remetente_cnpj,destinatario_cnpj,destinatario_nome,destinatario_fantasia,cidade_destino,uf_destino,pedido,centro_custo,valor_produtos,volumes,transportador_nome,tem_romaneio,romaneio_numero,dt_expedida,dt_previsao,dt_lt_interno,lt_dias,lt_vencido,codigo_ocorrencia,ultima_ocorrencia,dt_entrega,status,followup_status,followup_obs,followup_usuario,assistente,cc_editado,is_mock,cod_agend').range(from,from+PAGE-1)
+      const { data:rows, error } = await supabase.from('v_monitoramento_completo').select('nf_numero,nf_serie,nf_chave,dt_emissao,filial,remetente_cnpj,destinatario_cnpj,destinatario_nome,destinatario_fantasia,cidade_destino,uf_destino,pedido,centro_custo,valor_produtos,volumes,transportador_nome,tem_romaneio,romaneio_numero,dt_expedida,dt_previsao,dt_lt_interno,lt_dias,lt_vencido,codigo_ocorrencia,ultima_ocorrencia,dt_entrega,status,followup_status,followup_obs,followup_usuario,assistente,cc_editado,is_mock,cod_agend')
+      .eq('is_mock', false)
+      .range(from,from+PAGE-1)
       if (error||!rows||rows.length===0) break
       all=all.concat(rows as unknown as Entrega[]); if(rows.length<PAGE) break; from+=PAGE
     }
@@ -1334,6 +1323,16 @@ export default function TorrePage() {
                           onMouseEnter={e=>{if(!isSelected)(e.currentTarget as HTMLElement).style.background=isDark?'rgba(59,130,246,.06)':'rgba(37,99,235,.04)'}}
                           onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background=isSelected?'rgba(249,115,22,.07)':evenBg}}>
 
+                          <td style={{padding:'5px 4px',width:28}} onClick={e=>e.stopPropagation()}>
+                            <input type="checkbox"
+                              checked={nfsSelecionadas.has(r.nf_numero)}
+                              onChange={e=>{
+                                const s=new Set(nfsSelecionadas)
+                                e.target.checked?s.add(r.nf_numero):s.delete(r.nf_numero)
+                                setNfsSelecionadas(s)
+                              }}
+                              style={{cursor:'pointer',accentColor:'#0ea5e9',width:14,height:14}}/>
+                          </td>
                           {show('nf')&&<td style={{padding:'5px 10px'}}>
                             <span style={{color:T.accent,fontWeight:700,fontFamily:'var(--font-mono)',fontSize:12,letterSpacing:'-.01em'}}>{r.nf_numero}</span>
                           </td>}
