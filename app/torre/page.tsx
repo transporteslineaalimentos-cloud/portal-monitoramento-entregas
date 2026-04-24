@@ -441,7 +441,7 @@ export default function TorrePage() {
     let q = supabase.from('mon_contatos_clientes')
       .select('id,cnpj,nome_cliente,uf,executivo,possui_agenda,email_principal,emails_cc,contato_agendamento,horario_recebimento,portal_agendamento,agendamento_responsavel,carga_paletizada,palete_pbr,palete_batida,possui_descarga,custo_descarga,carro_dedicado,obs_paletizacao,skus_por_palete,peso_maximo_kg,altura_maxima_m')
       .order('nome_cliente')
-      .limit(200)
+      .limit(1000)
     if (busca) q = q.ilike('nome_cliente', `%${busca}%`)
     const { data } = await q
     setContatosList(data || [])
@@ -850,7 +850,7 @@ export default function TorrePage() {
             const active=activeSection===item.key&&filtroAtivo===null
             return (
               <button key={item.key}
-                onClick={()=>{setActiveSection(item.key as any);if(item.key==='notas') setFiltroAtivo(null)}}
+                onClick={()=>{setActiveSection(item.key as any);if(item.key==='notas') setFiltroAtivo(null);if(item.key==='contatos') loadContatos('');if(item.key==='contatos-transp') loadContatosTransp('')}}
                 style={{display:'flex',alignItems:'center',gap:9,width:'100%',padding:'9px 10px',border:'none',
                   background:active?`rgba(59,130,246,.12)`:'transparent',
                   borderRadius:8,cursor:'pointer',textAlign:'left',fontFamily:'inherit',
