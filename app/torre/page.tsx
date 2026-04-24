@@ -947,7 +947,7 @@ export default function TorrePage() {
             const active=activeSection===item.key&&filtroAtivo===null
             return (
               <button key={item.key}
-                onClick={()=>{setActiveSection(item.key as any);if(item.key==='notas') setFiltroAtivo(null);if(item.key==='contatos') loadContatos('');if(item.key==='contatos-transp') loadContatosTransp('');if(item.key==='tabelas-frete') loadTabelasFrete('')}}
+                onClick={()=>{setActiveSection(item.key as any);if(item.key==='notas') setFiltroAtivo(null);if(item.key==='contatos') loadContatos('');if(item.key==='contatos-transp') loadContatosTransp('');if(item.key==='tabelas-frete'){loadTabelasFrete('');loadContatosTransp('')}}}
                 style={{display:'flex',alignItems:'center',gap:9,width:'100%',padding:'9px 10px',border:'none',
                   background:active?`rgba(59,130,246,.12)`:'transparent',
                   borderRadius:8,cursor:'pointer',textAlign:'left',fontFamily:'inherit',
@@ -1640,8 +1640,15 @@ export default function TorrePage() {
             {/* Header */}
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16,paddingTop:8,flexWrap:'wrap',gap:8}}>
               <div>
-                <h2 style={{margin:0,fontSize:18,fontWeight:800,color:T.text}}>📄 Tabelas de Frete</h2>
-                <div style={{fontSize:11,color:T.text3,marginTop:2}}>{tabelasFrete.length} arquivo{tabelasFrete.length!==1?'s':''} · {transpList.length} transportadora{transpList.length!==1?'s':''}</div>
+                <div style={{display:'flex',alignItems:'center',gap:10}}>
+                  <h2 style={{margin:0,fontSize:18,fontWeight:800,color:T.text}}>📄 Tabelas de Frete</h2>
+                  <span style={{fontSize:10,fontWeight:700,padding:'3px 8px',borderRadius:10,background:'rgba(8,145,178,.12)',color:'#0891b2',letterSpacing:'.05em',whiteSpace:'nowrap'}}>
+                    🌐 BASE COMPARTILHADA
+                  </span>
+                </div>
+                <div style={{fontSize:11,color:T.text3,marginTop:3}}>
+                  {tabelasFrete.length} arquivo{tabelasFrete.length!==1?'s':''} · {transpList.length} transportadora{transpList.length!==1?'s':''} · Visível para todas as assistentes
+                </div>
               </div>
               <div style={{display:'flex',gap:8,alignItems:'center'}}>
                 <input value={tfBusca}
