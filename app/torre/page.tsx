@@ -400,7 +400,7 @@ export default function TorrePage() {
   // ── Flags notificado por NF ──────────────────────────────────
   const [flagsNotificado, setFlagsNotificado] = useState<Record<string,boolean>>({})
   // ── Contatos Transportadoras ─────────────────────────────────
-  type ContatoTransp = { id:string; cnpj:string; nome:string; email_principal:string|null; emails_cc:string[]; contato_nome:string|null; telefone:string|null; observacoes:string|null }
+  type ContatoTransp = { id:string; cnpj:string; nome:string; email_principal:string|null; emails_cc:string[]; contato_nome:string|null; telefone:string|null; observacoes:string|null; uf?:string|null; descricao_contato?:string|null }
   const [contatosTransp, setContatosTransp]   = useState<ContatoTransp[]>([])
   const [ctBusca, setCtBusca]                 = useState('')
   const [ctForm, setCtForm]                   = useState<Partial<ContatoTransp>|null>(null)
