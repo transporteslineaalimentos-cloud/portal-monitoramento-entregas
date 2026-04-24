@@ -390,9 +390,14 @@ export default function TorrePage() {
   }
 
   const [selectedNF, setSelectedNF] = useState<Entrega|null>(null)
+  const [contatosBusca, setContatosBusca] = useState('')
+  const [contatosList, setContatosList] = useState<any[]>([])
+  const [contatosLoading, setContatosLoading] = useState(false)
+  const [contatoEdit, setContatoEdit] = useState<any|null>(null)
+  const [contatoSaving, setContatoSaving] = useState(false)
   const [followupNF, setFollowupNF] = useState<Entrega|null>(null)
   const [ocorrNF, setOcorrNF] = useState<Entrega|null>(null)
-  const [activeSection, setActiveSection] = useState<'notas'|'sem-cc'|'dashboard'>('notas')
+  const [activeSection, setActiveSection] = useState<'notas'|'sem-cc'|'dashboard'|'contatos'>('notas')
   const [editCCNF, setEditCCNF] = useState<string|null>(null)
   const [editCCValor, setEditCCValor] = useState('')
   const [editCCSaving, setEditCCSaving] = useState(false)
@@ -416,6 +421,44 @@ export default function TorrePage() {
     if (saved) { try { setUser(JSON.parse(saved)) } catch {} }
     setChecked(true)
   }, [])
+
+  const loadContatos = async (busca='') => {
+    setContatosLoading(true)
+    let q = supabase.from('mon_contatos_clientes')
+      .select('id,cnpj,nome_cliente,uf,executivo,possui_agenda,email_principal,emails_cc,contato_agendamento,horario_recebimento,portal_agendamento,agendamento_responsavel,carga_paletizada,palete_pbr,palete_batida,possui_descarga,custo_descarga,carro_dedicado,obs_paletizacao,skus_por_palete,peso_maximo_kg,altura_maxima_m')
+      .order('nome_cliente')
+      .limit(200)
+    if (busca) q = q.ilike('nome_cliente', `%${busca}%`)
+    const { data } = await q
+    setContatosList(data || [])
+    setContatosLoading(false)
+  }
+
+  const saveContato = async (row: any) => {
+    setContatoSaving(true)
+    await supabase.from('mon_contatos_clientes').update({
+      email_principal: row.email_principal||null,
+      emails_cc: row.emails_cc||[],
+      contato_agendamento: row.contato_agendamento||null,
+      horario_recebimento: row.horario_recebimento||null,
+      portal_agendamento: row.portal_agendamento||null,
+      agendamento_responsavel: row.agendamento_responsavel||null,
+      possui_agenda: row.possui_agenda||'NAO',
+      carga_paletizada: row.carga_paletizada??null,
+      palete_pbr: row.palete_pbr??null,
+      palete_batida: row.palete_batida??null,
+      possui_descarga: row.possui_descarga??null,
+      custo_descarga: row.custo_descarga||null,
+      carro_dedicado: row.carro_dedicado??null,
+      obs_paletizacao: row.obs_paletizacao||null,
+      skus_por_palete: row.skus_por_palete||null,
+      peso_maximo_kg: row.peso_maximo_kg||null,
+      altura_maxima_m: row.altura_maxima_m||null,
+    }).eq('id', row.id)
+    setContatoSaving(false)
+    setContatoEdit(null)
+    await loadContatos(contatosBusca)
+  }
 
   const handleLogin = (u:TorreUser) => { sessionStorage.setItem('torre_user',JSON.stringify(u)); setUser(u) }
   const handleLogout = () => { sessionStorage.removeItem('torre_user'); setUser(null) }
@@ -693,6 +736,7 @@ export default function TorrePage() {
             {key:'notas',     icon:'▦', label:'Minhas Notas',         badge:null,            badgeColor:T.accentBlu},
             {key:'dashboard', icon:'◈', label:'Dashboard',             badge:null,            badgeColor:'#a855f7'},
             {key:'sem-cc',    icon:'◉', label:'Sem Centro de Custo',  badge:nfsSemCC.length, badgeColor:'#ef4444'},
+            {key:'contatos',  icon:'✉', label:'Contatos Clientes',     badge:null,            badgeColor:'#059669'},
           ] as const).map(item=>{
             const active=activeSection===item.key&&filtroAtivo===null
             return (
@@ -1302,6 +1346,175 @@ export default function TorrePage() {
         )}
         </>)}
 {/* DASHBOARD SECTION */}
+      {activeSection==='contatos'&&(
+        <div style={{flex:1,overflowY:'auto',padding:'0 16px 24px'}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16,paddingTop:8}}>
+            <h2 style={{margin:0,fontSize:18,fontWeight:800,color:T.text}}>📋 Contatos Clientes</h2>
+            <span style={{fontSize:12,color:T.text3}}>{contatosList.length} clientes</span>
+          </div>
+
+          {/* Busca */}
+          <div style={{position:'relative',marginBottom:16}}>
+            <span style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',color:T.text3,fontSize:13}}>⌕</span>
+            <input value={contatosBusca}
+              onChange={e=>{setContatosBusca(e.target.value);loadContatos(e.target.value)}}
+              placeholder="Buscar cliente..."
+              style={{...darkInput,width:'100%',paddingLeft:32,paddingRight:12,paddingTop:9,paddingBottom:9,fontSize:12,boxSizing:'border-box'}}/>
+          </div>
+
+          {contatosLoading&&<div style={{textAlign:'center',color:T.text3,padding:32}}>Carregando...</div>}
+
+          {/* Tabela de contatos */}
+          {!contatosLoading&&(
+            <div style={{border:`1px solid ${T.border}`,borderRadius:10,overflow:'hidden'}}>
+              <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
+                <thead>
+                  <tr style={{background:T.surface2,borderBottom:`1px solid ${T.border}`}}>
+                    {['Cliente','UF','Executivo','Agenda','Email','Contato / Horário','Paletização','Ações'].map(h=>(
+                      <th key={h} style={{padding:'8px 10px',textAlign:'left',fontSize:9,fontWeight:700,
+                        color:T.text3,letterSpacing:'.08em',textTransform:'uppercase',whiteSpace:'nowrap'}}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {contatosList.map((r,i)=>(
+                    <tr key={r.id}
+                      style={{borderBottom:`1px solid ${T.borderLo}`,background:i%2===0?'transparent':T.surface2+'44'}}>
+                      <td style={{padding:'7px 10px',maxWidth:200}}>
+                        <div style={{fontWeight:600,color:T.text,fontSize:11,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.nome_cliente}</div>
+                        <div style={{fontSize:9,color:T.text3,fontFamily:'monospace'}}>{r.cnpj}</div>
+                      </td>
+                      <td style={{padding:'7px 10px',color:T.text3,fontWeight:600,fontSize:11}}>{r.uf||'—'}</td>
+                      <td style={{padding:'7px 10px',color:T.text2,fontSize:10,whiteSpace:'nowrap'}}>{r.executivo||'—'}</td>
+                      <td style={{padding:'7px 10px'}}>
+                        <span style={{fontSize:9,fontWeight:700,padding:'2px 6px',borderRadius:4,
+                          background:r.possui_agenda==='SIM'||r.possui_agenda==='SIM_PORTAL'||r.possui_agenda==='SIM_WHATSAPP'?'rgba(34,197,94,.12)':'rgba(148,163,184,.1)',
+                          color:r.possui_agenda==='SIM'||r.possui_agenda==='SIM_PORTAL'||r.possui_agenda==='SIM_WHATSAPP'?'#16a34a':T.text3}}>
+                          {r.possui_agenda==='SIM_PORTAL'?'Portal':r.possui_agenda==='SIM_WHATSAPP'?'WhatsApp':r.possui_agenda==='SIM'?'Sim':'Não'}
+                        </span>
+                      </td>
+                      <td style={{padding:'7px 10px',maxWidth:160}}>
+                        <div style={{fontSize:10,color:r.email_principal?'#2563eb':T.text3,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                          {r.email_principal||'—'}
+                        </div>
+                        {r.emails_cc?.length>0&&<div style={{fontSize:9,color:T.text3}}>+{r.emails_cc.length} CC</div>}
+                      </td>
+                      <td style={{padding:'7px 10px',maxWidth:180}}>
+                        <div style={{fontSize:10,color:T.text2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.contato_agendamento||'—'}</div>
+                        {r.horario_recebimento&&<div style={{fontSize:9,color:T.text3}}>{r.horario_recebimento}</div>}
+                      </td>
+                      <td style={{padding:'7px 10px'}}>
+                        <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                          {r.carga_paletizada&&<span style={{fontSize:8,background:'rgba(37,99,235,.1)',color:'#2563eb',borderRadius:3,padding:'1px 4px',fontWeight:600}}>PBR</span>}
+                          {r.palete_batida&&<span style={{fontSize:8,background:'rgba(234,179,8,.1)',color:'#b45309',borderRadius:3,padding:'1px 4px',fontWeight:600}}>BAT</span>}
+                          {r.possui_descarga&&<span style={{fontSize:8,background:'rgba(239,68,68,.1)',color:'#dc2626',borderRadius:3,padding:'1px 4px',fontWeight:600}}>DESC</span>}
+                          {r.carro_dedicado&&<span style={{fontSize:8,background:'rgba(168,85,247,.1)',color:'#7c3aed',borderRadius:3,padding:'1px 4px',fontWeight:600}}>DED</span>}
+                        </div>
+                      </td>
+                      <td style={{padding:'7px 8px'}}>
+                        <button onClick={()=>setContatoEdit({...r, emails_cc_str: (r.emails_cc||[]).join('; ')})}
+                          style={{fontSize:10,padding:'3px 8px',borderRadius:5,border:`1px solid ${T.border}`,
+                            background:T.surface2,color:T.text2,cursor:'pointer',fontFamily:'inherit',fontWeight:500}}>
+                          ✏ Editar
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {contatosList.length===0&&!contatosLoading&&(
+                <div style={{padding:24,textAlign:'center',color:T.text3,fontSize:12}}>Nenhum cliente encontrado</div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Modal edição de contato */}
+      {contatoEdit&&(
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.6)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}
+          onClick={()=>setContatoEdit(null)}>
+          <div onClick={e=>e.stopPropagation()}
+            style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,
+              width:'min(620px,100%)',maxHeight:'85vh',overflowY:'auto',boxShadow:T.shadowLg}}>
+            <div style={{padding:'16px 20px',borderBottom:`1px solid ${T.border}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <div>
+                <div style={{fontWeight:700,fontSize:14,color:T.text}}>{contatoEdit.nome_cliente}</div>
+                <div style={{fontSize:11,color:T.text3}}>{contatoEdit.cnpj} · {contatoEdit.uf}</div>
+              </div>
+              <button onClick={()=>setContatoEdit(null)}
+                style={{border:'none',background:'none',cursor:'pointer',fontSize:18,color:T.text3,fontFamily:'inherit'}}>✕</button>
+            </div>
+            <div style={{padding:20,display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+              {([
+                {label:'Possui Agenda', field:'possui_agenda', type:'select', options:['NAO','SIM','SIM_PORTAL','SIM_WHATSAPP']},
+                {label:'Email Principal', field:'email_principal', type:'text'},
+                {label:'Emails CC (separados por ;)', field:'emails_cc_str', type:'text'},
+                {label:'Contato Agendamento', field:'contato_agendamento', type:'text'},
+                {label:'Horário de Recebimento', field:'horario_recebimento', type:'text'},
+                {label:'Portal de Agendamento', field:'portal_agendamento', type:'text'},
+                {label:'Responsável Agendamento', field:'agendamento_responsavel', type:'text'},
+                {label:'SKUs por Palete', field:'skus_por_palete', type:'text'},
+                {label:'Peso Máx (kg)', field:'peso_maximo_kg', type:'text'},
+                {label:'Altura Máx (m)', field:'altura_maxima_m', type:'text'},
+                {label:'Custo Descarga', field:'custo_descarga', type:'text'},
+                {label:'Obs Paletização', field:'obs_paletizacao', type:'textarea'},
+              ] as const).map(({label, field, type, options}: any)=>(
+                <div key={field} style={{display:'flex',flexDirection:'column',gap:4,
+                  ...(type==='textarea'?{gridColumn:'1/-1'}:{})}}>
+                  <label style={{fontSize:9,fontWeight:700,color:T.text3,textTransform:'uppercase',letterSpacing:'.08em'}}>{label}</label>
+                  {type==='select'?(
+                    <select value={contatoEdit[field]||''}
+                      onChange={e=>setContatoEdit({...contatoEdit,[field]:e.target.value})}
+                      style={{...darkInput,padding:'6px 8px',fontSize:11}}>
+                      {options.map((o:string)=><option key={o} value={o}>{o}</option>)}
+                    </select>
+                  ):type==='textarea'?(
+                    <textarea value={contatoEdit[field]||''} rows={2}
+                      onChange={e=>setContatoEdit({...contatoEdit,[field]:e.target.value})}
+                      style={{...darkInput,padding:'6px 8px',fontSize:11,resize:'vertical',minHeight:56}}/>
+                  ):(
+                    <input value={contatoEdit[field]||''}
+                      onChange={e=>setContatoEdit({...contatoEdit,[field]:e.target.value})}
+                      style={{...darkInput,padding:'6px 8px',fontSize:11}}/>
+                  )}
+                </div>
+              ))}
+              {/* Booleanos */}
+              <div style={{gridColumn:'1/-1',display:'flex',gap:16,flexWrap:'wrap',paddingTop:4}}>
+                {([
+                  {label:'Carga Paletizada', field:'carga_paletizada'},
+                  {label:'Palete PBR', field:'palete_pbr'},
+                  {label:'Palete Batida', field:'palete_batida'},
+                  {label:'Possui Descarga', field:'possui_descarga'},
+                  {label:'Carro Dedicado', field:'carro_dedicado'},
+                ] as const).map(({label,field})=>(
+                  <label key={field} style={{display:'flex',alignItems:'center',gap:6,fontSize:11,color:T.text2,cursor:'pointer'}}>
+                    <input type="checkbox" checked={!!contatoEdit[field]}
+                      onChange={e=>setContatoEdit({...contatoEdit,[field]:e.target.checked})}/>
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div style={{padding:'12px 20px',borderTop:`1px solid ${T.border}`,display:'flex',justifyContent:'flex-end',gap:8}}>
+              <button onClick={()=>setContatoEdit(null)}
+                style={{padding:'7px 16px',border:`1px solid ${T.border}`,borderRadius:7,background:T.surface2,
+                  color:T.text2,cursor:'pointer',fontSize:12,fontFamily:'inherit'}}>Cancelar</button>
+              <button onClick={()=>saveContato({
+                  ...contatoEdit,
+                  emails_cc:(contatoEdit.emails_cc_str||'').split(';').map((e:string)=>e.trim()).filter(Boolean)
+                })}
+                disabled={contatoSaving}
+                style={{padding:'7px 20px',border:'none',borderRadius:7,background:isDark?T.accentBlu:'#2563eb',
+                  color:'#fff',cursor:'pointer',fontSize:12,fontFamily:'inherit',fontWeight:600,opacity:contatoSaving?.6:1}}>
+                {contatoSaving?'Salvando...':'Salvar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {activeSection==='dashboard'&&(()=>{
         // Excluir NFs sem CC dos gráficos — pertencem a "todas" as assistentes e distorceriam os dados
         const SEM_CC_VALS = ['','-','não mapeado','nao mapeado']

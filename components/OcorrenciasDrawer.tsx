@@ -4,6 +4,7 @@ import { OCORR_TODAS } from '@/lib/ocorrencias'
 import { supabase, type Entrega } from '@/lib/supabase'
 import { useTheme } from '@/components/ThemeProvider'
 import { getTheme } from '@/lib/theme'
+
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
@@ -242,6 +243,238 @@ function EditTranspModal({ nf, onClose, onSaved }: {
 }
 
 // ── Drawer principal ─────────────────────────────────────────────────────────
+// ── Componente EmailTab ─────────────────────────────────────────────────────
+function EmailTab({ nf, T }: { nf: Entrega; T: ReturnType<typeof import('@/lib/theme').getTheme> }) {
+  const [tipo, setTipo] = useState<'cliente'|'transportador'>('cliente')
+  const [contato, setContato] = useState<any>(null)
+  const [loading, setLoading] = useState(false)
+  const [assunto, setAssunto] = useState('')
+  const [corpo, setCorpo] = useState('')
+  const [enviando, setEnviando] = useState(false)
+  const [status, setStatus] = useState<'idle'|'ok'|'erro'>('idle')
+  const [errMsg, setErrMsg] = useState('')
+  const [extraDest, setExtraDest] = useState('')
+  // supabase importado globalmente
+  const fmt = (d: string|null) => d ? d.slice(0,10).split('-').reverse().join('/') : '—'
+
+  // Buscar contato ao abrir e ao trocar tipo
+  useEffect(() => {
+    buscarContato()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tipo])
+
+  const buscarContato = async () => {
+    setLoading(true); setContato(null)
+    if (tipo === 'cliente') {
+      const cnpjClean = (nf.destinatario_cnpj||'').replace(/\D/g,'')
+      const { data } = await supabase.from('mon_contatos_clientes')
+        .select('*').eq('cnpj', cnpjClean).maybeSingle()
+      setContato(data)
+      if (data) preencherTemplateCliente(data)
+    } else {
+      const cnpjT = (nf.transportador_cnpj||'').replace(/\D/g,'')
+      const { data } = await supabase.from('mon_contatos_transportadores')
+        .select('*').ilike('cnpj', cnpjT).maybeSingle()
+      setContato(data)
+      if (data) preencherTemplateTransportador(data)
+      else preencherTemplateTransportador(null)
+    }
+    setLoading(false)
+  }
+
+  const preencherTemplateCliente = (ct: any) => {
+    setAssunto(`Solicitação de Agendamento — NF ${nf.nf_numero} | Linea Alimentos`)
+    const horaRec = ct?.horario_recebimento ? `\n⏰ Horário de Recebimento cadastrado: ${ct.horario_recebimento}` : ''
+    const portal = ct?.portal_agendamento && ct.portal_agendamento !== 'Não' ? `\n🔗 Portal de agendamento: ${ct.portal_agendamento}` : ''
+    setCorpo(`Prezado(a),
+
+Solicitamos o agendamento para entrega da seguinte Nota Fiscal:
+
+📋 NF: ${nf.nf_numero}
+📅 Emissão: ${fmt(nf.dt_emissao)}
+🏢 Remetente: Linea Alimentos
+🚚 Transportadora: ${nf.transportador_nome || '—'}
+💰 Valor: R$ ${Number(nf.valor_produtos||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}
+📦 Volumes: ${nf.volumes || '—'}${horaRec}${portal}
+
+Por favor, confirme a data e horário disponíveis para recebimento.
+
+Atenciosamente,
+Equipe de Logística — Linea Alimentos
+agendamentos@lineaalimentos.com.br`)
+  }
+
+  const preencherTemplateTransportador = (ct: any) => {
+    const prevEntrega = nf.dt_previsao ? `\n📅 Previsão de Entrega: ${fmt(nf.dt_previsao)}` : ''
+    const horario = '—' // viria do contato cliente se disponível
+    setAssunto(`Agendamento Confirmado — NF ${nf.nf_numero} | Linea Alimentos`)
+    setCorpo(`Prezado(a),
+
+Informamos que o agendamento para entrega da NF abaixo foi confirmado pelo cliente.
+
+📋 NF: ${nf.nf_numero}
+🏢 Destinatário: ${nf.destinatario_fantasia || nf.destinatario_nome || '—'}
+🌆 Cidade: ${nf.cidade_destino || '—'} / ${nf.uf_destino || '—'}
+💰 Valor: R$ ${Number(nf.valor_produtos||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}
+📦 Volumes: ${nf.volumes || '—'}${prevEntrega}
+⏰ Horário de Recebimento: ${horario}
+
+Por favor, acusar o recebimento desta confirmação e garantir a entrega na data acordada.
+
+Atenciosamente,
+Equipe de Logística — Linea Alimentos`)
+  }
+
+  const destinatarios = (): string[] => {
+    const lista: string[] = []
+    if (tipo === 'cliente') {
+      if (contato?.email_principal) lista.push(contato.email_principal)
+    } else {
+      if (contato?.email_principal) lista.push(contato.email_principal)
+    }
+    // Extras digitados
+    if (extraDest.trim()) {
+      extraDest.split(/[;,]/).forEach(e => { const t=e.trim(); if(t) lista.push(t) })
+    }
+    return lista
+  }
+
+  const cc = (): string[] => {
+    if (tipo === 'cliente') return contato?.emails_cc || []
+    return contato?.emails_cc || []
+  }
+
+  const enviar = async () => {
+    const dests = destinatarios()
+    if (!dests.length) { setErrMsg('Informe ao menos um email destinatário'); return }
+    setEnviando(true); setStatus('idle'); setErrMsg('')
+    try {
+      const resp = await fetch('https://opcrtjdnpgqcjlksofjw.supabase.co/functions/v1/enviar-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tipo: tipo === 'cliente' ? 'agendamento_cliente' : 'confirmacao_transportador',
+          nf_numero: nf.nf_numero,
+          destinatarios: dests,
+          cc: cc(),
+          assunto,
+          corpo_html: corpo.replace(/\n/g,'<br>'),
+          enviado_por: 'portal',
+        })
+      })
+      const data = await resp.json()
+      if (data.ok) { setStatus('ok') }
+      else { setStatus('erro'); setErrMsg(data.erro || 'Erro ao enviar') }
+    } catch(e: any) {
+      setStatus('erro'); setErrMsg(e.message)
+    }
+    setEnviando(false)
+  }
+
+  const inputStyle = { padding:'7px 10px', background:T.surface2, border:`1px solid ${T.border}`,
+    borderRadius:7, color:T.text, fontSize:11, fontFamily:'inherit', outline:'none', width:'100%', boxSizing:'border-box' as const }
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:14, paddingTop:4 }}>
+      {/* Tipo de email */}
+      <div style={{ display:'flex', gap:8 }}>
+        {([['cliente','📧 Solicitar Agendamento (Cliente)'],['transportador','🚚 Confirmar Agendamento (Transportador)']] as const).map(([t,l])=>(
+          <button key={t} onClick={()=>setTipo(t)}
+            style={{ flex:1, padding:'8px 10px', borderRadius:8, border:`1px solid ${tipo===t?'#2563eb':T.border}`,
+              background:tipo===t?'rgba(37,99,235,.1)':T.surface2, color:tipo===t?'#2563eb':T.text3,
+              cursor:'pointer', fontSize:10, fontWeight:tipo===t?700:400, fontFamily:'inherit',
+              transition:'all .15s', textAlign:'center' }}>
+            {l}
+          </button>
+        ))}
+      </div>
+
+      {/* Info do contato */}
+      {loading && <div style={{fontSize:11,color:T.text3,textAlign:'center',padding:8}}>Buscando contato...</div>}
+      {!loading && (
+        <div style={{background:T.surface2,borderRadius:8,padding:'10px 12px',border:`1px solid ${T.border}`,fontSize:11}}>
+          {tipo === 'cliente' ? (
+            contato ? (
+              <div style={{display:'flex',flexDirection:'column',gap:4}}>
+                <div style={{fontWeight:600,color:T.text}}>{contato.nome_cliente}</div>
+                <div style={{color:'#2563eb'}}>{contato.email_principal || <span style={{color:T.text4}}>Sem email cadastrado</span>}</div>
+                {(contato.emails_cc||[]).length>0&&<div style={{color:T.text3,fontSize:10}}>CC: {contato.emails_cc.join(', ')}</div>}
+                {contato.horario_recebimento&&<div style={{color:T.text3}}>⏰ {contato.horario_recebimento}</div>}
+                {contato.portal_agendamento&&contato.portal_agendamento!=='Não'&&
+                  <div style={{color:T.text3}}>🔗 {contato.portal_agendamento}</div>}
+              </div>
+            ) : (
+              <div style={{color:T.text4}}>⚠ Contato não encontrado para o CNPJ do destinatário ({(nf.destinatario_cnpj||'').slice(0,8)}...)</div>
+            )
+          ) : (
+            contato ? (
+              <div style={{display:'flex',flexDirection:'column',gap:4}}>
+                <div style={{fontWeight:600,color:T.text}}>{contato.nome}</div>
+                <div style={{color:'#2563eb'}}>{contato.email_principal || <span style={{color:T.text4}}>Sem email cadastrado</span>}</div>
+              </div>
+            ) : (
+              <div style={{color:T.text4}}>⚠ Transportador {nf.transportador_nome} não encontrado na base de contatos</div>
+            )
+          )}
+        </div>
+      )}
+
+      {/* Destinatário extra */}
+      <div>
+        <label style={{fontSize:9,fontWeight:700,color:T.text3,textTransform:'uppercase',letterSpacing:'.08em',display:'block',marginBottom:4}}>
+          {tipo==='cliente'?'Email(s) destinatário(s) adicionais (separados por ;)':'Email(s) adicionais (separados por ;)'}
+        </label>
+        <input value={extraDest} onChange={e=>setExtraDest(e.target.value)}
+          placeholder="outro@email.com; mais@email.com"
+          style={inputStyle}/>
+      </div>
+
+      {/* Assunto */}
+      <div>
+        <label style={{fontSize:9,fontWeight:700,color:T.text3,textTransform:'uppercase',letterSpacing:'.08em',display:'block',marginBottom:4}}>Assunto</label>
+        <input value={assunto} onChange={e=>setAssunto(e.target.value)} style={inputStyle}/>
+      </div>
+
+      {/* Corpo */}
+      <div>
+        <label style={{fontSize:9,fontWeight:700,color:T.text3,textTransform:'uppercase',letterSpacing:'.08em',display:'block',marginBottom:4}}>Mensagem</label>
+        <textarea value={corpo} onChange={e=>setCorpo(e.target.value)} rows={10}
+          style={{...inputStyle, resize:'vertical', lineHeight:1.5}}/>
+      </div>
+
+      {/* Status feedback */}
+      {status==='ok'&&(
+        <div style={{background:'rgba(34,197,94,.1)',border:'1px solid rgba(34,197,94,.3)',borderRadius:7,
+          padding:'8px 12px',fontSize:11,color:'#16a34a',fontWeight:600}}>
+          ✓ Email enviado com sucesso para {destinatarios().join(', ')}
+        </div>
+      )}
+      {status==='erro'&&(
+        <div style={{background:'rgba(239,68,68,.1)',border:'1px solid rgba(239,68,68,.3)',borderRadius:7,
+          padding:'8px 12px',fontSize:11,color:'#dc2626'}}>
+          ✗ Erro: {errMsg}
+        </div>
+      )}
+
+      {/* Enviar */}
+      <button onClick={enviar} disabled={enviando||!destinatarios().length}
+        style={{padding:'10px',borderRadius:8,border:'none',background:enviando?T.surface2:'#2563eb',
+          color:enviando?T.text3:'#fff',cursor:enviando?'not-allowed':'pointer',fontSize:12,fontWeight:700,
+          fontFamily:'inherit',transition:'all .15s',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
+        {enviando?'Enviando...':'✉ Enviar Email'}
+      </button>
+
+      {/* Preview destinatários */}
+      {destinatarios().length>0&&(
+        <div style={{fontSize:10,color:T.text3}}>
+          Para: {destinatarios().join(', ')}
+          {cc().length>0&&<span> · CC: {cc().join(', ')}</span>}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function OcorrenciasDrawer({ nf, onClose, onTranspEdited }: {
   nf: Entrega | null
   onClose: () => void
@@ -253,7 +486,14 @@ export default function OcorrenciasDrawer({ nf, onClose, onTranspEdited }: {
   const [loading, setLoading] = useState(false)
   const [transpNome, setTranspNome] = useState<string>('')
   const [showRegOcorr, setShowRegOcorr] = useState(false)
-  const [drawerTab, setDrawerTab] = useState<'ocorr'|'status'>('ocorr')
+  const [drawerTab, setDrawerTab] = useState<'ocorr'|'status'|'email'>('ocorr')
+  const [emailTipo, setEmailTipo] = useState<'cliente'|'transportador'>('cliente')
+  const [emailContato, setEmailContato] = useState<any>(null)
+  const [emailLoadingContato, setEmailLoadingContato] = useState(false)
+  const [emailAssunto, setEmailAssunto] = useState('')
+  const [emailCorpo, setEmailCorpo] = useState('')
+  const [emailEnviando, setEmailEnviando] = useState(false)
+  const [emailStatus, setEmailStatus] = useState<'idle'|'ok'|'erro'>('idle')
   const [transpFollowups, setTranspFollowups] = useState<any[]>([])
   const [loadingTransp, setLoadingTransp] = useState(false)
   const [ocorrCodigo, setOcorrCodigo] = useState('')
@@ -393,7 +633,7 @@ export default function OcorrenciasDrawer({ nf, onClose, onTranspEdited }: {
         <div style={{ padding: '0 20px', flex: 1, display: 'flex', flexDirection: 'column' }}>
           {/* Tab bar */}
           <div style={{ display: 'flex', borderBottom: `1px solid ${T.border}`, marginBottom: 14, gap: 0 }}>
-            {([['ocorr','📋 Ocorrências'],['status','🚚 Status Transportador']] as const).map(([t,l])=>(
+            {([['ocorr','📋 Ocorrências'],['status','🚚 Status Transportador'],['email','✉ Email']] as const).map(([t,l])=>(
               <button key={t} onClick={()=>{
                 setDrawerTab(t)
                 if (t==='status' && nf) {
